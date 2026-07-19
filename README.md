@@ -43,6 +43,9 @@ proved automatic unplug/replug recovery:
 - netifd automatically registered and connected the modem;
 - the MBIM interface returned online in about eleven seconds.
 
+The router is a Linksys EA6350 v3: ARMv7, OpenWrt target
+`ipq40xx/generic`, package architecture `arm_cortex-a7_neon-vfpv4`.
+
 Production connectivity scope:
 
 | Composition | USB ID | Status |
@@ -127,6 +130,14 @@ Expected base runtime dependencies include ModemManager,
 ```sh
 make check
 ```
+
+Cross-compilation is defined in
+[`.github/workflows/openwrt-sdk.yml`](.github/workflows/openwrt-sdk.yml). It
+uses the official OpenWrt 25.12.5 `ipq40xx/generic` SDK and uploads a mandatory
+base bundle plus an optional MBIM-only eSIM bundle. The SDK filename ends in
+`.Linux-x86_64` because GitHub Actions is the build host; generated bridge
+packages target the router's ARMv7 architecture. The workflow has not run yet
+because this local repository has no GitHub remote.
 
 The active suite validates the P0 package/API boundary, LuCI ACL and views,
 CSPRNG identity behavior, shell/JSON/JavaScript syntax, translation format,
