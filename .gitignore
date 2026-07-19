@@ -13,3 +13,7 @@ build/
 dist/
 fibocom-mm-bridge/src/fibocom-mm-bridge
 tests/tmp/
+
+# Local project context; never publish these files.
+/memory.md
+/PRD.md
