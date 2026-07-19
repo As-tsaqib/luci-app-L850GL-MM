@@ -10,7 +10,8 @@ repo_root=$(
 	pwd
 )
 source_dir="$repo_root/fibocom-mm-bridge/src"
-build_dir=$(mktemp -d "${TMPDIR:-/tmp}/fibocom-network-binding-test.XXXXXX")
+tmp_root=${TMPDIR:-${RUNNER_TEMP:-$repo_root}}
+build_dir=$(mktemp -d "$tmp_root/fibocom-network-binding-test.XXXXXX")
 
 cleanup() {
 	rm -rf "$build_dir"
@@ -63,4 +64,4 @@ ${CC:-cc} \
 	$uci_libs \
 	-o "$build_dir/host-network-binding"
 
-"$build_dir/host-network-binding"
+TMPDIR="$build_dir" "$build_dir/host-network-binding"

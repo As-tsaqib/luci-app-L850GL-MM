@@ -258,7 +258,7 @@ main(void)
 
 	temporary_directory = getenv("TMPDIR");
 	if (temporary_directory == NULL || temporary_directory[0] == '\0')
-		temporary_directory = ".";
+		temporary_directory = "/tmp";
 	assert(snprintf(template, sizeof(template),
 			"%s/fibocom-network-binding-test.XXXXXX",
 			temporary_directory) > 0);
