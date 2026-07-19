@@ -41,29 +41,62 @@ system_random_fill(uint8_t *buffer, size_t length, void *user_data)
 #endif
 }
 
-bool
-fibocom_identity_generate_with(char output[FIBOCOM_ID_BUFSIZE],
-			       FibocomIdentityRandomFill random_fill,
-			       void *user_data)
+static bool
+token_generate_with(char *output, size_t output_size, const char *prefix,
+		    FibocomIdentityRandomFill random_fill, void *user_data)
 {
 	static const char hex[] = "0123456789abcdef";
 	uint8_t random_bytes[FIBOCOM_ID_RANDOM_LEN];
-	size_t prefix_length = sizeof(FIBOCOM_ID_PREFIX) - 1U;
+	size_t prefix_length;
+	size_t expected_size;
 	size_t i;
 
-	if (output == NULL || random_fill == NULL)
+	if (output == NULL || output_size == 0U || prefix == NULL ||
+	    random_fill == NULL)
 		return false;
 	output[0] = '\0';
-	if (!random_fill(random_bytes, sizeof(random_bytes), user_data))
+	prefix_length = strlen(prefix);
+	expected_size = prefix_length + FIBOCOM_ID_HEX_LEN + 1U;
+	if (output_size != expected_size ||
+	    !random_fill(random_bytes, sizeof(random_bytes), user_data))
 		return false;
-	memcpy(output, FIBOCOM_ID_PREFIX, prefix_length);
+	memcpy(output, prefix, prefix_length);
 	for (i = 0; i < sizeof(random_bytes); i++) {
 		output[prefix_length + (i * 2U)] = hex[random_bytes[i] >> 4U];
 		output[prefix_length + (i * 2U) + 1U] =
 			hex[random_bytes[i] & 0x0fU];
 	}
-	output[FIBOCOM_ID_BUFSIZE - 1U] = '\0';
+	output[output_size - 1U] = '\0';
 	return true;
+}
+
+static bool
+token_is_valid(const char *value, const char *prefix, size_t expected_size)
+{
+	size_t prefix_length;
+	size_t i;
+
+	if (value == NULL || prefix == NULL)
+		return false;
+	prefix_length = strlen(prefix);
+	if (strlen(value) != expected_size - 1U ||
+	    strncmp(value, prefix, prefix_length) != 0)
+		return false;
+	for (i = prefix_length; value[i] != '\0'; i++) {
+		if (!((value[i] >= '0' && value[i] <= '9') ||
+		      (value[i] >= 'a' && value[i] <= 'f')))
+			return false;
+	}
+	return true;
+}
+
+bool
+fibocom_identity_generate_with(char output[FIBOCOM_ID_BUFSIZE],
+			       FibocomIdentityRandomFill random_fill,
+			       void *user_data)
+{
+	return token_generate_with(output, FIBOCOM_ID_BUFSIZE,
+		FIBOCOM_ID_PREFIX, random_fill, user_data);
 }
 
 bool
@@ -75,16 +108,35 @@ fibocom_identity_generate(char output[FIBOCOM_ID_BUFSIZE])
 bool
 fibocom_identity_is_valid(const char *modem_id)
 {
-	size_t prefix_length = sizeof(FIBOCOM_ID_PREFIX) - 1U;
-	size_t i;
+	return token_is_valid(modem_id, FIBOCOM_ID_PREFIX,
+		FIBOCOM_ID_BUFSIZE);
+}
 
-	if (modem_id == NULL || strlen(modem_id) != FIBOCOM_ID_BUFSIZE - 1U ||
-	    strncmp(modem_id, FIBOCOM_ID_PREFIX, prefix_length) != 0)
-		return false;
-	for (i = prefix_length; modem_id[i] != '\0'; i++) {
-		if (!((modem_id[i] >= '0' && modem_id[i] <= '9') ||
-		      (modem_id[i] >= 'a' && modem_id[i] <= 'f')))
-			return false;
-	}
-	return true;
+bool
+fibocom_sms_identity_generate_with(char output[FIBOCOM_SMS_ID_BUFSIZE],
+				   FibocomIdentityRandomFill random_fill,
+				   void *user_data)
+{
+	return token_generate_with(output, FIBOCOM_SMS_ID_BUFSIZE,
+		FIBOCOM_SMS_ID_PREFIX, random_fill, user_data);
+}
+
+bool
+fibocom_sms_identity_generate(char output[FIBOCOM_SMS_ID_BUFSIZE])
+{
+	return fibocom_sms_identity_generate_with(output, system_random_fill, NULL);
+}
+
+bool
+fibocom_sms_identity_is_valid(const char *sms_id)
+{
+	return token_is_valid(sms_id, FIBOCOM_SMS_ID_PREFIX,
+		FIBOCOM_SMS_ID_BUFSIZE);
+}
+
+bool
+fibocom_sms_operation_token_is_valid(const char *token)
+{
+	return token_is_valid(token, FIBOCOM_SMS_OP_PREFIX,
+		FIBOCOM_SMS_OP_BUFSIZE);
 }

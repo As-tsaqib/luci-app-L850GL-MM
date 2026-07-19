@@ -4,8 +4,53 @@
 msgid ""
 msgstr "Content-Type: text/plain; charset=UTF-8"
 
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:226
+msgid "%d ms"
+msgstr ""
+
 #: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:307
 msgid "%d%% signal quality"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:263
+msgid "%s failed: %s"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:303
+msgid "%s in progress…"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:255
+msgid ""
+"%s may have completed, but its outcome is unknown. The view has been "
+"refreshed; do not retry until the live modem state confirms that a new "
+"request is safe."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:380
+msgid "%s — 5G NR band %s"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:372
+msgid "%s — LTE band %s"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:376
+msgid "%s — UMTS band %s"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:636
+msgid "(active)"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:638
+msgid "(not present)"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:678
+msgid ""
+"A standard ModemManager reset is issued once. There is no vendor-command "
+"fallback or automatic reset loop."
 msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:189
@@ -25,21 +70,104 @@ msgstr ""
 msgid "Addresses"
 msgstr ""
 
+#: luci-app-fibocom/root/usr/share/luci/menu.d/luci-app-fibocom.json:53
+msgid "Advanced"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:716
+msgid ""
+"Advanced controls are disabled until matching status and capability "
+"snapshots can be loaded."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:609
+msgid "Advertised physical slots"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:114
+msgid "All messages"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:522
+msgid "Allowed modes"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:432
+msgid "Any supported band (automatic)"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:482
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:492
+msgid "Apply band selection"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:484
+msgid "Apply bands"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:492
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:573
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:590
+msgid "Applying…"
+msgstr ""
+
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:172
 msgid "Available"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:486
+msgid "Band change"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:489
+msgid "Band change accepted. Refreshing the live modem state…"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:410
+msgid ""
+"Band changes are temporarily disabled because the modem identity and "
+"capability snapshots do not have a matching generation."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:411
+msgid ""
+"Band changes are unavailable because the bridge or modem did not advertise a "
+"mutable standard band capability. No vendor command fallback will be "
+"attempted."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:398
+msgid "Band selection"
 msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:83
 msgid "Bearer connected"
 msgstr ""
 
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:518
+msgid "Bound network interface"
+msgstr ""
+
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:185
 msgid "Bridge version"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:224
+msgid "Busy"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:354
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:465
+msgid "Cancel"
 msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:211
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:213
 msgid "Capabilities"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:218
+msgid "Capability"
 msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:144
@@ -54,6 +182,12 @@ msgstr ""
 msgid "Cell information"
 msgstr ""
 
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:483
+msgid ""
+"Changing radio bands can immediately detach the mobile network and interrupt "
+"this router’s WAN connection. Keep an alternate management path available."
+msgstr ""
+
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/settings.js:18
 msgid ""
 "Choose ModemManager as the protocol and select the Fibocom modem exposed by "
@@ -63,6 +197,14 @@ msgstr ""
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:115
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:200
 msgid "Component"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:532
+msgid "Compose SMS"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:527
+msgid "Configure persistent network modes"
 msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/settings.js:15
@@ -83,6 +225,22 @@ msgid ""
 "are intentionally not duplicated here."
 msgstr ""
 
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:516
+msgid "Current allowed modes"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:402
+msgid "Current bands"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:517
+msgid "Current preferred mode"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:608
+msgid "Current primary SIM slot"
+msgstr ""
+
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:158
 msgid "DNS"
 msgstr ""
@@ -95,14 +253,63 @@ msgstr ""
 msgid "Data interface"
 msgstr ""
 
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:473
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:521
+msgid "Delete"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:459
+msgid "Delete SMS"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:460
+msgid "Delete this SMS permanently? This action cannot be undone."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:415
+msgid "Deleting SMS…"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:521
+msgid "Deleting…"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:492
+msgid "Delivery state"
+msgstr ""
+
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:204
 msgid "Dependencies"
 msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:282
 msgid ""
-"Detailed values are normalized by the Fibocom bridge from ModemManager and "
-"netifd. This page does not execute modem commands."
+"Detailed modem values are normalized from ModemManager. The matching network "
+"configuration is read safely from UCI; live netifd counters remain explicitly "
+"unavailable until runtime correlation is implemented. This page does not "
+"execute modem commands."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:549
+msgid ""
+"Direct radio control is unavailable. Persistent connection intent remains "
+"owned by netifd; review the bound ModemManager network interface instead."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:486
+msgid "Direction"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:580
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:582
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:590
+msgid "Disable radio"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:581
+msgid ""
+"Disabling the radio will detach the mobile network and can immediately "
+"remove this router’s WAN access. Keep an alternate management path available."
 msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/settings.js:35
@@ -111,8 +318,44 @@ msgid ""
 "interface does not create, connect, disconnect, or delete bearers."
 msgstr ""
 
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:143
+msgid "Draft"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:117
+msgid "Drafts"
+msgstr ""
+
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:55
 msgid "Drivers"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:511
+msgid "Empty message"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:563
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:565
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:573
+msgid "Enable radio"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:564
+msgid ""
+"Enabling the radio may cause netifd to restore the cellular WAN session "
+"according to its saved interface configuration."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:201
+msgid "Enter a recipient containing 1–%d digits, with an optional leading +."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:566
+msgid "Enter message text"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:206
+msgid "Enter the SMS text."
 msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:56
@@ -121,6 +364,10 @@ msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:176
 msgid "Error"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:449
+msgid "Explicit supported bands"
 msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:59
@@ -135,8 +382,16 @@ msgstr ""
 msgid "Fibocom Modem"
 msgstr ""
 
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:804
+msgid "Fibocom Modem Advanced Controls"
+msgstr ""
+
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:144
 msgid "Fibocom Modem Overview"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:727
+msgid "Fibocom Modem SMS"
 msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/settings.js:10
@@ -147,8 +402,10 @@ msgstr ""
 msgid "Fibocom Modem Status"
 msgstr ""
 
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:708
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:45
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:65
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:604
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:221
 msgid "Fibocom modem"
 msgstr ""
@@ -157,8 +414,17 @@ msgstr ""
 msgid "Fibocom plugin available"
 msgstr ""
 
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:490
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:626
+msgid "Folder"
+msgstr ""
+
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:145
 msgid "Frequency"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:480
+msgid "From"
 msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:158
@@ -171,6 +437,19 @@ msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:60
 msgid "Generation"
+msgstr ""
+
+#: luci-app-fibocom/root/usr/share/rpcd/acl.d/luci-app-fibocom.json:16
+msgid "Grant access to read SMS through the Fibocom ModemManager bridge"
+msgstr ""
+
+#: luci-app-fibocom/root/usr/share/rpcd/acl.d/luci-app-fibocom.json:26
+msgid ""
+"Grant access to send and delete SMS through the Fibocom ModemManager bridge"
+msgstr ""
+
+#: luci-app-fibocom/root/usr/share/rpcd/acl.d/luci-app-fibocom.json:37
+msgid "Grant access to standard Fibocom modem radio controls"
 msgstr ""
 
 #: luci-app-fibocom/root/usr/share/rpcd/acl.d/luci-app-fibocom.json:3
@@ -190,6 +469,10 @@ msgstr ""
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:85
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:158
 msgid "IP families"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:115
+msgid "Inbox"
 msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:158
@@ -229,6 +512,34 @@ msgstr ""
 msgid "Manufacturer"
 msgstr ""
 
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:573
+msgid "Maximum %d Unicode characters and %d UTF-8 bytes."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:507
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:559
+msgid "Message"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:493
+msgid "Message reference"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:648
+msgid "Messages"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:729
+msgid ""
+"Messages are read, sent, and deleted through ModemManager. Recipient numbers "
+"and message text remain only in this authorized view and are never written "
+"to application logs."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:640
+msgid "Messaging cache"
+msgstr ""
+
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:124
 msgid "Metric"
 msgstr ""
@@ -237,12 +548,27 @@ msgstr ""
 msgid "Mobile network"
 msgstr ""
 
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:525
+msgid ""
+"Mode selection is read-only here. Persistent allowed and preferred modes "
+"belong to the netifd ModemManager interface so reconnects keep one "
+"authoritative configuration."
+msgstr ""
+
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:52
 msgid "Model"
 msgstr ""
 
 #: luci-app-fibocom/root/usr/share/luci/menu.d/luci-app-fibocom.json:3
 msgid "Modem"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:692
+msgid "Modem reset"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:694
+msgid "Modem reset accepted. Waiting for ModemManager to rediscover it…"
 msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:73
@@ -275,6 +601,7 @@ msgstr ""
 msgid "ModemManager version"
 msgstr ""
 
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:219
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:214
 msgid "Mutable"
 msgstr ""
@@ -287,17 +614,27 @@ msgstr ""
 msgid "Netifd protocol available"
 msgstr ""
 
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:513
+msgid "Network modes"
+msgstr ""
+
 #: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:23
 msgid "No"
 msgstr ""
 
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:748
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:122
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:671
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:260
 msgid "No Fibocom modem is currently exported by ModemManager."
 msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:84
 msgid "No SIM information was reported."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:652
+msgid "No SMS messages are available in this folder."
 msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:159
@@ -314,6 +651,10 @@ msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:68
 msgid "No display-safe ports were reported."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:470
+msgid "No explicit supported band IDs were reported."
 msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:62
@@ -348,10 +689,36 @@ msgstr ""
 msgid "No standard cell-information state was reported."
 msgstr ""
 
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:523
+msgid "No supported mode combinations were reported."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:509
+msgid "None"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:473
+msgid "Number"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:806
+msgid ""
+"Only capability-gated standard ModemManager operations are available here. "
+"This page exposes no vendor command console, device paths, data-session "
+"controls, or host command access."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:655
+msgid ""
+"Only the first %d messages are shown. Narrow the folder filter to find older "
+"messages."
+msgstr ""
+
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/settings.js:41
 msgid "Open ModemManager status"
 msgstr ""
 
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:245
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/settings.js:26
 msgid "Open Network Interfaces"
 msgstr ""
@@ -360,6 +727,10 @@ msgstr ""
 msgid ""
 "Open Network Interfaces and add a new interface, or edit the existing "
 "cellular interface."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:551
+msgid "Open the bound network interface"
 msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:86
@@ -387,6 +758,14 @@ msgstr ""
 msgid "Operator code"
 msgstr ""
 
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:546
+msgid "Optional +, followed by up to 20 digits"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:116
+msgid "Outbox"
+msgstr ""
+
 #: luci-app-fibocom/root/usr/share/luci/menu.d/luci-app-fibocom.json:23
 msgid "Overview"
 msgstr ""
@@ -395,8 +774,20 @@ msgstr ""
 msgid "PCI"
 msgstr ""
 
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:491
+msgid "PDU type"
+msgstr ""
+
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:107
 msgid "Packet service"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:519
+msgid "Persistent allowed mode"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:520
+msgid "Persistent preferred mode"
 msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:89
@@ -407,8 +798,13 @@ msgstr ""
 msgid "Ports"
 msgstr ""
 
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:543
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:58
 msgid "Power state"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:522
+msgid "Preferred mode"
 msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:91
@@ -419,6 +815,7 @@ msgstr ""
 msgid "Primary"
 msgstr ""
 
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:605
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:76
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:77
 msgid "Primary SIM slot"
@@ -428,7 +825,9 @@ msgstr ""
 msgid "Property"
 msgstr ""
 
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:17
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:14
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:21
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:14
 msgid "RPC transport failure"
 msgstr ""
@@ -441,6 +840,30 @@ msgstr ""
 msgid "RSRQ"
 msgstr ""
 
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:584
+msgid "Radio disable"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:587
+msgid "Radio disable accepted. Refreshing the live modem state…"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:567
+msgid "Radio enable"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:570
+msgid "Radio enable accepted. Refreshing the live modem state…"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:539
+msgid "Radio power"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:542
+msgid "Radio state"
+msgstr ""
+
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:188
 msgid "Raw D-Bus paths exposed"
 msgstr ""
@@ -449,6 +872,7 @@ msgstr ""
 msgid "Read-only milestone"
 msgstr ""
 
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:220
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:115
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:138
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:169
@@ -457,8 +881,16 @@ msgstr ""
 msgid "Reason"
 msgstr ""
 
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:137
+msgid "Received"
+msgstr ""
+
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:174
 msgid "Received bytes"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:537
+msgid "Recipient"
 msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:78
@@ -466,7 +898,48 @@ msgstr ""
 msgid "Registration"
 msgstr ""
 
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:251
+msgid ""
+"Request-token deduplication is kept only in bridge memory for five minutes. "
+"After waiting longer or reloading, do not assume a retry is duplicate-safe."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:416
+msgid "Requested bands"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:620
+msgid "Requested slot"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:675
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:688
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:690
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:697
+msgid "Reset modem"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:689
+msgid ""
+"Resetting the modem will interrupt WAN access and make the modem disappear "
+"temporarily. A recovered modem receives a new identity, so wait for it to "
+"reappear before taking another action."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:697
+msgid "Resetting…"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:584
+msgid "Retry SMS send"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:226
+msgid "Retry after"
+msgstr ""
+
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:68
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:642
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:53
 msgid "Revision"
 msgstr ""
@@ -501,16 +974,79 @@ msgstr ""
 msgid "SIM present"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/settings.js:45
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:643
+msgid "SIM slot %d%s"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:660
+msgid "SIM-slot change"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:663
+msgid "SIM-slot change accepted. Refreshing the live modem state…"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:615
 msgid ""
-"SMS, advanced radio controls, and optional eSIM integration are planned as "
-"separate milestones and are not available in this P0 interface."
+"SIM-slot switching is unavailable unless ModemManager advertises multiple "
+"physical slots and a mutable standard slot capability. eSIM profile "
+"selection is handled separately by the optional eSIM application."
+msgstr ""
+
+#: luci-app-fibocom/root/usr/share/luci/menu.d/luci-app-fibocom.json:41
+msgid "SMS"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:441
+msgid "SMS deleted."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:385
+msgid "SMS send confirmed; the existing request was safely reused."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:372
+msgid ""
+"SMS send was not confirmed: %s. Review the message list before retrying. "
+"Retry without editing to reuse the same request token."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:386
+msgid "SMS sent successfully."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:214
+msgid "SMS text is limited to %d Unicode characters and %d UTF-8 bytes."
 msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/settings.js:20
 msgid ""
 "Save and apply the network interface. Netifd will own automatic connection, "
 "routes, and DNS."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:225
+msgid "Secure random generation is unavailable in this browser."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:401
+msgid "Selection reported by ModemManager"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:584
+msgid "Send SMS"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:341
+msgid "Sending SMS…"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:583
+msgid "Sending…"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:141
+msgid "Sent"
 msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:254
@@ -523,7 +1059,7 @@ msgid ""
 "roaming, and IP-family options."
 msgstr ""
 
-#: luci-app-fibocom/root/usr/share/luci/menu.d/luci-app-fibocom.json:41
+#: luci-app-fibocom/root/usr/share/luci/menu.d/luci-app-fibocom.json:65
 msgid "Settings"
 msgstr ""
 
@@ -559,6 +1095,7 @@ msgid "Snapshot state"
 msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:115
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:489
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:57
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:137
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:168
@@ -569,6 +1106,10 @@ msgstr ""
 
 #: luci-app-fibocom/root/usr/share/luci/menu.d/luci-app-fibocom.json:32
 msgid "Status"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:145
+msgid "Status report"
 msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:71
@@ -583,6 +1124,30 @@ msgstr ""
 msgid "Supported"
 msgstr ""
 
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:403
+msgid "Supported bands"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:658
+msgid "Switch SIM slot"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:656
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:666
+msgid "Switch primary SIM slot"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:657
+msgid ""
+"Switching the primary SIM can detach the mobile network, interrupt WAN "
+"access, and replace the active SMS or eSIM context. Keep an alternate "
+"management path available."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:666
+msgid "Switching…"
+msgstr ""
+
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:144
 msgid "TAC/LAC"
 msgstr ""
@@ -591,14 +1156,117 @@ msgstr ""
 msgid "Technology"
 msgstr ""
 
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/settings.js:45
+msgid ""
+"The Advanced page provides capability-gated immediate radio actions. "
+"Persistent APN, allowed-mode, preferred-mode, and connection intent remain "
+"owned by the ModemManager network interface; optional eSIM management "
+"remains a separate application."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:211
+msgid "The SMS text contains invalid Unicode."
+msgstr ""
+
 #: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:340
 msgid ""
 "The bridge returned API schema %s, while this interface supports schema 1."
 msgstr ""
 
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:429
+msgid "The bridge returned an incomplete SMS delete response."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:74
+msgid "The bridge returned an incomplete SMS list response."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:358
+msgid "The bridge returned an incomplete SMS send response."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:313
+msgid "The bridge returned an incomplete mutation response."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:296
+msgid ""
+"The capability, modem identity, or generation is no longer current. Refresh "
+"and review the modem before applying a change."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:408
+msgid ""
+"The modem changed or its messaging generation is unavailable. Refresh before "
+"deleting."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:303
+msgid ""
+"The modem changed or its messaging generation is unavailable. Refresh before "
+"sending."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:256
+msgid ""
+"The modem identity or generation changed before %s could complete. The view "
+"has been refreshed; review the new modem state before trying again."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:316
+msgid ""
+"The modem messaging generation changed after an uncertain send. Review the "
+"message list, then send again only if a new request is intended."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:333
+msgid ""
+"The outcome of %s is unknown because the RPC connection failed: %s. The view "
+"has been refreshed; do not retry until the live state is known."
+msgstr ""
+
 #: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:61
 #: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:67
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:250
 msgid "The request failed."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:347
+msgid ""
+"The request is bound to the currently displayed modem generation and will "
+"fail safely if the modem was replugged or replaced."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:394
+msgid ""
+"The send result is unknown because the RPC connection failed: %s. Retry "
+"without editing the recipient or text to reuse the same request token."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:728
+msgid ""
+"The status and capability snapshots do not identify the same live modem "
+"generation. All changes are disabled until a refresh returns matching "
+"snapshots."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:555
+msgid ""
+"This is an immediate ModemManager radio action. It does not change netifd "
+"configuration, and netifd may reconnect according to the persistent network "
+"interface intent."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:504
+msgid "This received message was truncated by the bridge safety limit."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:488
+msgid "Timestamp"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:480
+msgid "To"
 msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:175
@@ -613,13 +1281,31 @@ msgstr ""
 msgid "USB composition"
 msgstr ""
 
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:447
+msgid "Unable to confirm whether the SMS was deleted: %s"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:435
+msgid "Unable to delete SMS: %s"
+msgstr ""
+
 #: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:329
 msgid "Unable to load Fibocom modem information:"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:373
+msgid ""
+"Unable to send SMS: %s. Edit the recipient or text to start a new request, "
+"or retry unchanged with the same request token."
 msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:220
 #: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:287
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:62
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:118
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:145
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:489
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:641
 msgid "Unknown"
 msgstr ""
 
@@ -629,6 +1315,9 @@ msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:46
 #: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:52
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/advanced.js:334
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:395
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/sms.js:448
 msgid "Unknown transport error"
 msgstr ""
 

@@ -29,6 +29,9 @@ node tests/validate-package-contract.js
 node luci-app-fibocom/tests/static.js
 sh tests/run-host-identity.sh
 sh tests/run-host-hardware.sh
+sh tests/run-host-network-binding.sh
+sh tests/run-host-radio-policy.sh
+sh tests/run-host-sms-policy.sh
 
 if command -v shellcheck >/dev/null 2>&1; then
 	for file in $shell_files; do

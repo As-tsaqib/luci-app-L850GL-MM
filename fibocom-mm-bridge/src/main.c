@@ -47,7 +47,7 @@ main(int argc, char **argv)
 	g_autoptr(GError) error = NULL;
 	int exit_status = EXIT_FAILURE;
 
-	option_context = g_option_context_new("- read-only Fibocom ModemManager bridge");
+	option_context = g_option_context_new("- Fibocom ModemManager companion bridge");
 	g_option_context_add_main_entries(option_context, options, NULL);
 	if (!g_option_context_parse(option_context, &argc, &argv, &error)) {
 		g_printerr("fibocom-mm-bridge: invalid command line\n");
@@ -78,7 +78,7 @@ main(int argc, char **argv)
 	sigint_source = g_unix_signal_add(SIGINT, quit_signal_cb, &signal_state);
 	fibocom_bridge_start(bridge);
 	fibocom_ubus_start(ubus);
-	g_message("fibocom-mm-bridge %s started read-only%s",
+	g_message("fibocom-mm-bridge %s started%s",
 		FIBOCOM_MM_BRIDGE_VERSION, foreground ? "" :
 		" (foreground by design)");
 	g_main_loop_run(signal_state.loop);

@@ -42,7 +42,7 @@ return view.extend({
 				])
 			]),
 			E('div', { 'class': 'alert-message notice' }, [
-				_('SMS, advanced radio controls, and optional eSIM integration are planned as separate milestones and are not available in this P0 interface.')
+				_('The Advanced page provides capability-gated immediate radio actions. Persistent APN, allowed-mode, preferred-mode, and connection intent remain owned by the ModemManager network interface; optional eSIM management remains a separate application.')
 			])
 		]);
 	},

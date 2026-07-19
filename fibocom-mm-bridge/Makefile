@@ -4,7 +4,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=fibocom-mm-bridge
-PKG_VERSION:=0.1.0
+PKG_VERSION:=0.2.0
 PKG_RELEASE:=1
 
 PKG_MAINTAINER:=As Tsaqib <0xfiqks@gmail.com>
@@ -20,20 +20,22 @@ define Package/fibocom-mm-bridge
   SECTION:=net
   CATEGORY:=Network
   SUBMENU:=WWAN
-  TITLE:=Read-only Fibocom ModemManager bridge
+  TITLE:=Fibocom ModemManager companion bridge
   URL:=https://github.com/As-tsaqib/luci-app-fibocom
   DEPENDS:= \
 	+modemmanager \
 	+glib2 \
 	+libubox \
-	+libubus
+	+libubus \
+	+libuci
 endef
 
 define Package/fibocom-mm-bridge/description
- A read-only, typed ubus facade over ModemManager for Fibocom modems. The
- initial supported target is the L850-GL in MBIM composition. This package
- never dials, creates or deletes bearers, sends SMS, executes AT commands, or
- changes UCI.
+ A typed ubus facade over ModemManager for Fibocom modems. The initial
+ supported target is the L850-GL in MBIM composition. It observes modem state
+ and implements SMS and capability-gated standard radio controls through the
+ native ModemManager API. It never dials, creates or deletes bearers, executes
+ AT commands, or changes UCI.
 endef
 
 define Build/Prepare

@@ -16,6 +16,14 @@
 #define FIBOCOM_ID_BUFSIZE \
 	((sizeof(FIBOCOM_ID_PREFIX) - 1U) + FIBOCOM_ID_HEX_LEN + 1U)
 
+#define FIBOCOM_SMS_ID_PREFIX "sms-"
+#define FIBOCOM_SMS_ID_BUFSIZE \
+	((sizeof(FIBOCOM_SMS_ID_PREFIX) - 1U) + FIBOCOM_ID_HEX_LEN + 1U)
+
+#define FIBOCOM_SMS_OP_PREFIX "smsop-"
+#define FIBOCOM_SMS_OP_BUFSIZE \
+	((sizeof(FIBOCOM_SMS_OP_PREFIX) - 1U) + FIBOCOM_ID_HEX_LEN + 1U)
+
 typedef bool (*FibocomIdentityRandomFill)(uint8_t *buffer, size_t length,
 					  void *user_data);
 
@@ -24,5 +32,12 @@ bool fibocom_identity_generate_with(char output[FIBOCOM_ID_BUFSIZE],
 				    FibocomIdentityRandomFill random_fill,
 				    void *user_data);
 bool fibocom_identity_is_valid(const char *modem_id);
+
+bool fibocom_sms_identity_generate(char output[FIBOCOM_SMS_ID_BUFSIZE]);
+bool fibocom_sms_identity_generate_with(char output[FIBOCOM_SMS_ID_BUFSIZE],
+					FibocomIdentityRandomFill random_fill,
+					void *user_data);
+bool fibocom_sms_identity_is_valid(const char *sms_id);
+bool fibocom_sms_operation_token_is_valid(const char *token);
 
 #endif /* FIBOCOM_MM_IDENTITY_H */

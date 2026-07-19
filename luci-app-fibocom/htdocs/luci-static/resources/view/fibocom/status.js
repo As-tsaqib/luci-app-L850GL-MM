@@ -279,7 +279,7 @@ return view.extend({
 		return E('div', { 'class': 'cbi-map' }, [
 			E('h2', {}, [ _('Fibocom Modem Status') ]),
 			E('div', { 'class': 'cbi-map-descr' }, [
-				_('Detailed values are normalized by the Fibocom bridge from ModemManager and netifd. This page does not execute modem commands.')
+				_('Detailed modem values are normalized from ModemManager. The matching network configuration is read safely from UCI; live netifd counters remain explicitly unavailable until runtime correlation is implemented. This page does not execute modem commands.')
 			]),
 			content
 		]);
