@@ -14,13 +14,15 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Install checks
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             build-essential \
             gettext \
+            libglib2.0-dev \
+            pkg-config \
             python3-venv \
             ripgrep \
             shellcheck
@@ -30,8 +32,21 @@ jobs:
           "$RUNNER_TEMP/reuse-venv/bin/pip" install \
             --disable-pip-version-check reuse==6.2.0
           echo "$RUNNER_TEMP/reuse-venv/bin" >> "$GITHUB_PATH"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
+      - name: Prepare pinned libuci host-test source
+        shell: bash
+        run: |
+          set -euo pipefail
+          uci_ref='74f6277aabffc943d026f406df57c22595134c42'
+          uci_tree="${RUNNER_TEMP}/uci"
+          git init -q "${uci_tree}"
+          git -C "${uci_tree}" remote add origin \
+            https://git.openwrt.org/project/uci.git
+          git -C "${uci_tree}" fetch --depth 1 origin "${uci_ref}"
+          git -C "${uci_tree}" checkout --detach FETCH_HEAD
+          test "$(git -C "${uci_tree}" rev-parse HEAD)" = "${uci_ref}"
+          echo "LIBUCI_SOURCE_DIR=${uci_tree}" >> "${GITHUB_ENV}"
       - name: Run static checks
         run: make check

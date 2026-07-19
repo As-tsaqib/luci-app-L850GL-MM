@@ -28,7 +28,7 @@ on:
         default: '25.12.5'
         type: string
       sdk_url:
-        description: 'Optional HTTPS SDK URL override (ipq40xx/generic only)'
+        description: 'Optional public direct HTTPS SDK URL (ipq40xx/generic only; no credentials/query)'
         required: false
         type: string
       sdk_sha256:
@@ -88,6 +88,12 @@ jobs:
             case "${SDK_URL_OVERRIDE}" in
               https://*) ;;
               *) echo 'sdk_url must use HTTPS' >&2; exit 1 ;;
+            esac
+            case "${SDK_URL_OVERRIDE}" in
+              *'?'*|*'#'*|https://*@*)
+                echo 'sdk_url must be a public direct URL without credentials, query, or fragment' >&2
+                exit 1
+                ;;
             esac
             if [[ ! "${SDK_SHA256_OVERRIDE}" =~ ^[[:xdigit:]]{64}$ ]]; then
               echo 'sdk_sha256 must be 64 hexadecimal characters when sdk_url is set' >&2
@@ -311,6 +317,15 @@ jobs:
           ./scripts/feeds update -a 2>&1 | tee "${GITHUB_WORKSPACE}/logs/feeds-update.log"
           ./scripts/feeds install -a 2>&1 | tee "${GITHUB_WORKSPACE}/logs/feeds-install.log"
 
+          modemmanager_recipe='feeds/packages/net/modemmanager/Makefile'
+          test -f "${modemmanager_recipe}"
+          if ! grep -Fq -- '-Dbuiltin_plugins=true' "${modemmanager_recipe}"; then
+            echo 'The pinned ModemManager recipe does not enable builtin plugins' >&2
+            exit 1
+          fi
+          grep -F -- '-Dbuiltin_plugins=true' "${modemmanager_recipe}" \
+            > "${GITHUB_WORKSPACE}/logs/modemmanager-plugin-contract.txt"
+
           rm -rf \
             package/fibocom-mm-bridge \
             package/luci-app-fibocom \
@@ -364,6 +379,10 @@ jobs:
             package/fibocom-mm-bridge/compile \
             package/luci-app-fibocom/compile \
             V=s 2>&1 | tee "${GITHUB_WORKSPACE}/logs/build-base.log"
+          grep -Fq 'libmm-plugin-fibocom.a' \
+            "${GITHUB_WORKSPACE}/logs/build-base.log"
+          grep -Fq 'libmm-shared-xmm.a' \
+            "${GITHUB_WORKSPACE}/logs/build-base.log"
 
       - name: Collect base packages
         shell: bash
