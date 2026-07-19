@@ -28,6 +28,7 @@ done
 node tests/validate-package-contract.js
 node luci-app-fibocom/tests/static.js
 sh tests/run-host-identity.sh
+sh tests/run-host-hardware.sh
 
 if command -v shellcheck >/dev/null 2>&1; then
 	for file in $shell_files; do

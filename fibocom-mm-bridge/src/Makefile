@@ -13,7 +13,7 @@ override CFLAGS += -std=gnu11 -Wall -Wextra -Wformat=2 -Wshadow \
 override LDLIBS += $(PKG_LIBS) -lubus -lubox
 
 TARGET := fibocom-mm-bridge
-SOURCES := main.c identity.c bridge.c ubus_glib.c
+SOURCES := main.c identity.c hardware.c bridge.c ubus_glib.c
 OBJECTS := $(SOURCES:.c=.o)
 DEPS := $(OBJECTS:.o=.d)
 
