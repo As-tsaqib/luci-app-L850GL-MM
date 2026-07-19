@@ -593,15 +593,43 @@ send_error(struct ubus_context *context, struct ubus_request_data *request,
 }
 
 static gboolean
+blob_string_is_canonical(struct blob_attr *attribute);
+
+static gboolean
+rpc_session_attribute_is_valid(struct blob_attr *attribute)
+{
+	const gchar *value;
+	gsize index;
+
+	if (attribute == NULL ||
+	    !g_str_equal(blobmsg_name(attribute), "ubus_rpc_session") ||
+	    blobmsg_type(attribute) != BLOBMSG_TYPE_STRING ||
+	    !blob_string_is_canonical(attribute))
+		return FALSE;
+	value = blobmsg_get_string(attribute);
+	if (strlen(value) != 32U)
+		return FALSE;
+	for (index = 0; index < 32U; index++) {
+		if (!g_ascii_isxdigit(value[index]))
+			return FALSE;
+	}
+	return TRUE;
+}
+
+static gboolean
 message_is_empty(struct blob_attr *message)
 {
 	struct blob_attr *attribute;
 	unsigned int remaining;
+	gboolean session_seen = FALSE;
 
 	if (message == NULL)
 		return TRUE;
-	blobmsg_for_each_attr(attribute, message, remaining)
-		return FALSE;
+	blobmsg_for_each_attr(attribute, message, remaining) {
+		if (session_seen || !rpc_session_attribute_is_valid(attribute))
+			return FALSE;
+		session_seen = TRUE;
+	}
 	return TRUE;
 }
 
@@ -611,10 +639,17 @@ parse_modem_id(struct blob_attr *message, struct blob_attr **parsed)
 	struct blob_attr *attribute;
 	unsigned int remaining;
 	gboolean seen = FALSE;
+	gboolean session_seen = FALSE;
 
 	if (message == NULL)
 		return FALSE;
 	blobmsg_for_each_attr(attribute, message, remaining) {
+		if (g_str_equal(blobmsg_name(attribute), "ubus_rpc_session")) {
+			if (session_seen || !rpc_session_attribute_is_valid(attribute))
+				return FALSE;
+			session_seen = TRUE;
+			continue;
+		}
 		if (!g_str_equal(blobmsg_name(attribute), "modem_id") || seen ||
 		    blobmsg_type(attribute) != BLOBMSG_TYPE_STRING)
 			return FALSE;
@@ -687,12 +722,19 @@ parse_exact_fields(struct blob_attr *message,
 	struct blob_attr *attribute;
 	unsigned int remaining;
 	guint64 seen = 0;
+	gboolean session_seen = FALSE;
 
 	if (message == NULL || policy_length == 0U || policy_length > 63U)
 		return FALSE;
 	blobmsg_for_each_attr(attribute, message, remaining) {
 		guint index;
 
+		if (g_str_equal(blobmsg_name(attribute), "ubus_rpc_session")) {
+			if (session_seen || !rpc_session_attribute_is_valid(attribute))
+				return FALSE;
+			session_seen = TRUE;
+			continue;
+		}
 		for (index = 0; index < policy_length; index++) {
 			if (g_str_equal(blobmsg_name(attribute), policy[index].name))
 				break;

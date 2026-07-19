@@ -68,6 +68,11 @@ Initial error codes:
 - `internal_error`.
 
 Unknown input fields are rejected. Empty input means `{}`, not arbitrary JSON.
+LuCI's authenticated JSON-RPC controller appends one transport-only
+`ubus_rpc_session` string to every ubus argument object. The bridge accepts and
+ignores exactly one canonical 32-hex instance of that field; it is not a product
+argument and is never returned. Unknown, duplicate, or malformed fields remain
+invalid.
 
 ## Identifiers
 

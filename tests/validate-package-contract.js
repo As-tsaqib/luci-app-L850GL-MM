@@ -100,6 +100,17 @@ assert.match(ubusSource, /fibocom_modem_attest_mutation_target\s*\(/,
 	'ubus mutations must invoke the reviewed hardware-attestation gate');
 assert.match(ubusSource, /fibocom_network_binding_lookup\s*\(/,
 	'status and direct-radio ownership must use the reviewed libuci lookup');
+assert.match(ubusSource,
+	/rpc_session_attribute_is_valid[\s\S]*?"ubus_rpc_session"[\s\S]*?strlen\(value\)\s*!=\s*32U[\s\S]*?g_ascii_isxdigit/,
+	'the bridge must recognize only a canonical 32-hex rpcd session transport field');
+for (const parser of [ 'message_is_empty', 'parse_modem_id', 'parse_exact_fields' ]) {
+	const body = ubusSource.match(new RegExp(
+		`static\\s+gboolean\\s+${parser}\\s*\\([\\s\\S]*?\\n\\}`));
+	assert.ok(body && body[0].includes('rpc_session_attribute_is_valid'),
+		`${parser} must allow the validated rpcd session transport field`);
+}
+assert.match(ubusSource, /session_seen\s*\|\|\s*!rpc_session_attribute_is_valid/,
+	'duplicate or malformed rpcd session fields must fail closed');
 assert.doesNotMatch(ubusSource,
 	/blobmsg_add_u8\s*\(\s*buffer\s*,\s*"active"\s*,\s*primary\s*\)/,
 	'physical SIM-slot primary selection must not be presented as active state');
