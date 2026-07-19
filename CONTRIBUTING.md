@@ -15,6 +15,8 @@ protocol, hotplug scanner, direct TTY/WDM access, or bearer lifecycle method.
 Connection settings, including persistent allowed/preferred modes, belong to
 the existing `proto modemmanager` network section. The application may display
 them or navigate to the standard editor; it must not keep a duplicate profile.
+UCI correlation must remain read-only, exact, and secret-free. Do not infer
+live netifd state or traffic counters from a matching configuration section.
 
 ## Evidence for hardware claims
 
@@ -37,6 +39,9 @@ bearer backend exists in ModemManager and passes hardware testing.
 Prefer typed libmm-glib APIs for status, SMS, bands, power, reset, and SIM
 slots. Persistent mode changes go through network UCI/netifd.
 
+Direct radio enable/disable must stay unavailable for an exact
+`proto modemmanager` binding; netifd owns persistent connection intent.
+
 L850 PCI/EARFCN support is an expert-only variant. It requires an exact
 firmware allowlist, fixed integer-only grammar, parser fixtures, system D-Bus
 policy review, reset/reprobe verification, and a separately confirmed rollback
@@ -49,11 +54,14 @@ compile or expose the expert object.
 - Never derive a selector from `DeviceIdentifier`, equipment identifiers,
   physical paths, D-Bus paths, indexes, or runtime ports.
 - Every mutation must carry and revalidate exact `{modem_id, generation}`.
+- SMS writes must additionally carry the current `messaging_generation` so a
+  stale compose form cannot cross a SIM/eSIM epoch.
 - Object removal invalidates operations and SMS IDs immediately.
 - A callback may not retarget a replacement object; follow-up writes require a
   new ID, generation, and confirmation.
 - Use bounded asynchronous D-Bus work; do not block ubus dispatch with `mmcli`
   or a nested main loop.
+- Keep one shared per-modem mutation lock for SMS and Advanced operations.
 
 ## Security and privacy
 
@@ -77,8 +85,8 @@ written tests. Record sources in `docs/provenance.md`.
 
 ## Development flow
 
-1. Update `PRD.md` and `memory.md` for ownership, capability, or hardware-command
-   changes.
+1. Update the public architecture, API, threat-model, and hardware-evidence
+   documents for ownership, capability, or hardware-command changes.
 2. Add a sanitized failing fixture/test before changing behavior.
 3. Run `make check` and inspect `git diff --check`.
 4. Build/install in a current OpenWrt SDK or buildroot; host tests do not prove

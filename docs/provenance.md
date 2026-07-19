@@ -18,8 +18,9 @@ failure lessons, and UX ideas; their source is not copied.
 - original code authored for this repository.
 
 ModemManager is now a runtime dependency and linked API provider for the
-planned native bridge. It is not forked, and its internal source structure is
-not copied. netifd and `luci-proto-modemmanager` remain their upstream packages.
+native bridge. The project uses OpenWrt's native, unmodified package: it is not
+forked or patched here, and its internal source structure is not copied. netifd
+and `luci-proto-modemmanager` remain their upstream packages.
 
 ## Audit snapshot ledger
 
@@ -33,6 +34,7 @@ Commit IDs are evidence anchors, not source-import points.
 | [ModemManager](https://gitlab.freedesktop.org/mobile-broadband/ModemManager) | `3568fb91a856d5e8de15dc7b2c2b80eecb46eb8e` | authoritative Fibocom/XMM ports and standard API behavior |
 | [OpenWrt packages](https://github.com/openwrt/packages) | audit snapshot `9f76dfc43c63392621b44951a0a17f8d75245751`; local lpac branch `9df1dcf49` | ModemManager/lpac packaging and netifd integration |
 | [OpenWrt LuCI](https://github.com/openwrt/luci) | `112388301e8b920a7532065c498700131990dd13` | modern views, menu, ACL, i18n, protocol conventions |
+| [OpenWrt UCI](https://git.openwrt.org/project/uci.git) | `74f6277aabffc943d026f406df57c22595134c42` | host-test-only libuci headers/source for the exact network-binding helper; target uses native OpenWrt libuci |
 | user `luci-app-lpac` | `19f31e7` | optional eSIM package/menu/RPC contract |
 | [Fibocom L860/L8 AT manual mirror](https://www.manualslib.com/manual/1655076/Fibocom-L860-Gl.html?page=167) | pages 167–169, reviewed 2026-07-19 | authoritative XMCI response schema and cell-type meanings |
 | [Fibocom 850/860 community wiki](https://wiki.vps-server.ru/doku.php/wiki:openwrt:fibocom-850) | reviewed 2026-07-19 | independent FREQ_LOCK signature and operational reports |
@@ -45,7 +47,8 @@ Commit IDs are evidence anchors, not source-import points.
 | [mrhaav/openwrt-packages](https://github.com/mrhaav/openwrt-packages) | `392fe64ed2ba` | independent L850 NCM RAW-IP evidence |
 | [lutfailham96/xmm-modem](https://github.com/lutfailham96/xmm-modem) | `b914028dafa8` | Intel XMM NCM comparison |
 
-The complete findings and unresolved claims are retained in `memory.md`.
+The public findings and unresolved hardware claims are retained in this file,
+`hardware-evidence.md`, and `pci-cell-lock.md`.
 
 ## Exact facts retained
 
@@ -64,6 +67,9 @@ The complete findings and unresolved claims are retained in `memory.md`.
   corroborated. Exact sentinels, NVM status path, reset/apply sequence, and
   persistence remain firmware-specific and require live fixtures before the
   optional expert feature is enabled.
+- Stock OpenWrt ModemManager keeps generic AT-via-D-Bus disabled. Therefore
+  PCI/EARFCN scan/lock remains a P3 expert feature and is unavailable in the
+  base v0.2.0 build.
 
 Every new hardware claim must name its firmware, fixture, test matrix, and
 date. VID:PID or a synthetic test alone is not a hardware acceptance result.
@@ -107,7 +113,20 @@ verified protocol facts may inform new code.
   without subscriber identifiers, credentials, addresses, or message content.
 - 2026-07-19: optional `luci-app-fibocom-esim` adds only an alias/dependency to
   the user's `luci-app-lpac`; it does not copy or wrap lpac operations.
+- 2026-07-19: GitHub Actions run `29684338522` successfully cross-built commit
+  `5dd9697` for OpenWrt 25.12.5 `ipq40xx/generic` (base: two APKs; optional
+  eSIM: five APKs). This predates the SMS/Advanced v0.2.0 implementation and is
+  pipeline evidence only.
+- 2026-07-19: v0.2.0 beta adds native ModemManager SMS list/send/delete,
+  generation-scoped opaque IDs, signal-driven cache updates, a 30-second
+  reconciliation fallback, separate ACLs, and a LuCI SMS view polling the
+  bridge cache every 10 seconds.
+- 2026-07-19: v0.2.0 beta adds capability-gated standard ModemManager band,
+  radio, reset, and physical SIM-slot operations; exact `2cb7:0007` hardware
+  attestation; and a read-only, secret-free libuci network binding. Direct
+  radio mutation is denied when netifd has an exact binding.
 
-The P0 source has passed host/static and ModemManager 1.24 header syntax checks,
-but not an OpenWrt SDK cross-build or live installation. Add a dated record for
-each later API, hardware quirk, fixture source, or dependency patch.
+The current v0.2.0 worktree has not yet received a fresh OpenWrt SDK build or a
+live router installation. Dynamic OpenWrt interface state/counters and the P3
+PCI/EARFCN expert object are not implemented. Add a dated record for each later
+build, deployment, API, hardware quirk, fixture source, or dependency patch.

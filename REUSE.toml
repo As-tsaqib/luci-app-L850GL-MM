@@ -8,8 +8,6 @@ SPDX-PackageDownloadLocation = "NOASSERTION"
 
 [[annotations]]
 path = [
-  "PRD.md",
-  "memory.md",
   "tests/fixtures/live/l850-mbim-connected.json",
   "luci-app-fibocom-esim/root/usr/share/luci/menu.d/luci-app-fibocom-esim.json",
   "luci-app-fibocom/root/usr/share/luci/menu.d/luci-app-fibocom.json",

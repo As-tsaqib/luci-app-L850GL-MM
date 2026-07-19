@@ -17,6 +17,10 @@ This feature is not available on the stock tested OpenWrt image:
 - ModemManager `GetCellInfo` returns unsupported on the L850;
 - generic `Modem.Command` is disabled by the OpenWrt build.
 
+It remains a P3 expert milestone. The v0.2.0 base bridge neither compiles nor
+exports the vendor object, and the standard Advanced tab does not claim
+PCI/EARFCN scan or lock support.
+
 ## Evidence
 
 ### Fibocom AT manual

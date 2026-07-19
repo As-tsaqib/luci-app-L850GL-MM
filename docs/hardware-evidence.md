@@ -57,8 +57,14 @@ Not validated by this baseline:
 - band/mode/reset/SIM-slot mutation;
 - eSIM operations in this exact companion architecture;
 - PCI/EARFCN scan/lock;
-- OpenWrt target build of the new bridge;
+- OpenWrt target build or live deployment of the current v0.2.0
+  SMS/Advanced bridge;
 - NCM connectivity.
+
+The v0.2.0 SMS and standard Advanced paths are implemented in source, but that
+is not hardware evidence. GitHub Actions run `29684338522` built older commit
+`5dd9697` before those paths existed; a new ARMv7 build and staged router
+validation are still pending.
 
 ## Capability observations
 
@@ -79,6 +85,11 @@ CurrentBands at capture
 Do not infer PCI support from the existence of an AT string in XModem.
 
 ## Bridge read/status acceptance
+
+Schema 1 deliberately reports dynamic OpenWrt logical-interface state and
+traffic counters as unavailable. The implemented UCI lookup establishes only
+configured ownership through an exact, secret-free `proto modemmanager`
+binding; it is not runtime netifd evidence.
 
 For every normalized field, record:
 
@@ -116,6 +127,8 @@ Required runtime cases:
 ## SMS acceptance
 
 - Messaging available and unavailable fixtures;
+- Added/Deleted/property-signal refresh, missed-signal recovery through the
+  30-second reconciliation, and visibility through the LuCI 10-second poll;
 - list/read received and sent SMS;
 - GSM-7 and Unicode/UCS-2 content;
 - short and multipart send;
@@ -146,7 +159,9 @@ call as saved configuration.
 
 ### Radio and reset
 
-- disable/enable behavior with netifd;
+- direct disable/enable allowed only without an exact netifd binding;
+- exact binding returns `managed_by_netifd`, and persistent intent is changed
+  through Network → Interfaces;
 - standard MM Reset only;
 - cooldown/no reset loop;
 - object removal/reprobe and WAN recovery;

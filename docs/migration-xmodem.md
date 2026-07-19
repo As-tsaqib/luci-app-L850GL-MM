@@ -28,6 +28,8 @@ The user's router already completed the connection-owner migration:
 - the L850 is connected without XModem runtime packages.
 
 Therefore no custom bearer cutover is required for the new LuCI app.
+The v0.2.0 companion itself has not yet been installed on the router; the
+result above validates only the existing native ModemManager/netifd stack.
 
 ## Pre-migration backup
 
@@ -81,11 +83,13 @@ Do not copy those values into `/etc/config/fibocom`.
 
 1. Confirm the current `proto modemmanager` interface reconnects after replug.
 2. Install `fibocom-mm-bridge`.
-3. Verify its read-only summary/status maps to the same ModemManager object and
-   netifd interface.
+3. Verify its summary/status maps to the same ModemManager object and exact
+   read-only UCI binding. Dynamic netifd state/counters are not available from
+   bridge schema 1.
 4. Install `luci-app-fibocom`.
 5. Verify Overview and Status before enabling write ACLs.
-6. Test SMS through ModemManager.
+6. Test SMS through ModemManager, including signal-driven incoming-message
+   refresh, the 30-second reconciliation fallback, and the LuCI 10-second poll.
 7. Test standard Advanced operations one at a time.
 8. Optionally install `luci-app-fibocom-esim` and configure lpac MBIM proxy.
 9. Keep vendor PCI controls disabled until the expert build and hardware matrix
@@ -108,9 +112,11 @@ config mbim 'mbim'
         option skip_slot_mapping '1'
 ```
 
-`N` is runtime-specific. Confirm it belongs to the L850 before saving.
-Multi-modem stable identity binding is not yet implemented, so ambiguity must
-fail closed.
+`N` is runtime-specific. Confirm it belongs to the L850 before saving. Stable
+multi-modem WDM binding in `luci-app-lpac` is not yet implemented, so eSIM
+device ambiguity must fail closed. This limitation does not describe the base
+bridge, which uses per-object opaque identities for multiple ModemManager
+objects.
 
 Profile enable/disable may trigger SIM reprobe and a short WAN interruption.
 Do not stop ModemManager; allow ModemManager/netifd to restore the bearer.

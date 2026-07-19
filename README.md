@@ -20,13 +20,14 @@ hotplug → ModemManager → ModemManager-monitor → netifd proto modemmanager
 LuCI → typed fibocom-mm-bridge → libmm-glib → ModemManager
 ```
 
-The target application will provide:
+The v0.2.0 beta base application provides:
 
 - Overview
 - Status
 - SMS through ModemManager Messaging
 - Advanced controls through typed ModemManager APIs
-- Settings backed by `/etc/config/network` and `luci-proto-modemmanager`
+- Settings with read-only `/etc/config/network` correlation and a link to
+  `luci-proto-modemmanager`
 - optional eSIM integration through the user's `luci-app-lpac`
 
 It does not dial, create bearers, scan sysfs, or open modem device nodes.
@@ -64,6 +65,13 @@ capability-gated ModemManager operations. Current/supported modes are displayed
 read-only; persistent allowed/preferred modes are changed through the existing
 `proto modemmanager` network section so netifd remains the single owner.
 
+The bridge correlates a modem to `/etc/config/network` with a read-only,
+exact-match libuci lookup. It does not return APN, PIN, credentials, or device
+paths. Direct radio enable/disable is unavailable when an exact
+`proto modemmanager` binding exists, because netifd owns the persistent intent
+and could otherwise immediately reverse the change. Use **Network ->
+Interfaces** for a managed modem.
+
 L850 PCI/EARFCN controls need an optional expert build. Neighbor scan and cell
 lock must run through ModemManager's internal AT queue, never by opening
 `ttyACM` concurrently. OpenWrt disables AT commands over D-Bus by default, so
@@ -82,6 +90,19 @@ SMS uses ModemManager's Messaging and Sms D-Bus interfaces. There is no
 ModemManager 1.24 also contains an L850-specific MBIM multipart-index
 workaround.
 
+Incoming and changed messages synchronize automatically: the bridge consumes
+ModemManager `Added`, `Deleted`, and SMS property-change signals, with a
+30-second inventory reconciliation fallback. The SMS view polls the bridge's
+cache every 10 seconds, so no manual refresh is normally required. A poll does
+not replace a focused compose editor; its cached update is rendered as soon as
+focus leaves the editor. If the safety cache is truncated, entries are sorted
+newest-first before the 1,024-message bound is applied. Delivery is still
+bounded by ModemManager, modem, SIM/storage, and browser polling latency.
+
+Send retry tokens are held only in bridge memory for five minutes. They reduce
+accidental immediate duplicates, but do not promise exactly-once delivery
+after that window or after a bridge restart.
+
 ## Optional eSIM
 
 The base package has no lpac dependency. Selecting
@@ -99,31 +120,43 @@ The previous shadow discovery/direct-dialer foundation is preserved at tag:
 archive/shadow-p0-p1-d2430f8
 ```
 
-The P0 source now contains a read-only `fibocom-mm-bridge` and LuCI
-Overview/Status/Settings views. The old `fibocomd`, custom netifd protocol,
-sysfs profiles, and rescan UI have been removed from the active tree. Host
-identity, frontend, package-contract, shell, JSON, and translation checks pass.
+The active v0.2.0 beta source contains the typed `fibocom-mm-bridge`, LuCI
+Overview/Status/SMS/Advanced/Settings views, separate least-privilege ACLs,
+automatic SMS cache synchronization, standard ModemManager mutations, exact
+L850 MBIM hardware attestation, and read-only UCI network binding. The old
+`fibocomd`, custom netifd protocol, sysfs profiles, and rescan UI have been
+removed from the active tree.
 
-This is still a development checkpoint, not a finished package: the bridge has
-not yet been cross-built with an OpenWrt SDK, installed on the router, or tested
-against live ubus/libmm-glib. SMS and standard Advanced controls remain the next
-implementation milestones.
+This is still a development checkpoint, not a finished package. SMS and
+standard Advanced are implemented in the current worktree, but this version
+has not yet been cross-built by GitHub Actions or installed/tested through live
+ubus/libmm-glib on the router. The earlier successful SDK run built commit
+`5dd9697`, before these v0.2.0 changes; it is evidence for the build pipeline,
+not for the current beta. OpenWrt dynamic logical-interface state and traffic
+counters are also not implemented: schema 1 reports that `openwrt` status as
+unavailable and exposes only a separate, read-only UCI ownership correlation.
 
-Read [PRD.md](PRD.md) for the product contract and [memory.md](memory.md) for
-the persistent audit/checkpoint record.
+Read [the architecture](docs/architecture.md),
+[ubus API contract](docs/ubus-api.md), and
+[live-router validation](docs/live-router-validation.md) for the public design
+and evidence record.
 
 ## Current package layout
 
 ```text
-fibocom-mm-bridge         P0 typed read-only libmm-glib/GDBus ↔ ubus adapter
-luci-app-fibocom         P0 Overview/Status/Settings
+fibocom-mm-bridge         v0.2.0 typed libmm-glib/GDBus ↔ ubus adapter
+luci-app-fibocom         Overview/Status/SMS/Advanced/Settings
 luci-app-fibocom-esim    optional menu alias to luci-app-lpac
 ```
 
 Expected base runtime dependencies include ModemManager,
-`luci-proto-modemmanager`, GLib/libmm-glib, libubus/libubox,
+`luci-proto-modemmanager`, GLib/libmm-glib, libubus/libubox, libuci,
 `kmod-usb-acm`, `kmod-usb-wdm`, and
 `kmod-usb-net-cdc-mbim`.
+
+The project uses the native, unmodified ModemManager package supplied by
+OpenWrt. It does not fork, patch, or ship ModemManager source; the bridge merely
+links to its public libmm-glib API.
 
 ## Development
 
@@ -136,14 +169,20 @@ Cross-compilation is defined in
 uses the official OpenWrt 25.12.5 `ipq40xx/generic` SDK and uploads a mandatory
 base bundle plus an optional MBIM-only eSIM bundle. The SDK filename ends in
 `.Linux-x86_64` because GitHub Actions is the build host; generated bridge
-packages target the router's ARMv7 architecture. The workflow has not run yet
-because this local repository has no GitHub remote.
+packages target the router's ARMv7 architecture.
 
-The active suite validates the P0 package/API boundary, LuCI ACL and views,
-CSPRNG identity behavior, shell/JSON/JavaScript syntax, translation format,
-and the sanitized live fixture. A release still requires OpenWrt SDK/buildroot
-builds, target ubus/libmm-glib tests, malformed D-Bus/input tests, and deployment
-of the read-only bridge on the live router.
+Run `29684338522` successfully cross-built the older sanitized commit
+`5dd9697` for OpenWrt 25.12.5 and produced the expected base and optional eSIM
+artifacts. A fresh run for the v0.2.0 SMS/Advanced implementation is pending.
+The static workflow pins OpenWrt libuci commit
+`74f6277aabffc943d026f406df57c22595134c42` only to compile the host-side
+network-binding tests; target packages use OpenWrt's native libuci.
+
+The active suite covers the package/API boundary, LuCI ACL and views, CSPRNG
+identity, hardware attestation, network-binding and band-policy helpers,
+shell/JSON/JavaScript syntax, translation format, and the sanitized live
+fixture. A release still requires a green current SDK build, target
+ubus/libmm-glib tests, and staged live validation of read/SMS/Advanced behavior.
 
 ## Licensing
 

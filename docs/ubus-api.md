@@ -3,9 +3,10 @@ SPDX-FileCopyrightText: 2026 As Tsaqib
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Target base ubus API
+# Base ubus API (v0.2.0 beta)
 
-Status: PRD 3.1 design contract; not implemented.
+Status: schema 1 contract. Read-only status, native SMS, and the reviewed
+standard Advanced methods are implemented.
 
 Object: `fibocom.mm`
 
@@ -51,12 +52,17 @@ Initial error codes:
 - `device_gone`;
 - `stale_identity`;
 - `stale_generation`;
+- `stale_messaging_generation`;
+- `stale_cursor`;
 - `ambiguous_device`;
 - `unsupported`;
 - `not_ready`;
 - `busy`;
 - `timeout`;
+- `outcome_unknown`;
+- `storage_full`;
 - `permission_denied`;
+- `managed_by_netifd`;
 - `operation_failed`;
 - `dependency_unavailable`;
 - `internal_error`.
@@ -84,6 +90,14 @@ an old request. Secure-random failure fails closed.
 An opaque bridge identifier mapped to one live ModemManager SMS object and its
 owning `{modem_id, generation}`. It is valid only while that generation is
 live. Raw SMS D-Bus paths are not returned or accepted.
+
+### `messaging_generation`
+
+The bridge increments a second process-local generation whenever the
+ModemManager Messaging interface or active SIM context changes. SMS mutations
+must include exact `{modem_id, generation, messaging_generation}`. This stops a
+compose form opened for one SIM/eSIM profile from being sent through another
+profile even when ModemManager keeps the same Modem object.
 
 ## Read methods
 
@@ -141,7 +155,7 @@ Output is a compact snapshot:
   "network": {"registration": "home", "operator": "Example", "access": ["lte"]},
   "signal": {"quality": 72, "recent": true},
   "bearer": {"connected": true, "interface": "wwan0", "ip_families": ["ipv4"]},
-  "openwrt": {"network": "wan", "up": true},
+  "openwrt": {"state": "unavailable", "network": "", "up": false},
   "warnings": []
 }
 ```
@@ -159,14 +173,26 @@ Output adds normalized sections:
 - `ports`: sanitized port name/type/role for display only;
 - `sim`: slots, primary slot, masked ICCID/IMSI/MSISDN, operator and locks;
 - `network`: 3GPP registration, operator, roaming and access technologies;
+- `radio`: normalized power state, supported/current bands, band-selection
+  policy, supported mode combinations, and current allowed/preferred modes;
 - `signal`: quality and per-technology RSSI/RSCP/ECIO/RSRP/RSRQ/SNR where live;
 - `cell`: standard ModemManager cell information or an unsupported reason;
 - `bearers`: connection, interface, IP method/address/prefix/gateway/DNS/MTU;
-- `openwrt`: matching netifd logical-interface state and counters;
+- `openwrt`: reserved netifd runtime status. Schema 1 currently reports
+  `state=unavailable`; the safe UCI ownership correlation is provided
+  separately by `network_binding` and does not claim that the interface is up;
+- `network_binding`: a secret-free result for the exact matching
+  `proto modemmanager` UCI section. It contains only lookup state, a safe named
+  section, validated allowed/preferred-mode strings and `disable_modem`; it
+  never returns device paths, APN, PIN, usernames, or passwords;
 - `diagnostics`: dependency versions/flags and last normalized error.
 
 Runtime port names may be displayed but are never round-tripped as selectors.
 Secret network credentials are never returned.
+
+Dynamic OpenWrt logical-interface state, uptime, availability, and RX/TX
+counters are not implemented in schema 1. Consumers must not interpret the UCI
+binding as proof that the interface is currently up.
 
 ### `get_capabilities`
 
@@ -193,7 +219,10 @@ Output:
 ```
 
 Stable states are `available`, `unavailable`, `unsupported`, `busy`, and
-`unknown`.
+`unknown`. Standard mutation capabilities also report `busy` and a bounded
+`retry_after_ms` while the shared per-modem mutation lock or an Advanced
+cooldown is active. A capability is mutable only for a live L850-GL MBIM
+object whose sysfs device attests to exact USB ID `2cb7:0007`.
 
 ### `list_sms`
 
@@ -221,6 +250,19 @@ multipart part/count metadata: ModemManager exposes a combined SMS object and
 uses `receiving` versus `received` to indicate completeness. It never contains
 raw PDU, SMSC secrets, or D-Bus paths.
 
+The response also contains `generation`, `messaging_generation`, cache
+`revision`, `cache_state`, `has_more`, and an opaque `next_cursor`. A cursor is
+bound to the modem, both generations, cache revision, and filter; it cannot be
+reused after the underlying inventory changes.
+
+Cache synchronization is automatic. ModemManager `Added` and `Deleted`
+signals and per-SMS property changes trigger refreshes; a 30-second full-list
+reconciliation repairs missed/delayed signals. The LuCI SMS view reads that
+cache every 10 seconds while open. A fetched update is held while a compose
+control has focus and rendered when focus leaves. Inventories are ordered
+newest-first before the 1,024-entry cache bound. This is bounded refresh, not
+an immediate browser push guarantee.
+
 ## SMS write methods
 
 ### `send_sms`
@@ -231,6 +273,7 @@ Input:
 {
   "modem_id": "fibocom-<opaque>",
   "generation": 42,
+  "messaging_generation": 7,
   "recipient": "+<E.164>",
   "text": "hello",
   "client_token": "opaque-ui-generated-token"
@@ -238,11 +281,18 @@ Input:
 ```
 
 Recipient syntax and text byte/codepoint length are bounded. The bridge creates
-an SMS with the Messaging API and calls `Send`. `client_token` is used for a
-short bounded deduplication window so a UI retry does not trivially send twice.
-The response contains the resulting opaque `sms_id` and normalized state.
+an SMS with the Messaging API and calls `Send`. `client_token` is used for an
+in-memory five-minute deduplication window so an immediate UI retry does not
+trivially send twice. The cache is lost on bridge restart and does not provide
+exactly-once delivery after the window. The response contains the resulting
+opaque `sms_id` and normalized state.
 
 Neither recipient nor text is logged or placed in process argv.
+
+The bridge sets an explicit long D-Bus timeout because sending may take several
+minutes. Once `Send` has been dispatched, a timeout or transport loss is
+reported as `outcome_unknown` with `retryable=false`; LuCI must refresh the
+message list and must not automatically create another send attempt.
 
 ### `delete_sms`
 
@@ -252,6 +302,7 @@ Input:
 {
   "modem_id": "fibocom-<opaque>",
   "generation": 42,
+  "messaging_generation": 7,
   "sms_id": "sms-<opaque>",
   "confirm": true
 }
@@ -277,7 +328,10 @@ Input:
 
 Every band must be present in the live supported set. Restore automatic uses
 the single canonical value `any`; it cannot be mixed with explicit bands. The
-bridge invokes standard `SetCurrentBands` and does not create `AT+XACT`.
+bridge also prevalidates explicit selections against the current allowed-mode
+families: every currently allowed cellular family needs at least one selected
+band, and a band for a disabled family is rejected. The bridge invokes
+standard `SetCurrentBands` and does not create `AT+XACT`.
 
 ### `set_radio`
 
@@ -288,7 +342,11 @@ Input:
 ```
 
 This calls the standard Modem enable/disable API. It is not bearer disconnect
-and does not edit netifd intent.
+and does not edit netifd intent. Direct radio mutation is allowed only when the
+exact modem has no matching `proto modemmanager` network section. A unique
+binding returns `managed_by_netifd`; an ambiguous binding or a libuci lookup
+failure also fails closed. Persistent radio/connection intent is changed from
+Network → Interfaces so netifd cannot immediately fight a direct Disable.
 
 ### `reset`
 
@@ -315,13 +373,23 @@ Input:
 Only available when ModemManager advertises multiple physical slots and the
 slot is valid. eSIM profile selection is not represented as a SIM-slot call.
 
+All four methods reject unknown, missing, duplicate, or mistyped fields. They
+require exact `{modem_id, generation}` and `confirm=true`, take the same
+per-modem single-flight mutation lock used by SMS, and revalidate liveness and
+generation in their asynchronous callback. Successful replies contain
+`accepted=true`; timeout or transport loss after dispatch is normalized to
+`outcome_unknown` and is never automatically retried. Bands/radio use a short
+cooldown; reset/SIM-slot use a longer cooldown because either may trigger a
+reprobe. No callback is allowed to retarget a replacement ModemManager object.
+
 ## Deliberately absent methods
 
 The object has no methods for:
 
 - connect, disconnect, create bearer, delete bearer, attach, APN, or route;
-- persistent allowed/preferred mode changes; Settings uses the exact network
-  UCI section and netifd apply path;
+- persistent allowed/preferred mode changes; Settings identifies the exact
+  network UCI section read-only and links to netifd's standard editor/apply
+  path;
 - rescan/hotplug or runtime path selection;
 - arbitrary AT or `mmcli --command`;
 - arbitrary D-Bus access;
@@ -341,7 +409,7 @@ a raw command method. See `pci-cell-lock.md`.
 
 ## ACL split
 
-Target ACL groups:
+ACL groups:
 
 - `luci-app-fibocom-status`: read list/overview/status/capabilities;
 - `luci-app-fibocom-sms-read`: read `list_sms`;

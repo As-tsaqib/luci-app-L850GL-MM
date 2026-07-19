@@ -55,6 +55,10 @@ modem ports
     unsupported firmware.
 12. Malformed D-Bus data, oversized SMS, or cell scan output consumes memory or
     blocks the event loop.
+13. A direct radio disable races the configured netifd reconnect intent and is
+    immediately undone or leaves ownership ambiguous.
+14. A UCI status response leaks APN/PIN credentials or mistakes configuration
+    presence for live interface state.
 
 ## Ownership controls
 
@@ -65,18 +69,21 @@ modem ports
 - custom hotplug, sysfs discovery, and netifd proto Fibocom are retired.
 - SMS is accessed only through ModemManager Messaging.
 - lpac uses MBIM proxy and does not stop ModemManager.
+- exact `proto modemmanager` UCI correlation is read-only; direct radio
+  mutation fails closed when netifd owns that modem.
 
 ## API controls
 
 - exact typed methods and exact rpcd ACL lists;
 - no `cgi-io`, `file.exec`, shell, raw D-Bus, raw AT, or path input;
 - separate permissions for read, SMS mutation, Advanced mutation, and eSIM;
-- opaque random `modem_id`, generation-scoped `sms_id`, and an explicit
-  `generation` on every mutation;
+- opaque random `modem_id`, generation-scoped `sms_id`, an explicit
+  `generation` on every mutation, and `messaging_generation` on SMS writes;
 - bounded strings, arrays, and response sizes;
 - UTF-8 validation and normalized integer parsing;
 - unknown fields rejected rather than ignored on mutating methods;
 - operation timeout and one mutation per modem;
+- one shared per-modem lock across SMS and standard Advanced writes;
 - reset confirmation and cooldown;
 - cell scan is explicit and rate-limited, not polled.
 
@@ -95,6 +102,7 @@ modem ports
 - reset/cell-lock may observe a correlated replacement read-only, but any
   follow-up write requires a new confirmation and its new ID/generation;
 - SMS cache entries are generation-scoped.
+- a SIM/Messaging epoch change invalidates old SMS cursors, forms, and writes.
 
 ## Privacy controls
 
@@ -155,6 +163,11 @@ unavailable.
 ## SMS safety
 
 - native Messaging Create/Send/Delete;
+- automatic cache refresh from Added/Deleted/property signals, plus a bounded
+  30-second reconciliation fallback and 10-second LuCI cache polling;
+- newest-first retention before the 1,024-entry cache safety bound;
+- in-memory send deduplication is limited to five minutes and is never claimed
+  as exactly-once delivery across bridge restarts;
 - phone and text never appear in process argv;
 - maximum lengths and UTF-8 enforced;
 - list/get/delete accept only cached opaque IDs;
@@ -177,8 +190,15 @@ unavailable.
 
 ## OpenWrt configuration risk
 
-Settings does not duplicate APN/auth/PIN. It links to or edits the existing
-`proto modemmanager` section using standard LuCI/network permissions.
+Settings does not duplicate APN/auth/PIN. The bridge performs an exact,
+read-only libuci correlation and returns only allowlisted non-secret policy;
+the UI links to the existing `proto modemmanager` section using standard
+LuCI/network permissions.
+
+The UCI result describes configured ownership, not runtime health. Dynamic
+netifd up/down, uptime, availability, and traffic counters remain unavailable
+in schema 1. A unique binding blocks direct radio mutation with
+`managed_by_netifd`; ambiguous or lookup-error cases fail closed.
 
 The bridge does not read credentials into its status cache. Bugs in the
 upstream protocol form should be fixed in separate OpenWrt/LuCI patches rather

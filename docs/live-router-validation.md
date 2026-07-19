@@ -9,7 +9,9 @@ SPDX-License-Identifier: Apache-2.0
 
 Read-only validation performed on 2026-07-19. Identifiers and secrets were not
 recorded. The evidence proves the MBIM/ModemManager lifecycle on this hardware;
-it does not claim every L850 firmware or OpenWrt release.
+it does not claim every L850 firmware or OpenWrt release. It predates the
+v0.2.0 SMS/Advanced implementation: no current `fibocom-mm-bridge` package was
+installed, and no app SMS or Advanced mutation was exercised.
 
 ## Environment
 
@@ -100,7 +102,12 @@ failed attempts          none
 
 Messaging reported storage `mt`, so the native ModemManager SMS interface is
 available on the tested combination. The later check found zero stored SMS;
-no message path or content was recorded.
+no message path or content was recorded. This proves API availability only,
+not the companion bridge's automatic SMS synchronization or send/delete paths.
+
+The recorded netifd state came from direct read-only router inspection. The
+current bridge does not yet export dynamic logical-interface up/down state,
+uptime, or traffic counters; schema 1 reports those fields as unavailable.
 
 ## Capability probes
 

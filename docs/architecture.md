@@ -65,6 +65,10 @@ retry, and port ownership. The bridge observes ModemManager objects instead.
 - Messaging/Sms store and send lifecycle;
 - bearer creation, connect, disconnect, and cleanup.
 
+This is the native, unmodified OpenWrt ModemManager package. The repository
+does not fork or patch it; `fibocom-mm-bridge` links to its public libmm-glib
+API.
+
 ### OpenWrt monitor and netifd
 
 - mark configured interfaces available when the physical modem appears;
@@ -74,6 +78,11 @@ retry, and port ownership. The bridge observes ModemManager objects instead.
 - expose logical interface status and firewall membership;
 - trigger reconnect after a bearer-down event.
 
+Schema 1 does not yet ingest that dynamic netifd state. In particular, LuCI
+does not currently receive authoritative interface up/down state, uptime, or
+RX/TX counters from the bridge; the `openwrt` response remains explicitly
+`unavailable`.
+
 ### fibocom-mm-bridge
 
 - create one async `MMManager` client on the system D-Bus;
@@ -82,6 +91,8 @@ retry, and port ownership. The bridge observes ModemManager objects instead.
 - generate an opaque random public `modem_id` for each admitted object;
 - cache read-mostly snapshots for LuCI polling;
 - perform typed SMS and Advanced operations;
+- correlate a modem to an exact `proto modemmanager` UCI section through a
+  read-only libuci lookup without returning device paths or credentials;
 - validate identity and capability again immediately before every mutation;
 - serialize application-originated mutations per modem;
 - enforce timeouts, cooldowns, privacy, and stale-object failure.
@@ -119,12 +130,16 @@ It never calls:
 - The libubus socket is attached to the GLib main context using its external
   loop API.
 - All D-Bus work is asynchronous.
+- A closed system D-Bus connection invalidates the old manager/object cache;
+  serial-guarded asynchronous reconnect attempts rebuild it without accepting
+  a completion from an older connection attempt.
 - Long operations do not block ubus dispatch.
 - Object removal cancels or invalidates operation contexts.
 
-The archived shadow daemon already proved the GLib/libubus external-loop shape,
-but the new bridge must have fresh target/runtime tests because its object model
-and dependencies differ.
+The v0.2.0 beta has host/static coverage for the GLib/libubus shape and helper
+contracts, but still needs a fresh OpenWrt SDK build and target/runtime tests
+because its SMS, Advanced, libuci, and hardware-attestation paths were added
+after the last successful build checkpoint.
 
 ## Identity and stale-object protection
 
@@ -168,9 +183,16 @@ No LuCI polling request spawns `mmcli`.
 ## SMS data flow
 
 ```text
-Messaging.List / Added / Deleted
+Messaging.List / Added / Deleted / SMS property changes
     → opaque sms_id cache
     → list metadata
+
+30-second inventory reconciliation
+    → repairs a missed or delayed signal
+
+LuCI 10-second poll
+    → renders the latest bridge cache
+    → defers replacement of a focused editor until focus leaves
 
 LuCI send(number,text)
     → strict UTF-8/length validation
@@ -183,18 +205,33 @@ SMS text and number are not written to syslog, ubus events, argv, or support
 diagnostics. Browser-provided paths are forbidden; delete/get resolves only an
 opaque ID already associated with the current modem generation.
 
+This makes incoming SMS automatic at the application level: ModemManager
+signals are the primary trigger, the 30-second reconciliation is the backend
+fallback, and the open SMS tab fetches the updated cache on its next 10-second
+poll. If a compose control is focused, the fetched snapshot is rendered as
+soon as focus leaves instead of replacing the active editor. Before the
+1,024-entry safety bound is applied, the backend orders the full inventory
+newest-first. This is not a push notification service and does not bypass modem
+or SIM storage latency.
+
 ## Standard Advanced flow
 
 - band: `SetCurrentBands`;
 - mode: current/supported values are read-only here; persistent
   allowed/preferred mode is changed in Settings through the exact network UCI
   section and then applied by netifd;
-- power: standard enable/power operations;
+- power: standard enable/power operations only when the modem has no exact
+  `proto modemmanager` UCI binding; a managed modem returns
+  `managed_by_netifd` and must be controlled through Network → Interfaces;
 - reset: `Reset` with confirmation/cooldown;
 - SIM: `SetPrimarySimSlot` only when multiple slots are advertised;
 - cell info: `GetCellInfo` when supported.
 
 The XMM plugin owns translation to XACT/CFUN commands.
+
+All SMS and standard Advanced mutations share one per-modem single-flight lock.
+PCI/EARFCN scan/lock is not part of v0.2.0 and remains unavailable on stock
+OpenWrt ModemManager, where AT-via-D-Bus is disabled.
 
 ## L850 vendor cell flow
 
@@ -231,11 +268,17 @@ The bridge may have display/feature policy such as polling intervals or whether
 expert controls are visible, but it must not duplicate APN, authentication,
 PIN, PDP/IP family, roaming, PLMN, mode intent, or metric.
 
+The current lookup is read-only and exact: `proto` must be `modemmanager`, and
+the section's `device` must equal the ModemManager device identifier used for
+correlation. It exports only a sanitized section name, allowed/preferred-mode
+strings, and `disable_modem`; it never exports the matching device value or
+connection secrets. Ambiguous and lookup-error cases fail closed.
+
 ## Package boundaries
 
 ```text
 fibocom-mm-bridge
-  depends: modemmanager, glib2/libmm-glib, libubus, libubox
+  depends: modemmanager, glib2/libmm-glib, libubus, libubox, libuci
 
 luci-app-fibocom
   depends: luci-base, fibocom-mm-bridge,
