@@ -208,13 +208,18 @@ Input:
 }
 ```
 
-`folder` is one of `all`, `inbox`, `outbox`, `draft`, `failed`. Pagination
-values are bounded.
+`folder` is one of `all`, `inbox`, `outbox`, `draft`, or `unknown`. It is a
+bridge view derived from the standard `PduType` and `State` fields. ModemManager
+1.24 has no `FAILED` SMS state; a send failure is returned as the result of the
+send operation and must not be invented as a persistent message state.
+Pagination values are bounded.
 
 Output adds `messages`, each containing opaque `sms_id`, direction/state,
-masked or authorized number, text, timestamp, delivery state, and multipart
-metadata reported by ModemManager. It never contains raw PDU, SMSC secrets, or
-D-Bus paths.
+masked or authorized number, text, timestamp, PDU type, delivery state, and
+message reference where reported by ModemManager. The API does not invent
+multipart part/count metadata: ModemManager exposes a combined SMS object and
+uses `receiving` versus `received` to indicate completeness. It never contains
+raw PDU, SMSC secrets, or D-Bus paths.
 
 ## SMS write methods
 

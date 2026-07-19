@@ -18,6 +18,7 @@ Read-only live validation completed on 2026-07-19:
 | Item | Evidence |
 |---|---|
 | Router | Linksys EA6350v3 |
+| CPU / OpenWrt target | ARMv7 / `ipq40xx/generic` |
 | OpenWrt | 25.12.5, kernel 6.12.94 |
 | ModemManager | 1.24.0-r10 |
 | Modem | Fibocom L850-GL |
@@ -118,7 +119,8 @@ Required runtime cases:
 - list/read received and sent SMS;
 - GSM-7 and Unicode/UCS-2 content;
 - short and multipart send;
-- pending/sent/failed/received state transitions;
+- stored/receiving/received/sending/sent state transitions;
+- send-method failure as an operation error, not a fabricated `failed` state;
 - delete allowed states;
 - modem/SIM storage differences and storage-full behavior;
 - replug reconciliation;

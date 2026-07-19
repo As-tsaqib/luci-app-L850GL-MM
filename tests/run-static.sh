@@ -19,18 +19,15 @@ done
 
 shell_files=$(find . -type f \( \
 	-path '*/etc/init.d/*' -o \
-	-path '*/etc/hotplug.d/*' -o \
-	-path '*/lib/netifd/proto/*' -o \
 	-name '*.sh' \
 \) -not -path './.git/*' | sort)
 for file in $shell_files; do
 	sh -n "$file"
 done
 
-node tests/validate-profile.js
 node tests/validate-package-contract.js
 node luci-app-fibocom/tests/static.js
-sh tests/run-host-discovery.sh
+sh tests/run-host-identity.sh
 
 if command -v shellcheck >/dev/null 2>&1; then
 	for file in $shell_files; do
@@ -51,8 +48,7 @@ if rg -n \
 	'fs\.(exec|exec_direct)|cgi-io|/dev/(cdc-wdm|ttyACM)[0-9]+|killall|(^|[^A-Za-z])eval[[:space:]]*\(' \
 	luci-app-fibocom/htdocs \
 	luci-app-fibocom/root \
-	luci-proto-fibocom/htdocs \
-	luci-proto-fibocom/root 2>/dev/null; then
+	luci-app-fibocom-esim/root 2>/dev/null; then
 	echo "forbidden LuCI execution or global-device pattern found" >&2
 	exit 1
 fi

@@ -93,12 +93,21 @@ verified protocol facts may inform new code.
   proto scaffolding, and read-only LuCI.
 - 2026-07-19: docs checkpoint `d2430f8` recorded that implementation.
 - 2026-07-19: PRD 3.1 superseded the custom-owner architecture in favor of
-  ModemManager/netifd ownership. Legacy source remains temporarily in the tree
-  until the implementation pivot and is preserved through annotated Git tag
-  `archive/shadow-p0-p1-d2430f8`.
+  ModemManager/netifd ownership. The legacy source is preserved through
+  annotated Git tag `archive/shadow-p0-p1-d2430f8` and was then removed from
+  the active tree.
 
 ## New implementation record
 
-No target ModemManager bridge or new LuCI views have been implemented at the
-time of this entry. Add a dated record here for each new API, hardware quirk,
-fixture source, or dependency patch.
+- 2026-07-19: P0 added a read-only `fibocom-mm-bridge` using libmm-glib/GDBus,
+  a random per-object identity, four typed ubus read methods, and
+  Overview/Status/Settings LuCI views.
+- 2026-07-19: sanitized live fixture
+  `tests/fixtures/live/l850-mbim-connected.json` records the tested MBIM state
+  without subscriber identifiers, credentials, addresses, or message content.
+- 2026-07-19: optional `luci-app-fibocom-esim` adds only an alias/dependency to
+  the user's `luci-app-lpac`; it does not copy or wrap lpac operations.
+
+The P0 source has passed host/static and ModemManager 1.24 header syntax checks,
+but not an OpenWrt SDK cross-build or live installation. Add a dated record for
+each later API, hardware quirk, fixture source, or dependency patch.

@@ -13,67 +13,123 @@ function read(relativePath) {
 	return fs.readFileSync(path.join(root, relativePath), 'utf8');
 }
 
-const daemonMakefile = read('fibocomd/Makefile');
-for (const dependency of [
-	'glib2',
-	'libjson-c',
-	'libubox',
-	'libubus',
-	'jshn',
-	'ubus',
-	'kmod-usb-acm',
-	'kmod-usb-net-cdc-mbim',
-	'kmod-usb-net-cdc-ncm',
-	'kmod-usb-wdm'
+function filesUnder(relativePath) {
+	const absolute = path.join(root, relativePath);
+
+	if (!fs.existsSync(absolute))
+		return [];
+
+	return fs.readdirSync(absolute, { withFileTypes: true }).flatMap(function(entry) {
+		const child = path.join(relativePath, entry.name);
+
+		return entry.isDirectory() ? filesUnder(child) : [ child ];
+	});
+}
+
+for (const legacy of [ 'fibocomd', 'fibocom-netifd', 'luci-proto-fibocom', 'schemas' ])
+	assert.deepStrictEqual(filesUnder(legacy), [], `${legacy} must remain retired to Git history`);
+
+const bridgeMakefile = read('fibocom-mm-bridge/Makefile');
+for (const dependency of [ 'modemmanager', 'glib2', 'libubox', 'libubus' ])
+	assert.match(bridgeMakefile, new RegExp(`\\+${dependency.replaceAll('-', '\\-')}\\b`));
+for (const forbidden of [
+	'ubus', 'libjson-c', 'jshn', 'libmbim', 'mbim-utils', 'sms-tool', 'lpac',
+	'kmod-usb-net-cdc-ncm'
+]) {
+	assert.doesNotMatch(bridgeMakefile,
+		new RegExp(`\\+${forbidden.replaceAll('-', '\\-')}\\b`),
+		`bridge must not depend on ${forbidden}`);
+}
+assert.match(bridgeMakefile, /PKG_BUILD_DEPENDS:=modemmanager\b/);
+assert.match(bridgeMakefile, /PKG_LICENSE:=GPL-2\.0-or-later/);
+
+const sourceFiles = filesUnder('fibocom-mm-bridge/src').filter(function(file) {
+	return /\.[ch]$/.test(file);
+});
+const bridgeSource = sourceFiles.map(read).join('\n');
+for (const method of [ 'list_modems', 'get_overview', 'get_status', 'get_capabilities' ])
+	assert.match(bridgeSource, new RegExp(`UBUS_METHOD(?:_NOARG)?\\("${method}"`));
+assert.strictEqual((bridgeSource.match(/UBUS_METHOD(?:_NOARG)?\(/g) || []).length, 4,
+	'P0 bridge must expose exactly four read methods');
+
+for (const forbidden of [
+	/mm_modem_simple_connect\s*\(/,
+	/mm_modem_create_bearer\s*\(/,
+	/mm_bearer_(?:connect|disconnect)\s*\(/,
+	/mm_modem_delete_bearer\s*\(/,
+	/mm_modem_command\s*\(/,
+	/mm_modem_reset\s*\(/,
+	/mm_manager_(?:scan_devices|report_kernel_event|inhibit_device)\s*\(/,
+	/\b(?:system|popen|fork|execv|execl)\s*\(/,
+	/['"]\/dev\//
 ])
-	assert.match(daemonMakefile, new RegExp(`\\+${dependency.replaceAll('-', '\\-')}\\b`));
+	assert.doesNotMatch(bridgeSource, forbidden, `forbidden P0 operation found: ${forbidden}`);
 
-for (const prematureDependency of [ 'libmbim', 'mbim-utils', 'libuci' ])
-	assert.doesNotMatch(daemonMakefile,
-		new RegExp(`\\+${prematureDependency.replaceAll('-', '\\-')}\\b`));
+assert.match(bridgeSource, /SYS_getrandom/);
+assert.match(bridgeSource, /FIBOCOM_ID_RANDOM_LEN\s+16U/);
+assert.match(bridgeSource, /g_cancellable_cancel\(modem->cancellable\)/);
+assert.match(bridgeSource, /G_DBUS_OBJECT_MANAGER_CLIENT_FLAGS_DO_NOT_AUTO_START/);
+assert.doesNotMatch(bridgeSource, /mm_modem_get_device_identifier\s*\(/);
+assert.doesNotMatch(bridgeSource, /mm_modem_get_physdev\s*\(/);
 
-const init = read('fibocomd/files/etc/init.d/fibocomd');
-assert.match(init, /command "\$PROG" --foreground --shadow/);
+const init = read('fibocom-mm-bridge/files/etc/init.d/fibocom-mm-bridge');
+assert.match(init, /^USE_PROCD=1$/m);
+assert.match(init, /^START=75$/m);
+assert.match(init, /command "\$PROG" --foreground/);
 
-const ubusSource = read('fibocomd/src/ubus_glib.c');
-assert.match(ubusSource, /list does not accept arguments/);
-assert.match(ubusSource, /ubus_shutdown\(&ubus->context\)/);
-assert.match(ubusSource, /ubus->context_initialized = FALSE/);
+const luciMakefile = read('luci-app-fibocom/Makefile');
+for (const dependency of [
+	'@MODEMMANAGER_WITH_MBIM',
+	'@MODEMMANAGER_WITH_NETIFD',
+	'+luci-base',
+	'+fibocom-mm-bridge',
+	'+modemmanager',
+	'+luci-proto-modemmanager',
+	'+kmod-usb-acm',
+	'+kmod-usb-net-cdc-mbim',
+	'+kmod-usb-wdm'
+])
+	assert.ok(luciMakefile.includes(dependency), `LuCI Makefile must include ${dependency}`);
+for (const forbidden of [
+	'fibocomd', 'luci-proto-fibocom', 'modemmanager-plugin-fibocom',
+	'sms-tool', '+lpac'
+])
+	assert.ok(!luciMakefile.includes(forbidden), `base LuCI must not include ${forbidden}`);
 
-const deviceConfig = read('fibocomd/files/etc/config/fibocom');
-assert.doesNotMatch(deviceConfig, /^\s*option\s+/m,
-	'P0 must not expose configuration options that the daemon does not consume');
-
-const netifd = read('fibocom-netifd/files/lib/netifd/proto/fibocom.sh');
-assert.match(netifd, /proto_config_add_string device_id/);
-assert.doesNotMatch(netifd, /proto_config_add_string modem/);
-assert.match(netifd, /proto_notify_error "\$interface" SHADOW_MODE/);
-assert.match(netifd, /proto_block_restart "\$interface"/);
-assert.doesNotMatch(netifd, /\b(?:ubus call|mbimcli|uqmi|atinout|chat|ifconfig)\b/);
-
-const protocol = read(
-	'luci-proto-fibocom/htdocs/luci-static/resources/protocol/fibocom.js'
-);
-assert.match(protocol, /option\.ucioption = 'device_id'/);
-assert.match(protocol, /uci\.get\('network', sectionId, 'device_id'\)/);
-assert.doesNotMatch(protocol, /ucioption = 'modem'/);
-
-const protoAcl = JSON.parse(read(
-	'luci-proto-fibocom/root/usr/share/rpcd/acl.d/luci-proto-fibocom.json'
+const acl = JSON.parse(read(
+	'luci-app-fibocom/root/usr/share/rpcd/acl.d/luci-app-fibocom.json'
 ));
-assert.deepStrictEqual(protoAcl, {
-	'luci-proto-fibocom': {
-		description: 'Allow read-only Fibocom modem selection',
-		read: { ubus: { fibocom: [ 'list' ] } }
-	}
+assert.deepStrictEqual(acl['luci-app-fibocom'].read.ubus['fibocom.mm'].slice().sort(), [
+	'get_capabilities', 'get_overview', 'get_status', 'list_modems'
+]);
+assert.strictEqual(acl['luci-app-fibocom'].write, undefined);
+
+const esimMakefile = read('luci-app-fibocom-esim/Makefile');
+for (const dependency of [
+	'@LPAC_WITH_MBIM', '@MODEMMANAGER_WITH_MBIM',
+	'+luci-app-fibocom', '+luci-app-lpac'
+])
+	assert.ok(esimMakefile.includes(dependency), `optional eSIM package needs ${dependency}`);
+
+const esimMenu = JSON.parse(read(
+	'luci-app-fibocom-esim/root/usr/share/luci/menu.d/luci-app-fibocom-esim.json'
+));
+assert.deepStrictEqual(esimMenu['admin/modem/fibocom/esim'], {
+	title: 'eSIM',
+	order: 60,
+	action: { type: 'alias', path: 'admin/modem/lpac' },
+	depends: { acl: [ 'luci-app-lpac' ] },
+	wildcard: true,
+	firstchild_ineligible: true
 });
 
-for (const subsystem of [ 'usb', 'tty', 'net' ]) {
-	const hotplug = read(`fibocomd/files/etc/hotplug.d/${subsystem}/25-fibocom`);
-
-	assert.match(hotplug, new RegExp(`json_add_string subsystem ${subsystem}`));
-	assert.match(hotplug, /ubus call fibocom rescan/);
-	assert.doesNotMatch(hotplug, /\b(?:sleep|kill|reset|mbimcli|uqmi|atinout)\b/);
-}
+const liveFixture = JSON.parse(read('tests/fixtures/live/l850-mbim-connected.json'));
+assert.strictEqual(liveFixture.hardware.model, 'L850-GL');
+assert.strictEqual(liveFixture.hardware.composition, 'mbim');
+assert.strictEqual(liveFixture.modemmanager.state, 'connected');
+assert.strictEqual(liveFixture.openwrt.protocol, 'modemmanager');
+assert.ok(Object.values(liveFixture.privacy).every(function(value) {
+	return value === 'redacted';
+}), 'live fixture privacy fields must remain redacted');
 
 console.log('package contract validation passed');

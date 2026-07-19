@@ -16,6 +16,7 @@ it does not claim every L850 firmware or OpenWrt release.
 | Item | Observed value |
 |---|---|
 | Router | Linksys EA6350v3 |
+| CPU / OpenWrt target | ARMv7 / `ipq40xx/generic` |
 | OpenWrt | 25.12.5, `r33051-f5dae5ece4` |
 | Kernel | 6.12.94 |
 | ModemManager | 1.24.0-r10 |

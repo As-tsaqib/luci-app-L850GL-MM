@@ -20,7 +20,7 @@ hotplug → ModemManager → ModemManager-monitor → netifd proto modemmanager
 LuCI → typed fibocom-mm-bridge → libmm-glib → ModemManager
 ```
 
-The application will provide:
+The target application will provide:
 
 - Overview
 - Status
@@ -96,19 +96,25 @@ The previous shadow discovery/direct-dialer foundation is preserved at tag:
 archive/shadow-p0-p1-d2430f8
 ```
 
-The working tree is being pivoted in reviewable commits. Until
-`fibocom-mm-bridge` and the new LuCI views are implemented and target-built,
-the repository must not be advertised as a finished package.
+The P0 source now contains a read-only `fibocom-mm-bridge` and LuCI
+Overview/Status/Settings views. The old `fibocomd`, custom netifd protocol,
+sysfs profiles, and rescan UI have been removed from the active tree. Host
+identity, frontend, package-contract, shell, JSON, and translation checks pass.
+
+This is still a development checkpoint, not a finished package: the bridge has
+not yet been cross-built with an OpenWrt SDK, installed on the router, or tested
+against live ubus/libmm-glib. SMS and standard Advanced controls remain the next
+implementation milestones.
 
 Read [PRD.md](PRD.md) for the product contract and [memory.md](memory.md) for
 the persistent audit/checkpoint record.
 
-## Planned package layout
+## Current package layout
 
 ```text
-fibocom-mm-bridge         typed libmm-glib/GDBus ↔ ubus adapter
-luci-app-fibocom         Overview/Status/SMS/Advanced/Settings
-luci-app-fibocom-esim    optional luci-app-lpac integration
+fibocom-mm-bridge         P0 typed read-only libmm-glib/GDBus ↔ ubus adapter
+luci-app-fibocom         P0 Overview/Status/Settings
+luci-app-fibocom-esim    optional menu alias to luci-app-lpac
 ```
 
 Expected base runtime dependencies include ModemManager,
@@ -122,10 +128,11 @@ Expected base runtime dependencies include ModemManager,
 make check
 ```
 
-The existing test suite belongs to the archived shadow implementation and will
-be replaced alongside the pivot. A release requires OpenWrt SDK/buildroot
-builds, typed API fixtures, ACL/privacy tests, malformed input tests, and
-real-device MBIM replug validation.
+The active suite validates the P0 package/API boundary, LuCI ACL and views,
+CSPRNG identity behavior, shell/JSON/JavaScript syntax, translation format,
+and the sanitized live fixture. A release still requires OpenWrt SDK/buildroot
+builds, target ubus/libmm-glib tests, malformed D-Bus/input tests, and deployment
+of the read-only bridge on the live router.
 
 ## Licensing
 

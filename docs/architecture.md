@@ -239,15 +239,16 @@ fibocom-mm-bridge
 
 luci-app-fibocom
   depends: luci-base, fibocom-mm-bridge,
-           modemmanager, luci-proto-modemmanager, L850 MBIM kmods,
-           modemmanager-plugin-fibocom when plugins are modular
+           modemmanager, luci-proto-modemmanager, L850 MBIM kmods
 
 luci-app-fibocom-esim
   depends: luci-app-fibocom, luci-app-lpac
 ```
 
 The base package has no lpac dependency. Modular ModemManager builds must also
-install the Fibocom/XMM plugin packages.
+install the Fibocom/XMM plugin packages at image level. Official OpenWrt
+25.12.5 uses builtin plugins and does not define those split packages, so the
+LuCI package cannot name a portable conditional dependency for both layouts.
 
 ## Retired architecture
 
