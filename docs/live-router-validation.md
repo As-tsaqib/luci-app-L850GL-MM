@@ -39,13 +39,37 @@ confirmed the Fibocom plugin, MBIM composition, connected bearer, and exact
 netifd ownership binding without retaining a stable hardware identifier,
 credential, subscriber identifier, phone number, or assigned address.
 
-The final smoke test used source commit `a803c8c`: static run `29692009885`
+The r2 staged smoke test used source commit `a803c8c`: static run `29692009885`
 and OpenWrt SDK run `29692009880` both passed. Downloaded `SHA256SUMS` passed
 for the two-package base and five-package optional eSIM artifacts. The router
 was upgraded to `fibocom-mm-bridge` 0.2.0-r2 and the matching noarch LuCI base
 and eSIM alias. Its native ModemManager, lpac, and `luci-app-lpac` packages were
 not replaced. After restarting only the companion bridge, one ModemManager
 daemon remained and the netifd interface stayed up.
+
+An authenticated browser test then exposed a transport-contract bug that the
+direct local ubus smoke test could not reveal. LuCI appends a canonical
+`ubus_rpc_session` field before forwarding each JSON-RPC call; r2's strict
+parser treated that transport field as an unknown product argument. All tabs
+therefore showed `list_modems does not accept arguments` even though direct
+local calls succeeded.
+
+A temporary rpcd ucode proxy restored only the five read methods while the
+permanent fix built. Source commit `5fc095d` accepts and ignores exactly one
+canonical session transport field in every parser while still rejecting
+malformed, duplicate, and unknown fields. Static run `29694605507` and the
+base-only SDK run `29694615964` passed; every optional eSIM build step was
+skipped. The downloaded base checksums passed and only
+`fibocom-mm-bridge` 0.2.0-r3 was installed.
+
+Before removing the proxy, direct authenticated HTTP tests passed for list,
+overview, status, capabilities, and SMS. A deliberately invalid send request
+reached product validation and was rejected before any ModemManager operation,
+proving that the write parser also accepted the transport metadata without
+sending an SMS. The temporary proxy, ACL, files, and APK were then removed,
+rpcd was restarted, and the same five HTTP reads passed directly against
+`fibocom.mm`. The original LuCI API module was restored, the stored inbound SMS
+remained visible, and netifd stayed up.
 
 The SMS cache was initially `ready` with count zero. After one externally
 delivered SMS, it updated automatically to count one and classified the entry
