@@ -5,100 +5,116 @@ SPDX-License-Identifier: Apache-2.0
 
 # luci-app-fibocom
 
-OpenWrt management stack for Fibocom modems, initially scoped to the Fibocom L850-GL.
+LuCI companion for Fibocom modems managed by ModemManager, initially scoped to
+the Fibocom L850-GL in USB MBIM mode.
 
-The current tree implements the P0/P1 **shadow-mode** foundation. It inventories
-matching USB topology from sysfs and exposes sanitized cached state through typed
-ubus methods. This build requires the explicit `--shadow` flag and cannot open
-modem ports, dial, reset hardware, or alter networking.
+## Current direction
 
-The netifd protocol and LuCI protocol/settings surfaces are deliberately
-fail-closed/read-only scaffolds for later phases. They are not connectivity
-support.
+ModemManager and OpenWrt netifd own the modem connection:
 
-## Product direction
+```text
+hotplug → ModemManager → ModemManager-monitor → netifd proto modemmanager
+                                                   │
+                                             MBIM bearer/IP
 
-- MBIM is the primary/default L850 composition and the transport required for eSIM.
-- The P2 production MBIM backend will use libmbim directly through mbim-proxy.
-- Intel XMM NCM RAW-IP is a later backend and remains unavailable until the active data interface is proven on hardware.
-- From P2 onward, fibocomd will own modem bearer lifecycle, radio, and AT serialization.
-- In the future bearer path, netifd will exclusively own addresses, routes, DNS, MTU, metrics, and firewall integration.
-- LuCI is a typed ubus client and never executes modem tools.
-- Future eSIM support will be an optional package built on official lpac/luci-app-lpac.
-
-See [PRD.md](PRD.md) for the complete contract and [memory.md](memory.md) for the persistent audit record.
-
-## Package status
-
-| Package | Current behavior |
-|---|---|
-| `fibocomd` | P0/P1 strict profile loader, async sysfs discovery, generation tracking, and read-only `fibocom` ubus object |
-| `fibocom-netifd` | placeholder `proto fibocom`; always fails with `SHADOW_MODE` and never starts a bearer |
-| `luci-proto-fibocom` | Network → Interfaces form for the future protocol; does not make the placeholder dial |
-| `luci-app-fibocom` | read-only Overview, Status, Settings guidance, and Diagnostics views backed by ubus |
-| `luci-app-fibocom-esim` | not implemented; remains an optional future lpac/luci-app-lpac integration |
-
-The L850 profile remains inside fibocomd until a second model justifies profile subpackages.
-
-## Hardware scope
-
-| Composition | USB ID | Initial role mapping |
-|---|---|---|
-| MBIM | `2cb7:0007` | interface 00 WDM/net pair; 02 AT primary, 04 ignored debug, 06 AT secondary |
-| NCM | `8087:095a` | sysfs interface 00 AT primary, 02 ignored, 04 AT secondary, 06/08/0a NCM candidates |
-
-The loader accepts only this reviewed L850 profile. P0 identifies the model from
-the exact USB ID only; it does not open AT to verify `CGMM`, firmware, or the
-active NCM data candidate. Runtime names such as `ttyACM2`, `cdc-wdm0`, and
-`wwan0` are never stable identifiers.
-
-`device_id` is `l850-` plus a SHA-256 digest derived from a usable USB serial.
-If no usable serial is exposed, it falls back to a digest of the physical USB
-slot and reports `identity_scope: path-scoped`. Neither identity mode exposes
-the raw serial. Duplicate serial-derived identities are marked ambiguous.
-
-## Safety status
-
-The following are intentionally unavailable in the initial implementation:
-
-- MBIM or NCM dialing;
-- mode switching and reset;
-- band, RAT, cell, or SIM switching;
-- raw AT commands;
-- route or UCI network mutation;
-- eSIM profile mutation and online RSP.
-
-Do not use a shadow build as a connectivity replacement.
-
-## P0 runtime and dependencies
-
-procd starts the only supported production invocation:
-
-```sh
-/usr/sbin/fibocomd --foreground --shadow
+LuCI → typed fibocom-mm-bridge → libmm-glib → ModemManager
 ```
 
-`--sysfs-root`, `--profile`, and `--ubus-socket` accept absolute paths and exist
-for controlled fixture/integration testing. `--version` prints the daemon
-version. Omitting `--shadow` is a hard startup error; there is no UCI option that
-can enable mutation.
+The application will provide:
 
-The current `fibocomd` package depends on GLib/GIO, json-c, libubus/libubox,
-ubus/jshn, and the USB ACM/WDM/MBIM/NCM kernel packages selected by its OpenWrt
-Makefile. It intentionally does **not** depend on `libmbim` or `mbim-utils` yet;
-direct libmbim enters with the P2 bearer backend. It also does not depend on
-ModemManager, Quectel-CM, or `jq`.
+- Overview
+- Status
+- SMS through ModemManager Messaging
+- Advanced controls through typed ModemManager APIs
+- Settings backed by `/etc/config/network` and `luci-proto-modemmanager`
+- optional eSIM integration through the user's `luci-app-lpac`
 
-## Feed status
+It does not dial, create bearers, scan sysfs, or open modem device nodes.
+QModem, XModem runtime, Quectel-CM, `sms-tool`, and custom netifd protocols are
+not dependencies.
 
-The package Makefiles exist, but this tree has not yet passed an OpenWrt
-SDK/buildroot build and the intended GitHub feed URL has not been published.
-Use a local `src-link` entry for development; do not advertise a `src-git` feed
-until the remote repository exists and target builds pass.
+## Verified hardware baseline
 
-The first hardware build should run alongside an existing manager only in
-shadow mode. Before enabling any future bearer backend, stop QModem, XModem, or
-ModemManager ownership of the same physical L850.
+Live testing on OpenWrt 25.12.5 with ModemManager 1.24.0-r10 and an L850-GL
+proved automatic unplug/replug recovery:
+
+- ModemManager detected and grouped MBIM, AT, and network ports;
+- the OpenWrt monitor marked the configured network interface available;
+- netifd automatically registered and connected the modem;
+- the MBIM interface returned online in about eleven seconds.
+
+Production connectivity scope:
+
+| Composition | USB ID | Status |
+|---|---|---|
+| MBIM | `2cb7:0007` | supported through ModemManager |
+| NCM | `8087:095a` | connectivity unsupported by ModemManager |
+
+NCM requires a bearer implementation in ModemManager. This LuCI project will
+not hide a second custom dialer behind the UI.
+
+## Advanced controls
+
+Band lock uses standard ModemManager `SetCurrentBands`; the XMM plugin handles
+`XACT` internally. Radio, reset, and SIM slot selection are also standard
+capability-gated ModemManager operations. Current/supported modes are displayed
+read-only; persistent allowed/preferred modes are changed through the existing
+`proto modemmanager` network section so netifd remains the single owner.
+
+L850 PCI/EARFCN controls need an optional expert build. Neighbor scan and cell
+lock must run through ModemManager's internal AT queue, never by opening
+`ttyACM` concurrently. OpenWrt disables AT commands over D-Bus by default, so
+the feature remains unavailable unless the image deliberately enables and
+secures that capability. The base bridge does not compile or expose the expert
+ubus object.
+
+The XModem implementation is useful evidence but contains parser, sentinel,
+validation, reset, and post-lock verification gaps. See
+[docs/pci-cell-lock.md](docs/pci-cell-lock.md).
+
+## SMS
+
+SMS uses ModemManager's Messaging and Sms D-Bus interfaces. There is no
+`sms-tool` fallback because a second AT/SMS owner can race ModemManager.
+ModemManager 1.24 also contains an L850-specific MBIM multipart-index
+workaround.
+
+## Optional eSIM
+
+The base package has no lpac dependency. Selecting
+`luci-app-fibocom-esim` will depend on `luci-app-lpac` and reuse its views
+and typed backend. No TgBot/Telegram component is included.
+
+The initial eSIM claim is single-L850 with MBIM proxy enabled. Stable
+multi-modem WDM identity binding remains future work.
+
+## Repository status
+
+The previous shadow discovery/direct-dialer foundation is preserved at tag:
+
+```text
+archive/shadow-p0-p1-d2430f8
+```
+
+The working tree is being pivoted in reviewable commits. Until
+`fibocom-mm-bridge` and the new LuCI views are implemented and target-built,
+the repository must not be advertised as a finished package.
+
+Read [PRD.md](PRD.md) for the product contract and [memory.md](memory.md) for
+the persistent audit/checkpoint record.
+
+## Planned package layout
+
+```text
+fibocom-mm-bridge         typed libmm-glib/GDBus ↔ ubus adapter
+luci-app-fibocom         Overview/Status/SMS/Advanced/Settings
+luci-app-fibocom-esim    optional luci-app-lpac integration
+```
+
+Expected base runtime dependencies include ModemManager,
+`luci-proto-modemmanager`, GLib/libmm-glib, libubus/libubox,
+`kmod-usb-acm`, `kmod-usb-wdm`, and
+`kmod-usb-net-cdc-mbim`.
 
 ## Development
 
@@ -106,25 +122,15 @@ ModemManager ownership of the same physical L850.
 make check
 ```
 
-The check suite validates JSON/JavaScript/shell syntax, the profile contract,
-LuCI safety rules, and a compiled host discovery test over a generated fake
-sysfs tree. The fixture covers MBIM/NCM grouping, lowercase `06/08/0a`, serial
-identity, prefix-collision isolation, generation changes, unplug/replug, and
-profile rejection cases. A separate case verifies that unexpected data drivers
-fail closed as a partial `driver-mismatch` topology. Additional regressions
-prove that split MBIM WDM/net parents are ambiguous and that an otherwise valid
-pair on an interface other than reviewed L850 interface `00` remains partial.
-
-It does not validate target linking, procd/hotplug behavior, live ubus
-disconnect/reconnect, kernel-driver topology, or any real modem operation. A
-real OpenWrt SDK/buildroot build and sanitized L850 evidence are required before
-any runtime hardware capability is claimed. Accordingly, diagnostics always
-reports `hardware_validated: false` in this phase.
+The existing test suite belongs to the archived shadow implementation and will
+be replaced alongside the pivot. A release requires OpenWrt SDK/buildroot
+builds, typed API fixtures, ACL/privacy tests, malformed input tests, and
+real-device MBIM replug validation.
 
 ## Licensing
 
-- Core daemon, transport, netifd, and shell components: GPL-2.0-or-later.
-- LuCI JavaScript and project documentation: Apache-2.0.
-- No QModem/XModem/Quectel-CM source is copied into this repository.
+- backend and system integration: GPL-2.0-or-later;
+- LuCI JavaScript and documentation: Apache-2.0;
+- no QModem/XModem source is copied.
 
-License texts are stored in `LICENSES/`; every source file must carry SPDX metadata.
+Every source file must carry SPDX metadata and pass REUSE validation.

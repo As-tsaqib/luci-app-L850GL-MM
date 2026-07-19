@@ -5,6 +5,13 @@ SPDX-License-Identifier: Apache-2.0
 
 # Profile schema
 
+> **Legacy notice:** PRD 3.1 supersedes this runtime profile system. The target
+> architecture delegates discovery and port matching to ModemManager and does
+> not install a Fibocom sysfs profile loader. This document and schema remain
+> temporarily as evidence for the `d2430f8` baseline and must be removed from
+> the active package tree together with the legacy source once the replacement
+> bridge is buildable. Do not add new modem support here.
+
 Profiles are data-only hardware declarations. The JSON Schema describes the
 format, while the current P0/P1 C loader deliberately accepts only the reviewed
 L850-GL contract. Passing schema validation alone is not enough for runtime

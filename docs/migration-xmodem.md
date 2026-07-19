@@ -3,72 +3,151 @@ SPDX-FileCopyrightText: 2026 As Tsaqib
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Migration from XModem
+# Migration from XModem to ModemManager companion
 
-Migration is a staged ownership transfer, not an in-place upgrade.
+## Principle
 
-Only Phase 1 is possible with the current P0/P1 tree. The netifd protocol fails
-closed with `SHADOW_MODE`; there is no bearer backend to cut over to yet.
+The migration changes the connection owner:
 
-## Phase 1: evidence and shadow mode
+```text
+before: XModem owns detection/dial/AT/SMS
+after:  ModemManager + netifd own detection/dial/AT/SMS
+        luci-app-fibocom is a companion UI
+```
 
-1. Export the existing XModem and network configuration to a private backup.
-2. Remove secrets from any diagnostic copy.
-3. Install fibocomd and verify procd invokes
-   `/usr/sbin/fibocomd --foreground --shadow`.
-4. Confirm that discovery reports the correct physical device, composition, and port roles.
-5. Repeat boot and replug tests while XModem remains the only bearer owner.
+Do not run XModem/QModem dial or AT polling against a modem already managed by
+ModemManager.
 
-Shadow mode must not open TTY/WDM, stop XModem, or change networking.
-There is intentionally no `shadow_mode` UCI toggle: the init script hardcodes
-`--shadow`, and this daemon build refuses to start without it. Diagnostics
-reports external ownership as `not-probed`; verify the existing owner using
-independent system evidence.
+## Current router result
 
-## Phase 2: ownership cutover
+The user's router already completed the connection-owner migration:
 
-Only after the MBIM backend meets its acceptance tests:
+- the network interface uses `proto modemmanager`;
+- ModemManager 1.24.0-r10 recognizes L850 MBIM;
+- unplug/replug automatically returns the interface online;
+- the L850 is connected without XModem runtime packages.
 
-1. record the current known-good package and rollback steps;
-2. stop and disable XModem/QModem/ModemManager ownership of the L850;
-3. verify no legacy monitor, dialer, or lpac wrapper holds the selected TTY/WDM;
-4. configure one `proto fibocom` network interface using the canonical
-   `device_id` returned by inventory, never a TTY/WDM/netdev path;
-5. enable the fibocom bearer backend;
-6. verify IP, route, DNS, traffic, disconnect, and reconnect;
-7. keep the old configuration disabled but available for rollback until soak testing passes.
+Therefore no custom bearer cutover is required for the new LuCI app.
 
-## Imported data
+## Pre-migration backup
 
-An optional one-shot importer may copy:
+Keep a private backup of:
 
-- enabled intent;
+- current `/etc/config/network`;
+- the known-good package list/image;
+- APN/auth/PIN values;
+- lpac/eSIM settings;
+- XModem settings needed only for rollback.
+
+Do not place credentials, identifiers, SMS, or eSIM secrets in this repository.
+
+## Remove conflicting ownership
+
+Before installing the companion runtime, verify:
+
+- no XModem/QModem dialer or watchdog is running;
+- no XModem SMS/AT polling daemon opens `ttyACM`;
+- no custom `proto fibocom` section is active;
+- the L850 connection is a standard `proto modemmanager` interface;
+- exactly one ModemManager process owns the modem.
+
+The old experimental packages to remove if installed:
+
+```text
+fibocomd
+fibocom-netifd
+luci-proto-fibocom
+```
+
+The archived shadow `fibocomd` did not dial, but keeping it installed adds
+unnecessary duplicate discovery and an obsolete API.
+
+## Connection configuration
+
+Use Network → Interfaces and `luci-proto-modemmanager` to configure:
+
+- device/physical modem selection;
 - APN;
-- authentication type and credentials through a write-only path;
-- route metric;
-- preferred composition.
+- authentication;
+- PIN;
+- IP family;
+- allowed/preferred mode;
+- roaming;
+- PLMN and metric where needed.
 
-It must not import:
+Do not copy those values into `/etc/config/fibocom`.
 
-- runtime TTY/WDM/netdev paths;
-- PID, lock, or state files;
+## Install order
+
+1. Confirm the current `proto modemmanager` interface reconnects after replug.
+2. Install `fibocom-mm-bridge`.
+3. Verify its read-only summary/status maps to the same ModemManager object and
+   netifd interface.
+4. Install `luci-app-fibocom`.
+5. Verify Overview and Status before enabling write ACLs.
+6. Test SMS through ModemManager.
+7. Test standard Advanced operations one at a time.
+8. Optionally install `luci-app-fibocom-esim` and configure lpac MBIM proxy.
+9. Keep vendor PCI controls disabled until the expert build and hardware matrix
+   are complete.
+
+## eSIM migration
+
+Use the user's clean `luci-app-lpac`; do not migrate the XModem TgBot or
+duplicate eSIM frontend.
+
+For the initial single-L850 MBIM setup:
+
+```uci
+config global 'global'
+        option apdu_backend 'mbim'
+
+config mbim 'mbim'
+        option device '/dev/cdc-wdmN'
+        option proxy '1'
+        option skip_slot_mapping '1'
+```
+
+`N` is runtime-specific. Confirm it belongs to the L850 before saving.
+Multi-modem stable identity binding is not yet implemented, so ambiguity must
+fail closed.
+
+Profile enable/disable may trigger SIM reprobe and a short WAN interruption.
+Do not stop ModemManager; allow ModemManager/netifd to restore the bearer.
+
+## Settings that are not imported
+
+- runtime `ttyACM`, `cdc-wdm`, or `wwan` paths as permanent identity;
+- XModem PID/cache/lock files;
+- custom dial/watchdog/recovery ladders;
 - raw AT commands;
-- watchdog/reset ladders;
-- Telegram/bot configuration;
-- eSIM activation or confirmation codes;
-- global lpac device fallback;
-- board-specific USB controller rules.
+- Telegram/TgBot config;
+- board-specific USB controller resets;
+- custom NCM RAW-IP state;
+- IMEI/FCC/NVM modifications;
+- eSIM activation/confirmation codes.
+
+## NCM warning
+
+Do not switch a remotely accessed production L850 from MBIM to NCM expecting
+ModemManager 1.24 to dial it. NCM connectivity is unsupported and can remove
+the active WAN until the modem is switched back or physically recovered.
 
 ## Rollback
 
-1. bring down the `proto fibocom` interface;
-2. stop fibocomd and verify it released the session and ports;
-3. restore the saved network/XModem configuration;
-4. start exactly one legacy owner;
-5. verify route and DNS state before declaring rollback complete.
+Preferred rollback keeps ModemManager as the connection owner and removes only
+the companion packages:
 
-Never run two bearer owners as a rollback shortcut.
+1. uninstall `luci-app-fibocom-esim` if present;
+2. uninstall `luci-app-fibocom`;
+3. uninstall `fibocom-mm-bridge`;
+4. leave `proto modemmanager` unchanged;
+5. verify WAN and route state.
 
-Do not attempt this rollback/cutover procedure until P2 has a target-built,
-hardware-validated MBIM backend. Installing the current protocol package cannot
-provide connectivity.
+Rolling back all the way to XModem is a separate ownership migration:
+
+1. record and disable the ModemManager network interface;
+2. ensure ModemManager releases the device;
+3. start one XModem owner;
+4. verify route/DNS and port ownership;
+5. never keep both stacks active as a shortcut.

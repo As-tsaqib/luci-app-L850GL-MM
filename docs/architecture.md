@@ -5,158 +5,261 @@ SPDX-License-Identifier: Apache-2.0
 
 # Architecture
 
-## Implemented P0/P1 data flow
+## System boundary
+
+`luci-app-fibocom` is a ModemManager companion. It does not implement a modem
+or network connection state machine.
 
 ```text
-procd: fibocomd --foreground --shadow
-                       │
-USB/TTY/net hotplug ───┼── typed fibocom.rescan hints
-periodic reconcile ────┘
-                       ▼
-              GLib debounce / scheduler
-                       │
-                       ▼
-          bounded worker-thread sysfs scan
-                       │
-                       ▼
-        main-context generation reconciliation
-                       │
-              cached inventory only
-                 ┌─────┴────────┐
-                 ▼              ▼
-          read-only ubus       LuCI polls ubus
-          list/status/...      and requests rescan
+                         ┌─────────────────────────┐
+                         │ LuCI                    │
+                         │ Overview Status SMS     │
+                         │ Advanced Settings       │
+                         └────────────┬────────────┘
+                                      │ typed ubus
+                         ┌────────────▼────────────┐
+                         │ fibocom-mm-bridge       │
+                         │ cache + normalization   │
+                         │ validation + actions    │
+                         └────────────┬────────────┘
+                                      │ libmm-glib / GDBus async
+                         ┌────────────▼────────────┐
+                         │ ModemManager            │
+                         │ ports/SIM/SMS/radio/    │
+                         │ registration/bearer     │
+                         └───────┬─────────┬───────┘
+                                 │         │
+                           USB MBIM/AT     │ OpenWrt monitor
+                                           │
+ /etc/config/network ───────── netifd proto modemmanager
+                                           │
+                                  address/route/DNS
+
+ Optional eSIM:
+ LuCI menu → luci-app-lpac → lpac → mbim-proxy → L850 eUICC
 ```
 
-The worker reads sysfs metadata only. It does not open a TTY, WDM node, or
-netdev. Scan results are reconciled on the GLib main context before the cache is
-visible through ubus. One scan runs at a time; hotplug hints received while a
-scan runs collapse into a pending follow-up scan.
+## Why no custom discovery or dialer
 
-The current tree also contains a netifd protocol and LuCI protocol form, but the
-protocol always fails closed with `SHADOW_MODE`. They do not participate in the
-P0/P1 data path.
+The tested OpenWrt stack already:
 
-## Shadow safety boundary
+- forwards kernel events to ModemManager;
+- groups the L850 WDM, net, and AT ports;
+- recreates the modem after unplug/replug;
+- maps it to a configured netifd interface;
+- automatically enables, registers, and connects a bearer;
+- applies IP configuration and recovers the logical interface.
 
-P0/P1 performs only:
+A second sysfs scanner or bearer daemon would duplicate identity, lifecycle,
+retry, and port ownership. The bridge observes ModemManager objects instead.
 
-1. strict loading of the reviewed L850 data profile;
-2. cold, periodic, and debounced hint-driven scans;
-3. grouping below an exact canonical physical USB ancestor;
-4. matching exact L850 USB IDs;
-5. role assignment from lowercase hexadecimal USB interface numbers;
-6. topology classification and generation-scoped cached inventory;
-7. sanitized read-only ubus serialization.
+## Component responsibilities
 
-It must not open device nodes, issue AT/MBIM commands, change UCI, claim a
-bearer, reset a modem, or alter a network interface. Diagnostics reports
-`ownership: not-probed` and `fibocomd_claims_device: false`: shadow mode does not
-claim the modem, but it also does not pretend to know which external manager
-owns it.
+### ModemManager
 
-## Matching and topology
+- kernel-event consumption and device probing;
+- physical-device and port association;
+- AT and MBIM port ownership/serialization;
+- SIM and registration state;
+- signal, modes, bands, power, reset, and SIM slots;
+- Messaging/Sms store and send lifecycle;
+- bearer creation, connect, disconnect, and cleanup.
 
-Runtime matching currently uses only these exact USB IDs:
+### OpenWrt monitor and netifd
 
-| Composition | VID:PID | Complete-topology requirements |
-|---|---|---|
-| MBIM | `2cb7:0007` | `cdc_acm` for `02`/`04`/`06`, plus exactly one same-object WDM/netdev pair on interface `00` driven by `cdc_mbim` |
-| NCM | `8087:095a` | `cdc_acm` for `00`/`02`/`04`, no WDM, and one `cdc_ncm` netdev on each candidate `06`, `08`, and `0a` |
+- mark configured interfaces available when the physical modem appears;
+- execute `proto modemmanager` setup/teardown;
+- retain connection intent from `/etc/config/network`;
+- install address, route, DNS, MTU, and metric;
+- expose logical interface status and firewall membership;
+- trigger reconnect after a bearer-down event.
 
-The NCM rule inventories candidates; it does not prove which netdev carries
-`/USBHS/NCM/0`, select an active candidate, or dial CID 0. A `complete` topology
-therefore means only “exact match to the P0 sysfs profile”. Model and firmware
-are not probed, so ubus reports `model_confidence: usb_id_only` and diagnostics
-reports `hardware_validated: false`.
+### fibocom-mm-bridge
 
-Absolute canonical sysfs paths are kept private. The API exposes the bounded USB
-slot label as `physical_path`, plus sanitized node names, interface numbers,
-drivers, and roles. No RPC accepts a physical path as a device selector.
+- create one async `MMManager` client on the system D-Bus;
+- subscribe to object-added/object-removed and relevant property/signals;
+- normalize allowlisted fields into a stable ubus schema;
+- generate an opaque random public `modem_id` for each admitted object;
+- cache read-mostly snapshots for LuCI polling;
+- perform typed SMS and Advanced operations;
+- validate identity and capability again immediately before every mutation;
+- serialize application-originated mutations per modem;
+- enforce timeouts, cooldowns, privacy, and stale-object failure.
 
-## Device identity
+It never calls:
 
-For a usable USB `serial` attribute, identity material is
-`fibocom-l850:v1:serial:<serial>` and the public identifier is
-`l850-<sha256>`. The raw serial is never serialized; the response reports
-`identity_scope: usb-serial-hash`.
+- `Simple.Connect`;
+- bearer Create/Connect/Disconnect/Delete;
+- shell `mmcli`;
+- `mbimcli`;
+- direct `/dev/ttyACM*` or `/dev/cdc-wdm*`;
+- custom hotplug or netifd scripts.
 
-If the serial is missing, malformed, all-zero, or a known placeholder, the
-material becomes `fibocom-l850:v1:path:<usb-slot>` and the response reports
-`identity_scope: path-scoped`. This fallback can change when physical topology
-changes and must not be treated as a hardware identity.
+### LuCI
 
-If two simultaneously present devices produce the same identity, each ID gets
-a short slot-hash suffix and both topologies become `ambiguous` with reason
-`duplicate-usb-identity`. This prevents one identifier from selecting two
-physical devices.
+- renders normalized data;
+- gathers typed input;
+- requires explicit confirmation for disruptive actions;
+- provides no shell, raw AT, path, object-path, or D-Bus input;
+- links Settings to the standard `luci-proto-modemmanager` network editor.
 
-## Generation and reconciliation
+### luci-app-lpac
 
-The topology fingerprint includes VID/PID, interface number, driver, node kind,
-and sanitized node name. An unchanged device at the same USB slot keeps its
-generation. Add, topology/identity change, removal, and later replug advance the
-monotonic generation counter. Removed devices leave the current cache rather
-than remaining as historical `present: false` records.
+- owns eUICC profile and notification UI/API;
+- serializes its own lpac calls;
+- uses MBIM through `mbim-proxy`;
+- does not own Basic Connect or netifd state.
 
-Discovery scans are serialized, cancellable on shutdown, and applied only on
-the main context. If a newer request is queued while a worker is running, the
-superseded result is discarded before it can replace cached state. The P0 host
-test verifies stable generations for unchanged fixtures, an increment for a
-changed node, removal, and a higher generation on replug. It also verifies that
-incorrect MBIM/NCM drivers remain `partial` with reason `driver-mismatch`, split
-MBIM control/data parents are `ambiguous`, and a pair on the wrong interface is
-`partial`.
+## Process model
 
-## Event loop and ubus
+`fibocom-mm-bridge` is a procd-managed daemon written in C.
 
-GLib `GMainLoop` is the only event loop. The libubus socket is integrated using
-its external-loop contract:
+- GLib `GMainLoop` is the single main loop.
+- `MMManager` is a typed `GDBusObjectManagerClient`.
+- The libubus socket is attached to the GLib main context using its external
+  loop API.
+- All D-Bus work is asynchronous.
+- Long operations do not block ubus dispatch.
+- Object removal cancels or invalidates operation contexts.
 
-1. register `ctx->sock.fd` as a GLib Unix-fd source;
-2. call `ubus_handle_event(ctx)` when readable;
-3. on connection loss, remove the old source;
-4. reconnect with exponential bounded backoff and jitter;
-5. install a source for the reconnected fd.
+The archived shadow daemon already proved the GLib/libubus external-loop shape,
+but the new bridge must have fresh target/runtime tests because its object model
+and dependencies differ.
 
-The daemon does not run uloop in another thread, nest a main loop, or poll
-`g_main_context_iteration()`. Source review confirms this shape, but live ubus
-disconnect/reconnect has not yet been exercised on an OpenWrt target.
+## Identity and stale-object protection
 
-If target testing rejects the single-process adapter, the future production
-fallback is a GLib/libmbim worker plus a small uloop/libubus bridge over Unix
-`SOCK_SEQPACKET`. Parsing CLI output is not a production fallback.
+ModemManager numeric paths such as `/Modem/8` change after replug and are never
+public identity. `DeviceIdentifier` is not guaranteed unique, while physical
+paths and runtime ports may be reused.
 
-## Dependencies by phase
+When an object is admitted, the bridge creates a random 128-bit `modem_id` and
+a process-local integer `generation`. The ID is not derived from hardware or
+D-Bus properties. It changes after object removal/re-addition and after a
+bridge restart. Failure to obtain secure random bytes fails closed instead of
+falling back to a predictable selector.
 
-P0/P1 compiles against GLib/GIO, json-c, libubus, and libubox. The package also
-selects ubus/jshn and the USB ACM, WDM, CDC-MBIM, and CDC-NCM kernel packages.
-It does not link libmbim and does not run `mbimcli`, ModemManager, or Quectel-CM.
+Each cached object and mutation context records:
 
-Direct `libmbim` plus `mbim-proxy` is a P2 dependency, when the MBIM Basic
-Connect state machine and real netifd lease/IP contract are implemented.
+- public `modem_id`;
+- current D-Bus object path internally;
+- generation;
+- operation ID;
+- expected capability/model.
 
-## Target ownership after P2
+Every mutation request supplies both `modem_id` and `generation`. Before
+sending a D-Bus method, the bridge resolves and compares both again. A callback
+from a removed generation cannot control the replacement object. LuCI refreshes
+the modem list when a selector becomes stale; there is no cross-replug stable
+browser identity.
 
-The following is the intended architecture, not current functionality:
+## Read data flow
 
 ```text
-LuCI / netifd client ───── typed ubus ───── fibocomd
-                                                │
-                                   direct libmbim + proxy
-                                                │
-                                         MBIM Basic Connect
-
-official lpac ───── coordinated maintenance lease ───── eUICC/APDU
+MM property/signal
+    → normalize allowlisted types
+    → redact identifiers/secrets
+    → replace immutable cached snapshot
+    → ubus summary/status response
+    → LuCI poll/render
 ```
 
-- fibocomd will own modem bearer lifecycle, radio, and serialized control;
-- netifd will exclusively own addresses, routes, DNS, MTU, metrics, and
-  firewall integration;
-- official lpac will be a delegated UICC client, not a Basic Connect owner;
-- exactly one bearer manager may own a physical modem.
+No LuCI polling request spawns `mmcli`.
 
-Connection intent, including canonical `device_id`, belongs in
-`/etc/config/network`. A future `proto fibocom` will acquire a
-generation-scoped session lease and apply the typed result through netifd. The
-current protocol does none of these operations and fails closed.
+## SMS data flow
+
+```text
+Messaging.List / Added / Deleted
+    → opaque sms_id cache
+    → list metadata
+
+LuCI send(number,text)
+    → strict UTF-8/length validation
+    → Messaging.Create
+    → Sms.Send
+    → normalized result
+```
+
+SMS text and number are not written to syslog, ubus events, argv, or support
+diagnostics. Browser-provided paths are forbidden; delete/get resolves only an
+opaque ID already associated with the current modem generation.
+
+## Standard Advanced flow
+
+- band: `SetCurrentBands`;
+- mode: current/supported values are read-only here; persistent
+  allowed/preferred mode is changed in Settings through the exact network UCI
+  section and then applied by netifd;
+- power: standard enable/power operations;
+- reset: `Reset` with confirmation/cooldown;
+- SIM: `SetPrimarySimSlot` only when multiple slots are advertised;
+- cell info: `GetCellInfo` when supported.
+
+The XMM plugin owns translation to XACT/CFUN commands.
+
+## L850 vendor cell flow
+
+Stock OpenWrt disables generic AT over D-Bus. Therefore this path is a separate
+expert-build capability:
+
+```text
+LuCI typed cell request
+    → fibocom-mm-bridge exact L850 validation
+    → fixed command grammar
+    → Modem.Command
+    → ModemManager internal AT port queue
+    → typed parser
+```
+
+There is no direct-port fallback. With AT-via-D-Bus disabled, capability is
+`unavailable`.
+
+Neighbor scan first tries `GetCellInfo`; only an exact L850 may fall back to
+`AT+XMCI=1`. PCI lock uses a firmware-tested
+`AT@SIC:FREQ_LOCK(...)` tuple. See `pci-cell-lock.md`.
+
+## Configuration
+
+Connection configuration remains in a standard network section:
+
+```uci
+config interface 'modem'
+        option proto 'modemmanager'
+        ...
+```
+
+The bridge may have display/feature policy such as polling intervals or whether
+expert controls are visible, but it must not duplicate APN, authentication,
+PIN, PDP/IP family, roaming, PLMN, mode intent, or metric.
+
+## Package boundaries
+
+```text
+fibocom-mm-bridge
+  depends: modemmanager, glib2/libmm-glib, libubus, libubox
+
+luci-app-fibocom
+  depends: luci-base, fibocom-mm-bridge,
+           modemmanager, luci-proto-modemmanager, L850 MBIM kmods,
+           modemmanager-plugin-fibocom when plugins are modular
+
+luci-app-fibocom-esim
+  depends: luci-app-fibocom, luci-app-lpac
+```
+
+The base package has no lpac dependency. Modular ModemManager builds must also
+install the Fibocom/XMM plugin packages.
+
+## Retired architecture
+
+The following are retained only in Git history/tag
+`archive/shadow-p0-p1-d2430f8`:
+
+- `fibocomd` sysfs discovery/profile/lifecycle;
+- direct libmbim design;
+- custom XMM NCM dialer design;
+- `fibocom-netifd`;
+- `luci-proto-fibocom`;
+- Fibocom hotplug scanner and `rescan` ubus method.
+
+They must not remain as dormant runtime packages because their presence makes
+ownership ambiguous.
