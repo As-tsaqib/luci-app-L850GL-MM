@@ -57,14 +57,14 @@ Not validated by this baseline:
 - band/mode/reset/SIM-slot mutation;
 - eSIM operations in this exact companion architecture;
 - PCI/EARFCN scan/lock;
-- OpenWrt target build or live deployment of the current v0.2.0
-  SMS/Advanced bridge;
+- live deployment of the current v0.2.0 SMS/Advanced bridge;
 - NCM connectivity.
 
 The v0.2.0 SMS and standard Advanced paths are implemented in source, but that
-is not hardware evidence. GitHub Actions run `29684338522` built older commit
-`5dd9697` before those paths existed; a new ARMv7 build and staged router
-validation are still pending.
+is not hardware evidence. GitHub Actions run `29689537422` successfully
+cross-built package commit `487d427` for ARMv7 and verified the two-package
+base plus five-package eSIM artifact checksums. Staged router validation is
+still pending.
 
 ## Capability observations
 

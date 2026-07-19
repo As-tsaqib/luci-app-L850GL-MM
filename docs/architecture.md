@@ -137,9 +137,9 @@ It never calls:
 - Object removal cancels or invalidates operation contexts.
 
 The v0.2.0 beta has host/static coverage for the GLib/libubus shape and helper
-contracts, but still needs a fresh OpenWrt SDK build and target/runtime tests
-because its SMS, Advanced, libuci, and hardware-attestation paths were added
-after the last successful build checkpoint.
+contracts. GitHub Actions run `29689537422` cross-built package commit
+`487d427` with the official OpenWrt 25.12.5 ARMv7 SDK. Target/runtime tests are
+still required for its SMS, Advanced, libuci, and hardware-attestation paths.
 
 ## Identity and stale-object protection
 

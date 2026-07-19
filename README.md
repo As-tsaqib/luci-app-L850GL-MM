@@ -128,13 +128,12 @@ L850 MBIM hardware attestation, and read-only UCI network binding. The old
 removed from the active tree.
 
 This is still a development checkpoint, not a finished package. SMS and
-standard Advanced are implemented in the current worktree, but this version
-has not yet been cross-built by GitHub Actions or installed/tested through live
-ubus/libmm-glib on the router. The earlier successful SDK run built commit
-`5dd9697`, before these v0.2.0 changes; it is evidence for the build pipeline,
-not for the current beta. OpenWrt dynamic logical-interface state and traffic
-counters are also not implemented: schema 1 reports that `openwrt` status as
-unavailable and exposes only a separate, read-only UCI ownership correlation.
+standard Advanced are implemented, and package-bearing commit `487d427` was
+successfully cross-built by GitHub Actions for the target router. The current
+bridge has not yet been installed/tested through live ubus/libmm-glib on the
+router. OpenWrt dynamic logical-interface state and traffic counters are also
+not implemented: schema 1 reports that `openwrt` status as unavailable and
+exposes only a separate, read-only UCI ownership correlation.
 
 Read [the architecture](docs/architecture.md),
 [ubus API contract](docs/ubus-api.md), and
@@ -171,9 +170,13 @@ base bundle plus an optional MBIM-only eSIM bundle. The SDK filename ends in
 `.Linux-x86_64` because GitHub Actions is the build host; generated bridge
 packages target the router's ARMv7 architecture.
 
-Run `29684338522` successfully cross-built the older sanitized commit
-`5dd9697` for OpenWrt 25.12.5 and produced the expected base and optional eSIM
-artifacts. A fresh run for the v0.2.0 SMS/Advanced implementation is pending.
+Run `29689537422` successfully cross-built v0.2.0 package commit `487d427` for
+OpenWrt 25.12.5. The verified base artifact contains two APKs; the optional
+eSIM artifact contains those two plus `lpac`, `luci-app-lpac`, and the Fibocom
+eSIM addon, for five APKs total. Both downloaded `SHA256SUMS` files pass. The
+bridge package metadata and compiler trace identify
+`arm_cortex-a7_neon-vfpv4`; LuCI-only packages are `noarch`. Static run
+`29689516480` passed on the same commit.
 The static workflow pins OpenWrt libuci commit
 `74f6277aabffc943d026f406df57c22595134c42` only to compile the host-side
 network-binding tests; target packages use OpenWrt's native libuci.
@@ -181,8 +184,8 @@ network-binding tests; target packages use OpenWrt's native libuci.
 The active suite covers the package/API boundary, LuCI ACL and views, CSPRNG
 identity, hardware attestation, network-binding and band-policy helpers,
 shell/JSON/JavaScript syntax, translation format, and the sanitized live
-fixture. A release still requires a green current SDK build, target
-ubus/libmm-glib tests, and staged live validation of read/SMS/Advanced behavior.
+fixture. A release still requires target ubus/libmm-glib tests and staged live
+validation of read/SMS/Advanced behavior.
 
 ## Licensing
 

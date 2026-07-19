@@ -125,8 +125,14 @@ verified protocol facts may inform new code.
   radio, reset, and physical SIM-slot operations; exact `2cb7:0007` hardware
   attestation; and a read-only, secret-free libuci network binding. Direct
   radio mutation is denied when netifd has an exact binding.
+- 2026-07-19: static run `29689516480` passed on package commit `487d427`.
+  OpenWrt SDK run `29689537422` then cross-built that commit for OpenWrt
+  25.12.5 `ipq40xx/generic`; downloaded checksums passed for two base APKs and
+  five optional eSIM APKs. Build metadata records
+  `arm_cortex-a7_neon-vfpv4` for the bridge and the pinned `luci-app-lpac`
+  commit `19f31e7a3571736091daf1772856f58902fd5866`.
 
-The current v0.2.0 worktree has not yet received a fresh OpenWrt SDK build or a
+The current v0.2.0 package source has received a fresh OpenWrt SDK build but no
 live router installation. Dynamic OpenWrt interface state/counters and the P3
 PCI/EARFCN expert object are not implemented. Add a dated record for each later
 build, deployment, API, hardware quirk, fixture source, or dependency patch.
