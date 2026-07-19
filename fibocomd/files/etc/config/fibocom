@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: 2026 As Tsaqib
+# SPDX-License-Identifier: GPL-2.0-or-later
+
+# P0 always starts with the non-configurable --shadow safety flag. No UCI
+# option can enable dialing or modem mutation in this build.
+config global 'main'
+	# Reserved for device and recovery policy once those typed controls exist.
+	# P0 intentionally has no effective runtime settings.

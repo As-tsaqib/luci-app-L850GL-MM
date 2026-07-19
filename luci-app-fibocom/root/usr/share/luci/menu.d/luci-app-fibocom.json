@@ -1,0 +1,48 @@
+{
+	"admin/network/fibocom": {
+		"title": "Fibocom Modem",
+		"order": 85,
+		"action": {
+			"type": "firstchild"
+		},
+		"depends": {
+			"acl": [ "luci-app-fibocom" ]
+		}
+	},
+
+	"admin/network/fibocom/overview": {
+		"title": "Overview",
+		"order": 10,
+		"action": {
+			"type": "view",
+			"path": "fibocom/overview"
+		}
+	},
+
+	"admin/network/fibocom/status": {
+		"title": "Status",
+		"order": 20,
+		"action": {
+			"type": "view",
+			"path": "fibocom/status"
+		}
+	},
+
+	"admin/network/fibocom/settings": {
+		"title": "Settings",
+		"order": 30,
+		"action": {
+			"type": "view",
+			"path": "fibocom/settings"
+		}
+	},
+
+	"admin/network/fibocom/diagnostics": {
+		"title": "Diagnostics",
+		"order": 40,
+		"action": {
+			"type": "view",
+			"path": "fibocom/diagnostics"
+		}
+	}
+}

@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2026 As Tsaqib
+# SPDX-License-Identifier: Apache-2.0
+
+version = 1
+SPDX-PackageName = "luci-app-fibocom"
+SPDX-PackageSupplier = "As Tsaqib"
+SPDX-PackageDownloadLocation = "NOASSERTION"
+
+[[annotations]]
+path = [
+  "PRD.md",
+  "memory.md",
+  "luci-app-fibocom/root/usr/share/luci/menu.d/luci-app-fibocom.json",
+  "luci-app-fibocom/root/usr/share/rpcd/acl.d/luci-app-fibocom.json",
+  "luci-proto-fibocom/root/usr/share/rpcd/acl.d/luci-proto-fibocom.json"
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 As Tsaqib"
+SPDX-License-Identifier = "Apache-2.0"

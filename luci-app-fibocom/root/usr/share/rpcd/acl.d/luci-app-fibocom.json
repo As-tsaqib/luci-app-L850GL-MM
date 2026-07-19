@@ -1,0 +1,22 @@
+{
+	"luci-app-fibocom": {
+		"description": "Grant access to cached Fibocom modem inventory",
+		"read": {
+			"ubus": {
+				"fibocom": [
+					"list",
+					"status",
+					"capabilities",
+					"diagnostics"
+				]
+			}
+		},
+		"write": {
+			"ubus": {
+				"fibocom": [
+					"rescan"
+				]
+			}
+		}
+	}
+}

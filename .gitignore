@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: 2026 As Tsaqib
+# SPDX-License-Identifier: Apache-2.0
+
+*.o
+*.a
+*.so
+*.swp
+*~
+.cache/
+.config
+.vscode/
+build/
+dist/
+fibocomd/src/fibocomd
+tests/tmp/

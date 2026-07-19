@@ -1,0 +1,10 @@
+{
+	"luci-proto-fibocom": {
+		"description": "Allow read-only Fibocom modem selection",
+		"read": {
+			"ubus": {
+				"fibocom": ["list"]
+			}
+		}
+	}
+}

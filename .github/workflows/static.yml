@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: 2026 As Tsaqib
+# SPDX-License-Identifier: Apache-2.0
+
+name: static
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install checks
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            gettext \
+            libglib2.0-dev \
+            libjson-c-dev \
+            pkg-config \
+            python3-venv \
+            ripgrep \
+            shellcheck
+      - name: Install REUSE
+        run: |
+          python3 -m venv "$RUNNER_TEMP/reuse-venv"
+          "$RUNNER_TEMP/reuse-venv/bin/pip" install \
+            --disable-pip-version-check reuse==6.2.0
+          echo "$RUNNER_TEMP/reuse-venv/bin" >> "$GITHUB_PATH"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run static checks
+        run: make check
