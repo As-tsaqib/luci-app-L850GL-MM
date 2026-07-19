@@ -11,5 +11,5 @@
 .vscode/
 build/
 dist/
-fibocomd/src/fibocomd
+fibocom-mm-bridge/src/fibocom-mm-bridge
 tests/tmp/
