@@ -1,0 +1,15 @@
+{
+	"admin/modem/fibocom/esim": {
+		"title": "eSIM",
+		"order": 60,
+		"action": {
+			"type": "alias",
+			"path": "admin/modem/lpac"
+		},
+		"depends": {
+			"acl": [ "luci-app-lpac" ]
+		},
+		"wildcard": true,
+		"firstchild_ineligible": true
+	}
+}

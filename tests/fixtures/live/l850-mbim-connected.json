@@ -1,0 +1,67 @@
+{
+	"fixture_schema": 1,
+	"captured_at": "2026-07-19T09:11:50Z",
+	"source": "sanitized-read-only-router-observation",
+	"hardware": {
+		"manufacturer": "Fibocom Wireless Inc.",
+		"model": "L850-GL",
+		"firmware": "18500.5001.00.05.27.30",
+		"usb_id": "2cb7:0007",
+		"composition": "mbim"
+	},
+	"modemmanager": {
+		"version": "1.24.0-r10",
+		"plugin": "fibocom",
+		"state": "connected",
+		"power": "on",
+		"access_technologies": [ "lte" ],
+		"registration": "home",
+		"packet_service": "attached",
+		"signal_quality_percent": 51,
+		"ports": [
+			{ "name": "cdc-wdm0", "type": "mbim" },
+			{ "name": "ttyACM0", "type": "at" },
+			{ "name": "ttyACM1", "type": "ignored" },
+			{ "name": "ttyACM2", "type": "at" },
+			{ "name": "wwan0", "type": "net" }
+		],
+		"data_bearer": {
+			"connected": true,
+			"suspended": false,
+			"interface": "wwan0",
+			"ipv4_method": "static",
+			"ipv6_method": "dhcp"
+		},
+		"initial_eps_bearer": {
+			"connected": true,
+			"has_data_interface": false
+		},
+		"messaging": {
+			"storage": "mt",
+			"stored_count": 0
+		}
+	},
+	"openwrt": {
+		"version": "25.12.5",
+		"kernel": "6.12.94",
+		"logical_interface": "modem",
+		"protocol": "modemmanager",
+		"up": true,
+		"available": true,
+		"ipv4_default_route": true,
+		"ipv6_dynamic_interface": "modem_6",
+		"ipv6_up": true,
+		"ipv6_default_route": true
+	},
+	"capability_probes": {
+		"standard_cell_info": "unsupported",
+		"generic_at_via_dbus": "unauthorized"
+	},
+	"privacy": {
+		"subscriber_identifiers": "redacted",
+		"equipment_identifiers": "redacted",
+		"phone_numbers_and_sms": "redacted",
+		"apn_and_credentials": "redacted",
+		"addresses_routes_and_dns_values": "redacted"
+	}
+}
