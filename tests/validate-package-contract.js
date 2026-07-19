@@ -100,6 +100,14 @@ assert.match(ubusSource, /fibocom_modem_attest_mutation_target\s*\(/,
 	'ubus mutations must invoke the reviewed hardware-attestation gate');
 assert.match(ubusSource, /fibocom_network_binding_lookup\s*\(/,
 	'status and direct-radio ownership must use the reviewed libuci lookup');
+assert.doesNotMatch(ubusSource,
+	/blobmsg_add_u8\s*\(\s*buffer\s*,\s*"active"\s*,\s*primary\s*\)/,
+	'physical SIM-slot primary selection must not be presented as active state');
+assert.match(ubusSource, /mm_signal_get_sinr\s*\(/,
+	'status must expose finite SINR values already provided by ModemManager');
+for (const bearerField of [ 'suspended', 'multiplexed', 'stats' ])
+	assert.match(ubusSource, new RegExp(`"${bearerField}"`),
+		`status must retain the typed bearer ${bearerField} field`);
 assert.match(ubusSource,
 	/mutation_kind\s*=\s*FIBOCOM_MUTATION_ADVANCED/,
 	'Advanced must use the same per-modem mutation lock as SMS');

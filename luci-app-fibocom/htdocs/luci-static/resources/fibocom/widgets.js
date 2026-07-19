@@ -38,6 +38,20 @@ function display(value, fallback) {
 	return fallback != null ? fallback : '—';
 }
 
+function displayBoolean(value) {
+	return typeof value === 'boolean' ? display(value) : '—';
+}
+
+function displayUnsigned(value) {
+	if (typeof value === 'number')
+		return Number.isSafeInteger(value) && value >= 0 ? String(value) : '—';
+
+	if (typeof value === 'string' && /^(?:0|[1-9][0-9]*)$/.test(value))
+		return value;
+
+	return '—';
+}
+
 function responseError(result) {
 	if (result == null)
 		return _('No response was received from the Fibocom bridge.');
@@ -215,14 +229,13 @@ function simSlotRows(result) {
 		return [];
 
 	return slots.filter(isObject).map(function(slot, index) {
+		const number = slot.slot != null ? slot.slot : slot.number;
+
 		return [
-			display(slot.slot || slot.number, index + 1),
+			display(number, index + 1),
 			badge(display(slot.present, _('Unknown')), slot.present === true ? 'present' :
 				(slot.present === false ? 'absent' : 'unknown')),
-			display(slot.active || slot.primary),
-			display(slot.iccid),
-			display(slot.imsi),
-			display(slot.operator || slot.operator_name)
+			displayBoolean(slot.primary)
 		];
 	});
 }
@@ -230,7 +243,7 @@ function simSlotRows(result) {
 function signalRows(result) {
 	const signal = object(result);
 	const technologies = [ 'gsm', 'umts', 'lte', 'nr5g', 'cdma1x', 'evdo' ];
-	const metrics = [ 'rssi', 'rscp', 'ecio', 'rsrp', 'rsrq', 'snr', 'error_rate' ];
+	const metrics = [ 'rssi', 'rscp', 'ecio', 'rsrp', 'rsrq', 'snr', 'sinr', 'error_rate' ];
 	const rows = [];
 
 	technologies.forEach(function(technology) {
@@ -269,6 +282,7 @@ function bearerRows(result) {
 	return bearers.filter(isObject).map(function(bearer) {
 		const ipv4 = object(bearer.ipv4);
 		const ipv6 = object(bearer.ipv6);
+		const stats = object(bearer.stats);
 		const inferredFamilies = [];
 
 		if (Object.keys(ipv4).length)
@@ -282,16 +296,23 @@ function bearerRows(result) {
 			return value != null && value !== '';
 		});
 		const dns = bearer.dns || [].concat(ipv4.dns || [], ipv6.dns || []);
+		const mtu = bearer.mtu != null ? bearer.mtu :
+			(ipv4.mtu != null ? ipv4.mtu : ipv6.mtu);
 
 		return [
 			badge(display(bearer.connected, _('Unknown')), bearer.connected === true ? 'connected' :
 				(bearer.connected === false ? 'disconnected' : 'unknown')),
+			displayBoolean(bearer.suspended),
+			displayBoolean(bearer.multiplexed),
 			E('code', {}, [ display(bearer.interface) ]),
 			display(bearer.ip_families || bearer.ip_family || inferredFamilies),
 			display(addresses),
 			display(gateways),
 			display(dns),
-			display(bearer.mtu || ipv4.mtu || ipv6.mtu)
+			display(mtu),
+			displayUnsigned(stats.duration),
+			displayUnsigned(stats.rx_bytes),
+			displayUnsigned(stats.tx_bytes)
 		];
 	});
 }

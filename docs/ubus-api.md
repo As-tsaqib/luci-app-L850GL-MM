@@ -244,16 +244,30 @@ send operation and must not be invented as a persistent message state.
 Pagination values are bounded.
 
 Output adds `messages`, each containing opaque `sms_id`, direction/state,
-masked or authorized number, text, timestamp, PDU type, delivery state, and
-message reference where reported by ModemManager. The API does not invent
-multipart part/count metadata: ModemManager exposes a combined SMS object and
-uses `receiving` versus `received` to indicate completeness. It never contains
-raw PDU, SMSC secrets, or D-Bus paths.
+masked or authorized number, text, timestamp, discharge timestamp, storage,
+PDU type, delivery state, message reference, and a binary-data presence flag
+where reported by ModemManager. Binary payload bytes are never exported; the
+LuCI view distinguishes a binary-only SMS from an empty text message. The API
+does not invent multipart part/count metadata: ModemManager exposes a combined
+SMS object and uses `receiving` versus `received` to indicate completeness. It
+never contains raw PDU, SMSC secrets, or D-Bus paths.
 
 The response also contains `generation`, `messaging_generation`, cache
-`revision`, `cache_state`, `has_more`, and an opaque `next_cursor`. A cursor is
-bound to the modem, both generations, cache revision, and filter; it cannot be
-reused after the underlying inventory changes.
+`revision`, `cache_state`, `has_more`, and an opaque `next_cursor`.
+`next_cursor` is the opaque `sms_id` of the last returned message when
+`has_more=true`; otherwise it is empty. A later request re-filters and re-sorts
+the current cache, locates that SMS ID, and resumes after it. The cursor does
+not contain generation, revision, or filter metadata. It is accepted only
+while the anchor remains in the selected modem's current filtered view;
+otherwise the bridge returns `stale_cursor`.
+
+Pagination is therefore live and anchor-based, not a revision-bound snapshot.
+Clients that require a stable traversal must compare `generation`,
+`messaging_generation`, and `revision` across pages and restart with an empty
+cursor if any marker changes. `revision` is an observation marker, not an input
+precondition or part of the cursor. It may advance for signals, property
+changes, and full reconciliation, including a reconciliation that leaves the
+visible inventory unchanged.
 
 Cache synchronization is automatic. ModemManager `Added` and `Deleted`
 signals and per-SMS property changes trigger refreshes; a 30-second full-list

@@ -175,6 +175,40 @@ global.E = function(tag, attributes, children) {
 		children: children || []
 	};
 };
+
+function visitRenderedTree(node, visitor) {
+	if (Array.isArray(node)) {
+		node.forEach(function(child) { visitRenderedTree(child, visitor); });
+		return;
+	}
+
+	if (node == null || typeof node !== 'object')
+		return;
+
+	visitor(node);
+	if (Array.isArray(node.children))
+		node.children.forEach(function(child) { visitRenderedTree(child, visitor); });
+}
+
+function renderedText(node) {
+	const values = [];
+
+	(function collect(value) {
+		if (Array.isArray(value)) {
+			value.forEach(collect);
+		}
+		else if (value != null && typeof value === 'object') {
+			if (Array.isArray(value.children))
+				value.children.forEach(collect);
+		}
+		else if (typeof value === 'string' || typeof value === 'number') {
+			values.push(String(value));
+		}
+	})(node);
+
+	return values;
+}
+
 global.L = {
 	url: function() { return Array.from(arguments).join('/'); }
 };
@@ -207,17 +241,41 @@ assert.strictEqual(widgets.dependencyRows({
 assert.strictEqual(widgets.portRows({
 	ports: [ { role: 'primary', name: 'cdc-wdm0', type: 'mbim', primary: true } ]
 })[0][1].children[0], 'cdc-wdm0');
-assert.strictEqual(widgets.simSlotRows({
-	slots: [ { slot: 1, present: true, active: true, iccid: '***1234' } ]
-})[0][0], '1');
-assert.strictEqual(widgets.signalRows({ lte: { rsrp: -90, rsrq: -10 } }).length, 2);
+const simSlotRows = widgets.simSlotRows({
+	slots: [ {
+		slot: 1, present: true, primary: false, active: true,
+		iccid: '***must-not-render', imsi: '***must-not-render', operator: 'must-not-render'
+	} ]
+});
+assert.strictEqual(simSlotRows[0][0], '1');
+assert.strictEqual(simSlotRows[0].length, 3,
+	'physical slot rows must contain only slot, presence, and primary state');
+assert.strictEqual(simSlotRows[0][2], 'No',
+	'physical slot primary state must not be inferred from an active field');
+assert.doesNotMatch(JSON.stringify(simSlotRows), /must-not-render/,
+	'physical slot rows must not invent per-slot identity or operator data');
+const signalRows = widgets.signalRows({ lte: { rsrp: -90, rsrq: -10, sinr: 14 } });
+assert.strictEqual(signalRows.length, 3);
+assert.deepStrictEqual(signalRows.find(function(row) { return row[1] === 'SINR'; }),
+	[ 'LTE', 'SINR', 14 ]);
 assert.strictEqual(widgets.cellRows({ cells: [ { serving: true, pci: 0, earfcn: 1650 } ] })[0][4], '0');
-assert.strictEqual(widgets.bearerRows([ {
+const bearerRow = widgets.bearerRows([ {
 	connected: true,
+	suspended: false,
+	multiplexed: true,
 	interface: 'wwan0',
 	ip_families: [ 'ipv4' ],
-	ipv4: { address: '192.0.2.2', gateway: '192.0.2.1', dns: [ '192.0.2.53' ] }
-} ])[0][1].children[0], 'wwan0');
+	ipv4: { address: '192.0.2.2', gateway: '192.0.2.1', dns: [ '192.0.2.53' ], mtu: 0 },
+	stats: { duration: 0, rx_bytes: 0, tx_bytes: '18446744073709551615' }
+} ])[0];
+assert.strictEqual(bearerRow.length, 12);
+assert.strictEqual(bearerRow[1], 'No');
+assert.strictEqual(bearerRow[2], 'Yes');
+assert.strictEqual(bearerRow[3].children[0], 'wwan0');
+assert.deepStrictEqual(bearerRow.slice(8), [ '0', '0', '0', '18446744073709551615' ]);
+assert.strictEqual(widgets.bearerRows([ {
+	stats: { rx_bytes: Number.MAX_SAFE_INTEGER + 1 }
+} ])[0][10], '—', 'unsafe JavaScript integers must not be rendered as exact counters');
 assert.strictEqual(widgets.capabilityRows({
 	capabilities: { messaging: { state: 'available', mutable: true, reason: 'dbus-interface-present' } }
 }).length, 1);
@@ -299,11 +357,12 @@ const statusResult = {
 	sim: {
 		present: true,
 		primary_slot: 1,
+		active: true,
 		iccid: '***1234',
 		lock: 'none',
 		slots: [
-			{ slot: 1, present: true, active: true },
-			{ slot: 2, present: false, active: false }
+			{ slot: 1, present: true, primary: true },
+			{ slot: 2, present: false, primary: false }
 		]
 	},
 	network: { registration: 'home', operator: 'Test', access: [ 'lte' ] },
@@ -316,14 +375,20 @@ const statusResult = {
 		supported_modes: [ { allowed: [ '4g' ], preferred: 'none' } ],
 		current_modes: { allowed: [ '4g' ], preferred: 'none' }
 	},
-	signal: { quality: 72, recent: true, lte: { rsrp: -90 } },
+	signal: { quality: 72, recent: true, lte: { rsrp: -90, sinr: 14 } },
 	cell: { state: 'unsupported', reason: 'not-advertised', cells: [] },
-	bearers: [ { connected: true, interface: 'wwan0', ip_families: [ 'ipv4' ] } ],
+	bearers: [ {
+		connected: true, suspended: false, multiplexed: true, interface: 'wwan0',
+		ip_families: [ 'ipv4' ], stats: { duration: 60, rx_bytes: 1024, tx_bytes: 512 }
+	} ],
 	openwrt: { network: 'wan', up: true },
 	network_binding: {
 		state: 'bound', section: 'wan', allowedmode: '4g', preferredmode: 'none'
 	},
-	diagnostics: { modemmanager_version: '1.24.0', mbim: true }
+	diagnostics: {
+		bridge_version: '0.2.0', modemmanager_version: '1.24.0', read_only: false,
+		raw_dbus_paths_exposed: false, at_commands_enabled: false
+	}
 };
 const capabilityResult = {
 	schema: 1,
@@ -365,10 +430,15 @@ assert.strictEqual(overviewView.render({
 assert.strictEqual(overviewView.render({
 	list: { transport_error: 'connection lost' }, entries: []
 }).tag, 'div');
-assert.strictEqual(statusView.render({
+const renderedStatus = statusView.render({
 	list: listResult,
 	entries: [ { summary: summary, status: statusResult, capabilities: capabilityResult } ]
-}).tag, 'div');
+});
+assert.strictEqual(renderedStatus.tag, 'div');
+const statusText = renderedText(renderedStatus);
+[ 'modemmanager', 'netifd proto', 'fibocom plugin', 'mbim' ].forEach(function(name) {
+	assert.ok(statusText.includes(name), `Status must render list_modems dependency ${name}`);
+});
 assert.strictEqual(statusView.render({
 	list: { transport_error: 'permission denied' }, entries: []
 }).tag, 'div');
@@ -379,6 +449,54 @@ assert.strictEqual(smsView.render({
 assert.strictEqual(smsView.render({
 	list: { transport_error: 'permission denied' }, entries: []
 }).tag, 'div');
+
+const binarySmsResult = Object.assign({}, smsResult, {
+	messages: [ {
+		sms_id: 'sms-binary',
+		direction: 'incoming',
+		state: 'received',
+		folder: 'inbox',
+		number: '***1234',
+		text: '',
+		timestamp: '2026-07-19T12:00:00Z',
+		discharge_timestamp: '2026-07-19T12:01:00Z',
+		pdu_type: 'deliver',
+		delivery_state: 0,
+		message_reference: 1,
+		storage: 'mt',
+		has_binary_data: true
+	} ]
+});
+const binarySmsText = renderedText(smsView.render({
+	list: listResult,
+	entries: [ { summary: summary, messages: binarySmsResult } ]
+}));
+assert.ok(binarySmsText.includes('Binary SMS payload (not displayed)'));
+assert.ok(binarySmsText.includes(
+	'This SMS contains binary data. Its raw payload is intentionally not exposed or displayed.'));
+assert.ok(binarySmsText.includes('Discharge timestamp'));
+assert.ok(binarySmsText.includes('2026-07-19T12:01:00Z'));
+assert.ok(binarySmsText.includes('Storage'));
+assert.ok(binarySmsText.includes('mt'));
+assert.ok(binarySmsText.includes('Binary data present'));
+assert.ok(!binarySmsText.includes('Empty text message'));
+
+const emptyTextSmsResult = Object.assign({}, smsResult, {
+	messages: [ Object.assign({}, binarySmsResult.messages[0], {
+		sms_id: 'sms-empty-text',
+		discharge_timestamp: '',
+		storage: '',
+		has_binary_data: false
+	}) ]
+});
+const emptyTextSmsText = renderedText(smsView.render({
+	list: listResult,
+	entries: [ { summary: summary, messages: emptyTextSmsResult } ]
+}));
+assert.ok(emptyTextSmsText.includes('Empty text message'));
+assert.ok(!emptyTextSmsText.includes('Binary SMS payload (not displayed)'));
+assert.ok(!emptyTextSmsText.includes(
+	'This SMS contains binary data. Its raw payload is intentionally not exposed or displayed.'));
 assert.strictEqual(advancedView.render({
 	list: listResult,
 	entries: [ { summary: summary, status: statusResult, capabilities: capabilityResult } ]
@@ -435,6 +553,17 @@ assert.doesNotMatch(smsSource, /\.slice\s*\(\s*0\s*,/,
 	'SMS text must never be truncated before display or sending');
 
 const advancedSource = read('htdocs/luci-static/resources/view/fibocom/advanced.js');
+const statusSource = read('htdocs/luci-static/resources/view/fibocom/status.js');
+assert.ok(statusSource.includes('widgets.dependencyRows(listResult)'));
+[
+	'diagnostics.netifd_proto',
+	'diagnostics.fibocom_plugin',
+	'diagnostics.mbim',
+	'diagnostics.last_error_code',
+	'diagnostics.last_error_reason'
+].forEach(function(field) {
+	assert.ok(!statusSource.includes(field), `Status must not request nonexistent ${field}`);
+});
 assert.ok(advancedSource.includes('poll.add'));
 assert.ok(advancedSource.includes('ui.showModal'));
 assert.ok(advancedSource.includes("[ 'any' ]"));
@@ -447,6 +576,8 @@ assert.ok(advancedSource.includes("'stale_generation'"));
 assert.ok(advancedSource.includes("error.code === 'outcome_unknown'"));
 assert.ok(advancedSource.includes('do not retry until the live modem state confirms'));
 assert.ok(advancedSource.includes("L.url('admin/network/network', section)"));
+assert.ok(advancedSource.includes('/^[A-Za-z0-9_]{1,64}$/'));
+assert.ok(!advancedSource.includes('/^[A-Za-z0-9_]{1,32}$/'));
 assert.match(advancedSource, /api\.setBands\([\s\S]*?bands, true\)/);
 assert.match(advancedSource, /api\.setRadio\([\s\S]*?true, true\)/);
 assert.match(advancedSource, /api\.setRadio\([\s\S]*?false, true\)/);
@@ -456,6 +587,27 @@ assert.doesNotMatch(advancedSource, /set(?:Current)?Modes/i,
 	'Advanced must not mutate ModemManager modes directly');
 assert.doesNotMatch(advancedSource, /\/dev\/|tty(?:USB|ACM)|SetCurrentBands|SetCurrentModes/,
 	'Advanced must not expose device selectors or direct D-Bus method names');
+
+const longSection = 'n'.repeat(64);
+const longSectionStatus = Object.assign({}, statusResult, {
+	network_binding: Object.assign({}, statusResult.network_binding, { section: longSection })
+});
+const renderedAdvanced = advancedView.render({
+	list: listResult,
+	entries: [ {
+		summary: summary,
+		status: longSectionStatus,
+		capabilities: capabilityResult
+	} ]
+});
+const advancedHrefs = [];
+
+visitRenderedTree(renderedAdvanced, function(node) {
+	if (node.attributes && typeof node.attributes.href === 'string')
+		advancedHrefs.push(node.attributes.href);
+});
+assert.ok(advancedHrefs.includes(`admin/network/network/${longSection}`),
+	'Advanced must link a backend-approved 64-character network section');
 
 const settingsSource = read('htdocs/luci-static/resources/view/fibocom/settings.js');
 assert.ok(settingsSource.includes("L.url('admin/network/network')"));

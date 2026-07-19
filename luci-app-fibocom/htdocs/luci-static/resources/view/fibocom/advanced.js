@@ -232,7 +232,7 @@ function networkInterfaceUrl(status) {
 	const binding = widgets.object(status.network_binding);
 	const section = typeof binding.section === 'string' ? binding.section : '';
 
-	if (/^[A-Za-z0-9_]{1,32}$/.test(section))
+	if (/^[A-Za-z0-9_]{1,64}$/.test(section))
 		return L.url('admin/network/network', section);
 
 	return L.url('admin/network/network');

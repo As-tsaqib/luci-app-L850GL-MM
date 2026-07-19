@@ -492,16 +492,25 @@ function renderMessage(controller, entry, state, message) {
 	const delivery = deliveryState(message.delivery_state);
 	const smsId = typeof message.sms_id === 'string' ? message.sms_id : null;
 	const text = typeof message.text === 'string' ? message.text : '';
+	const hasBinaryData = message.has_binary_data === true;
+	const dischargeTimestamp = typeof message.discharge_timestamp === 'string' &&
+		message.discharge_timestamp !== '' ? message.discharge_timestamp : null;
+	const storage = typeof message.storage === 'string' && message.storage !== '' ?
+		message.storage : null;
 	const busy = isMutationBusy(state);
 	const rows = [
 		[ _('Direction'), directionLabel(direction) ],
 		[ numberLabel, scalar(message.number) ],
 		[ _('Timestamp'), scalar(message.timestamp) ],
+		[ _('Discharge timestamp'), dischargeTimestamp ],
 		[ _('State'), widgets.badge(scalar(message.state, _('Unknown')), message.state) ],
 		[ _('Folder'), scalar(message.folder) ],
 		[ _('PDU type'), scalar(message.pdu_type) ],
 		[ _('Delivery state'), delivery ],
-		[ _('Message reference'), scalar(message.message_reference) ]
+		[ _('Message reference'), scalar(message.message_reference) ],
+		[ _('Storage'), storage ],
+		[ _('Binary data present'), typeof message.has_binary_data === 'boolean' ?
+			message.has_binary_data : null ]
 	];
 
 	return E('div', { 'class': 'cbi-section-node' }, [
@@ -514,12 +523,16 @@ function renderMessage(controller, entry, state, message) {
 			E('div', { 'class': 'alert-message warning' }, [
 				_('This received message was truncated by the bridge safety limit.')
 			]) : E([]),
+		hasBinaryData ? E('div', { 'class': 'alert-message notice' }, [
+			_('This SMS contains binary data. Its raw payload is intentionally not exposed or displayed.')
+		]) : E([]),
 		E('div', { 'class': 'cbi-value' }, [
 			E('div', { 'class': 'cbi-value-title' }, [ _('Message') ]),
 			E('div', {
 				'class': 'cbi-value-field',
 				'style': 'white-space: pre-wrap; overflow-wrap: anywhere;'
-			}, [ text || _('Empty message') ])
+			}, [ text || (hasBinaryData ? _('Binary SMS payload (not displayed)') :
+				_('Empty text message')) ])
 		]),
 		smsId ? E('div', { 'class': 'right' }, [
 			E('button', {

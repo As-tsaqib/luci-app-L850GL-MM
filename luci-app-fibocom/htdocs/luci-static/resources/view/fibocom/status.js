@@ -88,7 +88,7 @@ function renderSim(status) {
 	if (slots.length) {
 		children.push(E('h5', {}, [ _('Physical SIM slots') ]));
 		children.push(widgets.table([
-			_('Slot'), _('Present'), _('Active'), _('ICCID'), _('IMSI'), _('Operator')
+			_('Slot'), _('Present'), _('Primary')
 		], slots));
 	}
 
@@ -155,7 +155,9 @@ function renderBearers(status) {
 			[ _('Snapshot state'), status.bearer_cache_state ]
 		]),
 		widgets.table([
-			_('Connected'), _('Interface'), _('IP families'), _('Addresses'), _('Gateways'), _('DNS'), _('MTU')
+			_('Connected'), _('Suspended'), _('Multiplexed'), _('Interface'),
+			_('IP families'), _('Addresses'), _('Gateways'), _('DNS'), _('MTU'),
+			_('Duration (s)'), _('Received bytes'), _('Transmitted bytes')
 		], widgets.bearerRows(status.bearers), _('No bearer information was reported.'))
 	]));
 }
@@ -177,21 +179,16 @@ function renderOpenWrt(status) {
 	], _('No matching netifd interface was reported.')));
 }
 
-function renderDiagnostics(status) {
+function renderDiagnostics(status, listResult) {
 	const diagnostics = widgets.object(status.diagnostics);
-	const dependencies = widgets.dependencyRows({ dependencies: diagnostics.dependencies });
+	const dependencies = widgets.dependencyRows(listResult);
 	const children = [
 		widgets.keyValueTable([
 			[ _('Bridge version'), diagnostics.bridge_version ],
 			[ _('ModemManager version'), diagnostics.modemmanager_version ],
 			[ _('Read-only milestone'), diagnostics.read_only ],
 			[ _('Raw D-Bus paths exposed'), diagnostics.raw_dbus_paths_exposed ],
-			[ _('AT commands enabled'), diagnostics.at_commands_enabled ],
-			[ _('Netifd protocol available'), diagnostics.netifd_proto ],
-			[ _('Fibocom plugin available'), diagnostics.fibocom_plugin ],
-			[ _('MBIM available'), diagnostics.mbim ],
-			[ _('Last error code'), diagnostics.last_error_code ],
-			[ _('Last error reason'), diagnostics.last_error_reason ]
+			[ _('AT commands enabled'), diagnostics.at_commands_enabled ]
 		], _('No diagnostic summary was reported.'))
 	];
 
@@ -215,7 +212,7 @@ function renderCapabilities(result) {
 	], widgets.capabilityRows(result), _('No capabilities were reported.')));
 }
 
-function renderDevice(entry) {
+function renderDevice(entry, listResult) {
 	const error = widgets.responseError(entry.status);
 	const summary = widgets.object(entry.summary);
 	const title = widgets.display(summary.model, _('Fibocom modem'));
@@ -243,7 +240,7 @@ function renderDevice(entry) {
 	children.push(renderCell(status));
 	children.push(renderBearers(status));
 	children.push(renderOpenWrt(status));
-	children.push(renderDiagnostics(status));
+	children.push(renderDiagnostics(status, listResult));
 	children.push(renderCapabilities(entry.capabilities));
 
 	return E('div', { 'class': 'cbi-section' }, children);
@@ -261,7 +258,9 @@ function renderSnapshots(snapshot) {
 		]);
 	}
 
-	return E('div', {}, snapshot.entries.map(renderDevice));
+	return E('div', {}, snapshot.entries.map(function(entry) {
+		return renderDevice(entry, snapshot.list);
+	}));
 }
 
 return view.extend({

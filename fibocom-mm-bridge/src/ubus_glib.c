@@ -1598,7 +1598,6 @@ add_sim_status(struct blob_buf *buffer, FibocomModem *modem)
 		blobmsg_add_u8(buffer, "present",
 			path != NULL && !g_str_equal(path, "/"));
 		blobmsg_add_u8(buffer, "primary", primary);
-		blobmsg_add_u8(buffer, "active", primary);
 		blobmsg_close_table(buffer, slot);
 	}
 	blobmsg_close_array(buffer, slot_array);
