@@ -7,11 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Scope
 
-Read-only validation performed on 2026-07-19. Identifiers and secrets were not
-recorded. The evidence proves the MBIM/ModemManager lifecycle on this hardware;
-it does not claim every L850 firmware or OpenWrt release. It predates the
-v0.2.0 SMS/Advanced implementation: no current `fibocom-mm-bridge` package was
-installed, and no app SMS or Advanced mutation was exercised.
+Validation was performed on 2026-07-19. Identifiers and secrets were not
+recorded. The evidence proves the MBIM/ModemManager lifecycle and the explicitly
+listed companion-app reads on this hardware; it does not claim every L850
+firmware or OpenWrt release. SMS send/delete, Advanced mutations, and eSIM
+profile mutations were not exercised.
 
 ## Environment
 
@@ -28,6 +28,48 @@ installed, and no app SMS or Advanced mutation was exercised.
 | Firmware | `18500.5001.00.05.27.30` |
 | Plugin | `fibocom` |
 | Composition | MBIM, `2cb7:0007` |
+
+## Staged v0.2 application validation
+
+The v0.2 base and optional eSIM menu packages installed successfully. The
+bridge registered `fibocom.mm` and reported version 0.2.0. Typed read-only
+`list_modems`, `get_overview`, `get_status`, and `get_capabilities` calls
+returned successful schema-1 responses for the admitted L850-GL. The results
+confirmed the Fibocom plugin, MBIM composition, connected bearer, and exact
+netifd ownership binding without retaining a stable hardware identifier,
+credential, subscriber identifier, phone number, or assigned address.
+
+The final smoke test used source commit `a803c8c`: static run `29692009885`
+and OpenWrt SDK run `29692009880` both passed. Downloaded `SHA256SUMS` passed
+for the two-package base and five-package optional eSIM artifacts. The router
+was upgraded to `fibocom-mm-bridge` 0.2.0-r2 and the matching noarch LuCI base
+and eSIM alias. Its native ModemManager, lpac, and `luci-app-lpac` packages were
+not replaced. After restarting only the companion bridge, one ModemManager
+daemon remained and the netifd interface stayed up.
+
+The SMS cache was initially `ready` with count zero. After one externally
+delivered SMS, it updated automatically to count one and classified the entry
+as inbound/inbox. Cache revision advanced from 4 to 12; a revision delta is not
+a message count because Added, property changes, list completion, and periodic
+reconciliation may each increment it. No SMS number, body, opaque ID, or D-Bus
+path was recorded.
+
+With the count held at one, revision-only updates were observed approximately
+29–30 seconds apart. This proves that the configured 30-second reconciliation
+runs live. Signals were not deliberately suppressed, so this does not by
+itself prove repair of a missed signal. An open LuCI SMS view polls the bridge
+cache every 10 seconds; that browser behavior is source/static-test evidence,
+not a measured browser-render latency in this router session.
+
+The optional Fibocom eSIM menu alias resolved to the already installed
+`luci-app-lpac` UI. A typed read-only chip-information request succeeded and
+returned an EID with the required 32-decimal-digit shape; the value was
+discarded and was not recorded. The MBIM proxy remained enabled.
+
+The existing ModemManager/netifd connection remained up before and after
+package installation, incoming-SMS observation, and the read-only eUICC probe.
+This does not establish connection behavior for SMS, Advanced, or eSIM
+mutations.
 
 Observed ModemManager port grouping:
 
