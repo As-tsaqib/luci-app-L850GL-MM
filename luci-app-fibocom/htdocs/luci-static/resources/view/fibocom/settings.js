@@ -8,18 +8,16 @@ return view.extend({
 	render: function() {
 		return E('div', { 'class': 'cbi-map' }, [
 			E('h2', {}, [ _('Fibocom Modem Settings') ]),
-			E('div', { 'class': 'alert-message warning' }, [
-				E('strong', {}, [ _('Settings are read-only during shadow mode.') ]),
-				' ',
-				_('The discovery service currently observes hardware only and cannot change radio, SIM, USB composition, or bearer state.')
+			E('div', { 'class': 'cbi-map-descr' }, [
+				_('Connection settings are owned by netifd and the ModemManager protocol. They are intentionally not duplicated here.')
 			]),
 			E('div', { 'class': 'cbi-section' }, [
-				E('h3', {}, [ _('Connection configuration') ]),
-				E('p', {}, [
-					_('APN, authentication, IP family, DNS, metric, and roaming policy belong to one logical netifd interface. They are not duplicated in the Fibocom management configuration.')
-				]),
-				E('p', {}, [
-					_('When the fibocom network protocol is enabled, create or edit the connection under Network Interfaces. Runtime port names, addresses, routes, DNS servers, and session identifiers are never stored here.')
+				E('h3', {}, [ _('Configure the data connection') ]),
+				E('ol', {}, [
+					E('li', {}, [ _('Open Network Interfaces and add a new interface, or edit the existing cellular interface.') ]),
+					E('li', {}, [ _('Choose ModemManager as the protocol and select the Fibocom modem exposed by ModemManager.') ]),
+					E('li', {}, [ _('Set the APN and, only when required by the provider, authentication, PIN, roaming, and IP-family options.') ]),
+					E('li', {}, [ _('Save and apply the network interface. Netifd will own automatic connection, routes, and DNS.') ])
 				]),
 				E('p', {}, [
 					E('a', {
@@ -29,13 +27,22 @@ return view.extend({
 				])
 			]),
 			E('div', { 'class': 'cbi-section' }, [
-				E('h3', {}, [ _('Ownership and migration') ]),
+				E('h3', {}, [ _('Connection ownership') ]),
 				E('p', {}, [
-					_('Keep the existing dialer as the sole modem owner while shadow-mode evidence is collected. Do not enable two dialers for the same physical modem.')
+					_('ModemManager discovers the modem and manages radio, SIM, bearer, and SMS objects. The netifd ModemManager protocol applies persistent connection intent and publishes the resulting OpenWrt interface state.')
 				]),
 				E('p', {}, [
-					_('Radio controls, USB mode switching, reboot, band policy, SIM operations, and eSIM lifecycle controls are deliberately absent from this phase.')
+					_('Do not configure a second dialer for the same modem. This companion interface does not create, connect, disconnect, or delete bearers.')
+				]),
+				E('p', {}, [
+					E('a', {
+						'class': 'cbi-button',
+						'href': L.url('admin/status/modemmanager')
+					}, [ _('Open ModemManager status') ])
 				])
+			]),
+			E('div', { 'class': 'alert-message notice' }, [
+				_('SMS, advanced radio controls, and optional eSIM integration are planned as separate milestones and are not available in this P0 interface.')
 			])
 		]);
 	},

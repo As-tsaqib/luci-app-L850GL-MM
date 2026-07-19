@@ -5,123 +5,147 @@
 'use strict';
 'require dom';
 'require poll';
-'require ui';
 'require view';
 'require fibocom.api as api';
 'require fibocom.widgets as widgets';
 
-function renderInventory(result) {
-	const error = widgets.responseError(result);
+function transportResult(error) {
+	return {
+		transport_error: widgets.display(error && error.message, _('RPC transport failure'))
+	};
+}
+
+function loadSnapshots() {
+	return api.listModems().then(function(listResult) {
+		if (widgets.responseError(listResult))
+			return { list: listResult, entries: [] };
+
+		const requests = widgets.modems(listResult).filter(function(summary) {
+			return widgets.isObject(summary) && typeof summary.modem_id === 'string';
+		}).map(function(summary) {
+			return api.getOverview(summary.modem_id).catch(transportResult).then(function(overview) {
+				return { summary: summary, overview: overview };
+			});
+		});
+
+		return Promise.all(requests).then(function(entries) {
+			return { list: listResult, entries: entries };
+		});
+	}).catch(function(error) {
+		return { list: transportResult(error), entries: [] };
+	});
+}
+
+function renderDevice(entry) {
+	const error = widgets.responseError(entry.overview);
+	const summary = widgets.object(entry.summary);
+
+	if (error) {
+		return E('div', { 'class': 'cbi-section' }, [
+			E('h3', {}, [ widgets.display(summary.model, _('Fibocom modem')) ]),
+			widgets.errorPanel({ transport_error: error })
+		]);
+	}
+
+	const overview = widgets.object(entry.overview);
+	const modem = widgets.object(overview.modem);
+	const sim = widgets.object(overview.sim);
+	const network = widgets.object(overview.network);
+	const signal = widgets.object(overview.signal);
+	const bearer = widgets.object(overview.bearer);
+	const openwrt = widgets.object(overview.openwrt);
+	const state = modem.state || summary.state || 'unknown';
+	const registration = network.registration || 'unknown';
+	const support = summary.supported === true ? 'supported' :
+		(summary.supported === false ? 'unsupported' : 'unknown');
+	const supportLabel = summary.supported === true ? _('Supported') :
+		(summary.supported === false ? _('Unsupported') : _('Unknown'));
+	const warning = widgets.warningList(overview.warnings);
+	const children = [
+		E('h3', {}, [ widgets.display(modem.model || summary.model, _('Fibocom modem')) ]),
+		widgets.keyValueTable([
+			[ _('Manufacturer'), summary.manufacturer ],
+			[ _('Revision'), modem.revision ],
+			[ _('ModemManager plugin'), summary.plugin ],
+			[ _('USB composition'), summary.composition ],
+			[ _('Support'), widgets.badge(supportLabel, support) ],
+			[ _('Support reason'), summary.support_reason ],
+			[ _('Modem state'), widgets.badge(widgets.display(state), state) ],
+			[ _('Snapshot freshness'), widgets.badge(widgets.display(overview.freshness), overview.freshness) ],
+			[ _('SIM present'), sim.present ],
+			[ _('Primary SIM slot'), sim.slot ],
+			[ _('SIM lock'), sim.lock ],
+			[ _('Registration'), widgets.badge(widgets.display(registration), registration) ],
+			[ _('Operator'), network.operator ],
+			[ _('Access technology'), network.access ],
+			[ _('Signal quality'), signal.quality != null ? widgets.progress(signal.quality) : null ],
+			[ _('Signal is recent'), signal.recent ],
+			[ _('Bearer connected'), bearer.connected ],
+			[ _('Data interface'), bearer.interface ? E('code', {}, [ widgets.display(bearer.interface) ]) : null ],
+			[ _('IP families'), bearer.ip_families ],
+			[ _('OpenWrt interface'), openwrt.network ],
+			[ _('OpenWrt interface up'), openwrt.up ],
+			[ _('Last state change'), summary.last_changed_at ]
+		], _('No overview fields are available for this modem.'))
+	];
+
+	if (warning)
+		children.push(warning);
+
+	return E('div', { 'class': 'cbi-section' }, children);
+}
+
+function renderSnapshots(snapshot) {
+	const error = widgets.responseError(snapshot.list);
 
 	if (error)
 		return widgets.errorPanel({ transport_error: error });
 
-	const devices = widgets.devices(result);
-	const rows = devices.filter(function(device) {
-		return device != null && typeof device === 'object';
-	}).map(function(device) {
-		const presence = device.present === false ? _('Missing') : _('Present');
-		const topology = widgets.display(device.topology_status, _('Unknown'));
-		const usbId = device.vid || device.pid ? '%s:%s'.format(
-			widgets.display(device.vid, '????'), widgets.display(device.pid, '????')) : '—';
-
-		return [
-			widgets.display(device.model || device.profile, _('Unmatched device')),
-			E('code', {}, [ widgets.display(device.device_id) ]),
-			widgets.badge(presence, device.present === false ? 'missing' : 'present'),
-			widgets.display(device.composition, _('Unknown')),
-			E('code', {}, [ usbId ]),
-			widgets.badge(topology, topology),
-			widgets.display(device.generation)
-		];
-	});
-	const notice = widgets.schemaNotice(result);
-	const content = [];
+	const children = [];
+	const notice = widgets.schemaNotice(snapshot.list);
+	const dependencies = widgets.dependencyRows(snapshot.list);
 
 	if (notice)
-		content.push(notice);
+		children.push(notice);
 
-	content.push(widgets.table([
-		_('Modem'),
-		_('Device ID'),
-		_('Presence'),
-		_('Composition'),
-		_('USB ID'),
-		_('Topology'),
-		_('Generation')
-	], rows, _('No supported Fibocom modem has been discovered.')));
+	if (dependencies.length) {
+		children.push(E('div', { 'class': 'cbi-section' }, [
+			E('h3', {}, [ _('Runtime dependencies') ]),
+			widgets.table([
+				_('Component'), _('State'), _('Version'), _('Reason')
+			], dependencies)
+		]));
+	}
 
-	return E('div', {}, content);
+	if (!snapshot.entries.length) {
+		children.push(E('div', { 'class': 'alert-message notice' }, [
+			_('No Fibocom modem is currently exported by ModemManager.')
+		]));
+	}
+	else
+		snapshot.entries.forEach(function(entry) { children.push(renderDevice(entry)); });
+
+	return E('div', {}, children);
 }
 
 return view.extend({
-	load: function() {
-		return api.list().catch(function(error) {
-			return { transport_error: widgets.display(error && error.message, _('RPC transport failure')) };
-		});
-	},
+	load: loadSnapshots,
 
-	handleRescan: function(event) {
-		const button = event.currentTarget;
-
-		button.disabled = true;
-		button.classList.add('spinning');
-
-		return api.rescan('manual', 'manual', 'change').then(function(result) {
-			const error = widgets.responseError(result);
-
-			if (error)
-				throw new Error(error);
-
-			ui.addNotification(null, E('p', {}, [
-				_('The Fibocom inventory rescan was scheduled successfully.')
-			]), 'info');
-		}).catch(function(error) {
-			ui.addNotification(null, E('p', {}, [
-				_('Unable to schedule a Fibocom inventory rescan: %s')
-					.format(widgets.display(error && error.message, _('Unknown error')))
-			]), 'error');
-		}).finally(function() {
-			button.disabled = false;
-			button.classList.remove('spinning');
-		});
-	},
-
-	render: function(result) {
-		const inventory = E('div', { 'id': 'fibocom-inventory' }, [ renderInventory(result) ]);
+	render: function(snapshot) {
+		const content = E('div', { 'id': 'fibocom-overview' }, [ renderSnapshots(snapshot) ]);
 
 		poll.add(function() {
-			return api.list().then(function(next) {
-				dom.content(inventory, renderInventory(next));
-			}).catch(function(error) {
-				dom.content(inventory, widgets.errorPanel(error));
+			return loadSnapshots().then(function(next) {
+				dom.content(content, renderSnapshots(next));
 			});
-		}, 5);
-
-		const actions = [];
-
-		if (L.hasViewPermission()) {
-			actions.push(E('button', {
-				'class': 'cbi-button cbi-button-action',
-				'click': ui.createHandlerFn(this, 'handleRescan')
-			}, [ _('Rescan devices') ]));
-		}
+		}, 10);
 
 		return E('div', { 'class': 'cbi-map' }, [
-			E('h2', {}, [ _('Fibocom Modem') ]),
+			E('h2', {}, [ _('Fibocom Modem Overview') ]),
 			E('div', { 'class': 'cbi-map-descr' }, [
-				_('Inventory is read from the fibocomd cache. Opening this page never probes a modem port.')
+				_('ModemManager owns discovery and the data session. This page only reads normalized snapshots from the Fibocom bridge.')
 			]),
-			E('div', { 'class': 'alert-message warning' }, [
-				E('strong', {}, [ _('Shadow mode is active.') ]),
-				' ',
-				_('fibocomd observes USB topology but does not claim, configure, or dial the modem.')
-			]),
-			E('div', { 'class': 'cbi-section' }, [
-				E('h3', {}, [ _('Detected devices') ]),
-				inventory
-			]),
-			E('div', { 'class': 'cbi-page-actions' }, actions)
+			content
 		]);
 	},
 

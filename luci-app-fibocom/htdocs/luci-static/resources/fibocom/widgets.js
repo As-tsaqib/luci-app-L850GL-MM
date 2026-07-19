@@ -8,6 +8,10 @@ function isObject(value) {
 	return value != null && typeof value === 'object' && !Array.isArray(value);
 }
 
+function object(value) {
+	return isObject(value) ? value : {};
+}
+
 function display(value, fallback) {
 	if (value == null || value === '')
 		return fallback != null ? fallback : '—';
@@ -19,11 +23,11 @@ function display(value, fallback) {
 		return _('No');
 
 	if (Array.isArray(value)) {
-		const primitives = value.filter(function(item) {
+		const values = value.filter(function(item) {
 			return item == null || [ 'string', 'number', 'boolean' ].indexOf(typeof item) !== -1;
 		});
 
-		return primitives.length ? primitives.map(function(item) {
+		return values.length ? values.map(function(item) {
 			return display(item);
 		}).join(', ') : (fallback != null ? fallback : '—');
 	}
@@ -36,7 +40,7 @@ function display(value, fallback) {
 
 function responseError(result) {
 	if (result == null)
-		return _('No response was received from fibocomd.');
+		return _('No response was received from the Fibocom bridge.');
 
 	if (result instanceof Error)
 		return display(result.message, _('Unknown transport error'));
@@ -47,15 +51,18 @@ function responseError(result) {
 	if (result.transport_error != null)
 		return display(result.transport_error, _('Unknown transport error'));
 
-	if (result.error == null)
+	if (result.ok !== false && result.error == null)
 		return null;
 
 	if (typeof result.error === 'string')
 		return result.error;
 
-	if (isObject(result.error))
-		return display(result.error.message || result.error.reason || result.error.code,
-			_('The request failed.'));
+	if (isObject(result.error)) {
+		const message = display(result.error.message || result.error.code, _('The request failed.'));
+
+		return result.error.code && result.error.message ? '%s (%s)'.format(
+			message, display(result.error.code)) : message;
+	}
 
 	return _('The request failed.');
 }
@@ -63,31 +70,34 @@ function responseError(result) {
 function stateClass(state) {
 	switch (String(state || '').toLowerCase()) {
 	case 'available':
-	case 'complete':
 	case 'connected':
-	case 'healthy':
-	case 'ok':
+	case 'enabled':
+	case 'fresh':
+	case 'home':
 	case 'online':
 	case 'present':
 	case 'ready':
+	case 'registered':
 	case 'supported':
+	case 'up':
 		return 'label success';
 
 	case 'absent':
-	case 'ambiguous':
-	case 'conflict':
+	case 'denied':
 	case 'error':
 	case 'failed':
 	case 'missing':
+	case 'unsupported':
 		return 'label danger';
 
+	case 'busy':
 	case 'degraded':
-	case 'incomplete':
-	case 'partial':
-	case 'pending':
-	case 'scanning':
+	case 'disconnected':
+	case 'roaming':
+	case 'searching':
+	case 'stale':
+	case 'unavailable':
 	case 'unknown':
-	case 'warning':
 		return 'label warning';
 
 	default:
@@ -133,175 +143,190 @@ function table(headers, rows, emptyMessage) {
 }
 
 function keyValueTable(rows, emptyMessage) {
-	const available = rows.filter(function(row) {
+	return table([ _('Property'), _('Value') ], rows.filter(function(row) {
 		return row.length > 1 && row[1] != null && row[1] !== '';
-	});
-	const node = table([ _('Property'), _('Value') ], available, emptyMessage);
-	const bodyRows = node.querySelectorAll ? node.querySelectorAll('tr.tr:not(.table-titles)') : [];
-
-	for (let i = 0; i < bodyRows.length; i++) {
-		const first = bodyRows[i].querySelector ? bodyRows[i].querySelector('td') : null;
-
-		if (first)
-			first.style.width = '33%';
-	}
-
-	return node;
+	}), emptyMessage);
 }
 
-function devices(result) {
-	if (Array.isArray(result))
-		return result;
-
-	return isObject(result) && Array.isArray(result.devices) ? result.devices : [];
+function modems(result) {
+	return isObject(result) && Array.isArray(result.modems) ? result.modems : [];
 }
 
-function device(result) {
-	if (!isObject(result))
-		return {};
+function dependencyRows(result) {
+	const dependencies = object(object(result).dependencies);
 
-	return isObject(result.device) ? result.device : result;
-}
-
-function diagnostics(result) {
-	if (!isObject(result))
-		return {};
-
-	return isObject(result.diagnostics) ? result.diagnostics : result;
-}
-
-function portRows(result) {
-	const record = device(result);
-	const topology = isObject(record.topology) ? record.topology : {};
-	const ports = record.ports != null ? record.ports : topology.ports;
-	const interfaces = Array.isArray(record.interfaces) ? record.interfaces : topology.interfaces;
-	const normalized = [];
-
-	if (Array.isArray(interfaces)) {
-		interfaces.forEach(function(iface) {
-			if (!isObject(iface))
-				return;
-
-			[
-				[ 'ttys', 'tty' ],
-				[ 'wdms', 'wdm' ],
-				[ 'netdevs', 'netdev' ]
-			].forEach(function(kind) {
-				if (!Array.isArray(iface[kind[0]]))
-					return;
-
-				iface[kind[0]].forEach(function(port) {
-					if (!isObject(port))
-						return;
-
-					normalized.push(Object.assign({
-						role: iface.role || kind[1],
-						interface_number: iface.number,
-						driver: iface.driver
-					}, port));
-				});
-			});
-		});
-	}
-
-	if (!normalized.length && Array.isArray(ports)) {
-		ports.forEach(function(port) {
-			if (isObject(port))
-				normalized.push(port);
-		});
-	}
-	else if (!normalized.length && isObject(ports)) {
-		Object.keys(ports).sort().forEach(function(role) {
-			const value = ports[role];
-
-			if (Array.isArray(value)) {
-				value.forEach(function(port) {
-					if (isObject(port))
-						normalized.push(Object.assign({ role: role }, port));
-					else
-						normalized.push({ role: role, node: port });
-				});
-			}
-			else if (isObject(value))
-				normalized.push(Object.assign({ role: role }, value));
-			else if (value == null || value === '')
-				normalized.push({ role: role, present: false });
-			else
-				normalized.push({ role: role, node: value });
-		});
-	}
-
-	return normalized.map(function(port) {
-		const state = port.present === false ? 'missing' : (port.state || 'present');
+	return [ 'modemmanager', 'netifd_proto', 'fibocom_plugin', 'mbim' ].filter(function(name) {
+		return dependencies[name] != null;
+	}).map(function(name) {
+		const dependency = dependencies[name];
+		const details = object(dependency);
+		const state = isObject(dependency) ?
+			(details.state || (details.available === true ? 'available' :
+				(details.available === false ? 'unavailable' : 'unknown'))) : dependency;
 
 		return [
-			display(port.role || port.kind || port.type),
-			display(port.node || port.name || port.device),
-			display(port.interface || port.interface_number || port.ifnum),
-			display(port.driver),
-			badge(display(port.state || (port.present === false ? _('Missing') : _('Present'))), state)
+			name.replace(/_/g, ' '),
+			badge(display(state), state),
+			display(details.version),
+			display(details.reason)
 		];
 	});
 }
 
 function capabilityRows(result) {
-	if (!isObject(result))
-		return [];
+	const capabilities = object(object(result).capabilities);
 
-	const capabilities = isObject(result.capabilities) ? result.capabilities : result;
-
-	return Object.keys(capabilities).filter(function(feature) {
-		return feature !== 'schema' && feature !== 'shadow_mode' && feature !== 'device_id' &&
-			isObject(capabilities[feature]);
-	}).sort().map(function(feature) {
-		const capability = capabilities[feature];
+	return Object.keys(capabilities).sort().filter(function(name) {
+		return isObject(capabilities[name]);
+	}).map(function(name) {
+		const capability = capabilities[name];
 		const state = capability.state || (capability.available === true ? 'available' :
 			(capability.available === false ? 'unavailable' : 'unknown'));
 
 		return [
-			E('code', {}, [ feature ]),
+			E('code', {}, [ name ]),
 			badge(display(state), state),
+			display(capability.mutable),
 			display(capability.reason)
 		];
 	});
 }
 
-function dependencyRows(result) {
-	const record = diagnostics(result);
-	const dependencies = record.dependencies;
-	const normalized = [];
+function portRows(result) {
+	const ports = Array.isArray(result) ? result : object(result).ports;
 
-	if (Array.isArray(dependencies)) {
-		dependencies.forEach(function(dependency) {
-			if (isObject(dependency))
-				normalized.push(dependency);
-		});
-	}
-	else if (isObject(dependencies)) {
-		Object.keys(dependencies).sort().forEach(function(name) {
-			const value = dependencies[name];
+	if (!Array.isArray(ports))
+		return [];
 
-			if (isObject(value))
-				normalized.push(Object.assign({ name: name }, value));
-		});
-	}
-
-	return normalized.map(function(dependency) {
-		const state = dependency.state || (dependency.available === true ? 'available' :
-			(dependency.available === false ? 'missing' : 'unknown'));
-
+	return ports.filter(isObject).map(function(port) {
 		return [
-			display(dependency.name || dependency.component),
-			badge(display(state), state),
-			display(dependency.version),
-			display(dependency.reason)
+			display(port.role),
+			E('code', {}, [ display(port.name || port.port) ]),
+			display(port.type),
+			port.primary == null ? '—' : display(port.primary)
 		];
 	});
 }
 
+function simSlotRows(result) {
+	const slots = object(result).slots;
+
+	if (!Array.isArray(slots))
+		return [];
+
+	return slots.filter(isObject).map(function(slot, index) {
+		return [
+			display(slot.slot || slot.number, index + 1),
+			badge(display(slot.present, _('Unknown')), slot.present === true ? 'present' :
+				(slot.present === false ? 'absent' : 'unknown')),
+			display(slot.active || slot.primary),
+			display(slot.iccid),
+			display(slot.imsi),
+			display(slot.operator || slot.operator_name)
+		];
+	});
+}
+
+function signalRows(result) {
+	const signal = object(result);
+	const technologies = [ 'gsm', 'umts', 'lte', 'nr5g', 'cdma1x', 'evdo' ];
+	const metrics = [ 'rssi', 'rscp', 'ecio', 'rsrp', 'rsrq', 'snr', 'error_rate' ];
+	const rows = [];
+
+	technologies.forEach(function(technology) {
+		const values = object(signal[technology]);
+
+		metrics.forEach(function(metric) {
+			if (values[metric] != null)
+				rows.push([ technology.toUpperCase(), metric.toUpperCase(), values[metric] ]);
+		});
+	});
+
+	return rows;
+}
+
+function cellRows(result) {
+	const cell = object(result);
+	const cells = Array.isArray(cell.cells) ? cell.cells : [];
+
+	return cells.filter(isObject).map(function(entry) {
+		return [
+			display(entry.serving === true ? _('Serving') : entry.type),
+			display(entry.operator || entry.operator_code),
+			display(entry.tac || entry.lac),
+			display(entry.cid || entry.cell_id),
+			display(entry.physical_cell_id || entry.pci),
+			display(entry.earfcn || entry.frequency),
+			display(entry.rsrp),
+			display(entry.rsrq)
+		];
+	});
+}
+
+function bearerRows(result) {
+	const bearers = Array.isArray(result) ? result : [];
+
+	return bearers.filter(isObject).map(function(bearer) {
+		const ipv4 = object(bearer.ipv4);
+		const ipv6 = object(bearer.ipv6);
+		const inferredFamilies = [];
+
+		if (Object.keys(ipv4).length)
+			inferredFamilies.push('ipv4');
+		if (Object.keys(ipv6).length)
+			inferredFamilies.push('ipv6');
+		const addresses = bearer.addresses || [ ipv4.address, ipv6.address ].filter(function(value) {
+			return value != null && value !== '';
+		});
+		const gateways = [ ipv4.gateway, ipv6.gateway ].filter(function(value) {
+			return value != null && value !== '';
+		});
+		const dns = bearer.dns || [].concat(ipv4.dns || [], ipv6.dns || []);
+
+		return [
+			badge(display(bearer.connected, _('Unknown')), bearer.connected === true ? 'connected' :
+				(bearer.connected === false ? 'disconnected' : 'unknown')),
+			E('code', {}, [ display(bearer.interface) ]),
+			display(bearer.ip_families || bearer.ip_family || inferredFamilies),
+			display(addresses),
+			display(gateways),
+			display(dns),
+			display(bearer.mtu || ipv4.mtu || ipv6.mtu)
+		];
+	});
+}
+
+function progress(value) {
+	const quality = Math.max(0, Math.min(100, Number(value)));
+
+	if (!Number.isFinite(quality))
+		return display(value);
+
+	return E('div', {
+		'class': 'cbi-progressbar',
+		'title': _('%d%% signal quality').format(quality)
+	}, [ E('div', { 'style': 'width: %d%%'.format(quality) }) ]);
+}
+
+function warningList(warnings) {
+	if (!Array.isArray(warnings))
+		return null;
+
+	const entries = warnings.filter(function(warning) {
+		return typeof warning === 'string' || typeof warning === 'number';
+	});
+
+	return entries.length ? E('div', { 'class': 'alert-message warning' }, [
+		E('strong', {}, [ _('Modem warning') ]),
+		E('ul', {}, entries.map(function(warning) {
+			return E('li', {}, [ display(warning) ]);
+		}))
+	]) : null;
+}
+
 function errorPanel(error) {
 	return E('div', { 'class': 'alert-message danger' }, [
-		E('strong', {}, [ _('Unable to load Fibocom status:') ]),
+		E('strong', {}, [ _('Unable to load Fibocom modem information:') ]),
 		' ',
 		display(responseError(error) || error, _('Unknown error'))
 	]);
@@ -312,23 +337,29 @@ function schemaNotice(result) {
 		return null;
 
 	return E('div', { 'class': 'alert-message warning' }, [
-		_('The daemon returned API schema %s, while this interface supports schema 1.')
+		_('The bridge returned API schema %s, while this interface supports schema 1.')
 			.format(display(result.schema))
 	]);
 }
 
 return baseclass.extend({
 	badge: badge,
+	bearerRows: bearerRows,
 	capabilityRows: capabilityRows,
+	cellRows: cellRows,
 	dependencyRows: dependencyRows,
-	device: device,
-	devices: devices,
-	diagnostics: diagnostics,
 	display: display,
 	errorPanel: errorPanel,
+	isObject: isObject,
 	keyValueTable: keyValueTable,
+	modems: modems,
+	object: object,
 	portRows: portRows,
+	progress: progress,
 	responseError: responseError,
 	schemaNotice: schemaNotice,
-	table: table
+	signalRows: signalRows,
+	simSlotRows: simSlotRows,
+	table: table,
+	warningList: warningList
 });

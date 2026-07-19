@@ -4,487 +4,652 @@
 msgid ""
 msgstr "Content-Type: text/plain; charset=UTF-8"
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:66
-msgid "API schema"
+#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:307
+msgid "%d%% signal quality"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/settings.js:19
-msgid ""
-"APN, authentication, IP family, DNS, metric, and roaming policy belong to "
-"one logical netifd interface. They are not duplicated in the Fibocom "
-"management configuration."
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:189
+msgid "AT commands enabled"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:68
-msgid "Cache updated"
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:80
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:108
+msgid "Access technology"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:82
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:91
+msgid "Active"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:158
+msgid "Addresses"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:172
+msgid "Available"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:83
+msgid "Bearer connected"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:185
+msgid "Bridge version"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:211
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:213
 msgid "Capabilities"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:73
-msgid "Changes network state"
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:144
+msgid "Cell"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:98
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:144
+msgid "Cell ID"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:149
+msgid "Cell information"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/settings.js:18
+msgid ""
+"Choose ModemManager as the protocol and select the Fibocom modem exposed by "
+"ModemManager."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:115
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:200
 msgid "Component"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:145
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:48
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:65
-msgid "Composition"
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/settings.js:15
+msgid "Configure the data connection"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/settings.js:17
-msgid "Connection configuration"
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:158
+msgid "Connected"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:148
-msgid "Current owner"
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/settings.js:30
+msgid "Connection ownership"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:168
-msgid "Daemon health"
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/settings.js:12
+msgid ""
+"Connection settings are owned by netifd and the ModemManager protocol. They "
+"are intentionally not duplicated here."
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:67
-msgid "Daemon mode"
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:158
+msgid "DNS"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:96
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:153
+msgid "Data bearers"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:84
+msgid "Data interface"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:204
 msgid "Dependencies"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:74
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:121
-msgid "Detected devices"
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:282
+msgid ""
+"Detailed values are normalized by the Fibocom bridge from ModemManager and "
+"netifd. This page does not execute modem commands."
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:137
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:46
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:60
-msgid "Device ID"
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/settings.js:35
+msgid ""
+"Do not configure a second dialer for the same modem. This companion "
+"interface does not create, connect, disconnect, or delete bearers."
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:78
-msgid "Devices added"
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:55
+msgid "Drivers"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:80
-msgid "Devices changed"
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:56
+msgid "Equipment identifier"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:79
-msgid "Devices removed"
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:176
+msgid "Error"
 msgstr ""
 
-#: luci-app-fibocom/root/usr/share/luci/menu.d/luci-app-fibocom.json:41
-msgid "Diagnostics"
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:59
+msgid "Failure reason"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:106
-msgid "Display name"
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:157
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:78
-msgid "Driver"
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:88
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:214
 msgid "Feature"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:202
-msgid "Fibocom Diagnostics"
+#: luci-app-fibocom/root/usr/share/luci/menu.d/luci-app-fibocom.json:12
+msgid "Fibocom Modem"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:111
-#: luci-app-fibocom/root/usr/share/luci/menu.d/luci-app-fibocom.json:3
-msgid "Fibocom Modem"
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:144
+msgid "Fibocom Modem Overview"
 msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/settings.js:10
 msgid "Fibocom Modem Settings"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:121
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:280
 msgid "Fibocom Modem Status"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:121
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:135
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:58
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:45
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:65
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:221
 msgid "Fibocom modem"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:138
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:51
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:61
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:191
+msgid "Fibocom plugin available"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:145
+msgid "Frequency"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:158
+msgid "Gateways"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:50
+msgid "General"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:60
 msgid "Generation"
 msgstr ""
 
 #: luci-app-fibocom/root/usr/share/rpcd/acl.d/luci-app-fibocom.json:3
-msgid "Grant access to cached Fibocom modem inventory"
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:142
-msgid "Identity scope"
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:113
-msgid ""
-"Inventory is read from the fibocomd cache. Opening this page never probes a "
-"modem port."
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/settings.js:34
-msgid ""
-"Keep the existing dialer as the sole modem owner while shadow-mode evidence "
-"is collected. Do not enable two dialers for the same physical modem."
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:84
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:150
-msgid "Last error code"
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:86
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:152
-msgid "Last error reason"
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:76
-msgid "Last scan"
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:83
-msgid "Last scan successful"
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:103
-msgid "Loaded hardware profile"
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:108
-msgid "Hardware validated"
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:242
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:23
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:53
-msgid "Missing"
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:139
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:63
-msgid "Model"
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:45
-msgid "Modem"
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:70
-msgid "Modem ownership"
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:19
-msgid "No"
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:70
-msgid "No cached device details are available."
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:89
-msgid "No capabilities were reported."
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:91
-msgid "No daemon health fields were reported."
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:120
-msgid "No information is available."
+msgid "Grant read-only access to the Fibocom ModemManager bridge"
 msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:79
-msgid "No port roles are present in the cached snapshot."
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:91
+msgid "ICCID"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:39
-msgid "No response was received from fibocomd."
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:80
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:91
+msgid "IMSI"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:158
-msgid "No sanitized port association was reported."
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:85
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:158
+msgid "IP families"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:154
-msgid "No sanitized topology facts were reported."
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:158
+msgid "Interface"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:52
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:171
+msgid "Interface up"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:193
+msgid "Last error code"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:194
+msgid "Last error reason"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:88
+msgid "Last state change"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:170
+msgid "Logical interface"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:192
+msgid "MBIM available"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:158
+msgid "MTU"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:67
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:51
+msgid "Manufacturer"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:124
+msgid "Metric"
+msgstr ""
+
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:102
-msgid "No supported Fibocom modem has been discovered."
+msgid "Mobile network"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:157
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:78
-msgid "Node"
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:52
+msgid "Model"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:204
-msgid ""
-"Only sanitized cached health and topology fields are shown. Raw commands, "
-"modem identifiers, secrets, and arbitrary files are never requested by this "
-"page."
+#: luci-app-fibocom/root/usr/share/luci/menu.d/luci-app-fibocom.json:3
+msgid "Modem"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/settings.js:28
-msgid "Open Network Interfaces"
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:73
+msgid "Modem state"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:71
-msgid "Opens TTY ports"
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:72
-msgid "Opens WDM ports"
-msgstr ""
-
-#: luci-app-fibocom/root/usr/share/luci/menu.d/luci-app-fibocom.json:14
-msgid "Overview"
+#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:320
+msgid "Modem warning"
 msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/settings.js:32
-msgid "Ownership and migration"
+msgid ""
+"ModemManager discovers the modem and manages radio, SIM, bearer, and SMS "
+"objects. The netifd ModemManager protocol applies persistent connection "
+"intent and publishes the resulting OpenWrt interface state."
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:149
-msgid "Ownership conflict"
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:146
+msgid ""
+"ModemManager owns discovery and the data session. This page only reads "
+"normalized snapshots from the Fibocom bridge."
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:140
-msgid "Physical USB path"
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:69
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:54
+msgid "ModemManager plugin"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:155
-msgid "Port association"
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:186
+msgid "ModemManager version"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:76
-msgid "Port roles"
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:214
+msgid "Mutable"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:47
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:67
+msgid "Name"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:190
+msgid "Netifd protocol available"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:23
+msgid "No"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:122
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:260
+msgid "No Fibocom modem is currently exported by ModemManager."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:84
+msgid "No SIM information was reported."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:159
+msgid "No bearer information was reported."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:215
+msgid "No capabilities were reported."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:195
+msgid "No diagnostic summary was reported."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:68
+msgid "No display-safe ports were reported."
+msgstr ""
+
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:62
-msgid "Presence"
+msgid "No general modem information was reported."
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:242
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:23
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:53
+#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:130
+msgid "No information is available."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:177
+msgid "No matching netifd interface was reported."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:109
+msgid "No mobile-network information was reported."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:89
+msgid "No overview fields are available for this modem."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:43
+msgid "No response was received from the Fibocom bridge."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:119
+msgid "No signal summary was reported."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:139
+msgid "No standard cell-information state was reported."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/settings.js:41
+msgid "Open ModemManager status"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/settings.js:26
+msgid "Open Network Interfaces"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/settings.js:17
+msgid ""
+"Open Network Interfaces and add a new interface, or edit the existing "
+"cellular interface."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:86
+msgid "OpenWrt interface"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:87
+msgid "OpenWrt interface up"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:167
+msgid "OpenWrt network"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:79
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:81
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:91
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:104
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:144
+msgid "Operator"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:82
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:105
+msgid "Operator code"
+msgstr ""
+
+#: luci-app-fibocom/root/usr/share/luci/menu.d/luci-app-fibocom.json:23
+msgid "Overview"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:144
+msgid "PCI"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:107
+msgid "Packet service"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:89
+msgid "Physical SIM slots"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:66
+msgid "Ports"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:58
+msgid "Power state"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:91
 msgid "Present"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:64
-msgid "Profile"
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:67
+msgid "Primary"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:105
-msgid "Profile ID"
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:76
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:77
+msgid "Primary SIM slot"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:107
-msgid "Schema validated"
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:139
+#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:146
 msgid "Property"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:14
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:60
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:14
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:14
 msgid "RPC transport failure"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/settings.js:37
-msgid ""
-"Radio controls, USB mode switching, reboot, band policy, SIM operations, and "
-"eSIM lifecycle controls are deliberately absent from this phase."
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:145
+msgid "RSRP"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:98
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:88
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:145
+msgid "RSRQ"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:188
+msgid "Raw D-Bus paths exposed"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:187
+msgid "Read-only milestone"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:115
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:138
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:169
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:200
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:214
 msgid "Reason"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:107
-msgid "Rescan devices"
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:174
+msgid "Received bytes"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:82
-msgid "Rescan pending"
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:78
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:103
+msgid "Registration"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:157
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:78
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:68
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:53
+msgid "Revision"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:106
+msgid "Roaming"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:67
 msgid "Role"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:77
-msgid "Scan generation"
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:113
+msgid "Runtime dependencies"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:81
-msgid "Scan in progress"
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:95
+msgid "SIM"
 msgstr ""
 
-#: luci-app-fibocom/root/usr/share/luci/menu.d/luci-app-fibocom.json:32
-msgid "Settings"
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/settings.js:12
-msgid "Settings are read-only during shadow mode."
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:68
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:69
-msgid "Shadow mode"
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:116
-msgid "Shadow mode is active."
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:98
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:157
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:78
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:88
-msgid "State"
-msgstr ""
-
-#: luci-app-fibocom/root/usr/share/luci/menu.d/luci-app-fibocom.json:23
-msgid "Status"
+msgid "SIM active"
 msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:77
-msgid "The Fibocom inventory rescan was scheduled successfully."
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:83
+msgid "SIM lock"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:315
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:75
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:75
+msgid "SIM present"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/settings.js:45
 msgid ""
-"The daemon returned API schema %s, while this interface supports schema 1."
+"SMS, advanced radio controls, and optional eSIM integration are planned as "
+"separate milestones and are not available in this P0 interface."
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/settings.js:14
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/settings.js:20
 msgid ""
-"The discovery service currently observes hardware only and cannot change "
-"radio, SIM, USB composition, or bearer state."
+"Save and apply the network interface. Netifd will own automatic connection, "
+"routes, and DNS."
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:58
-#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:60
-msgid "The request failed."
+#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:254
+msgid "Serving"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:177
-msgid "There is no device topology to diagnose."
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:123
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/settings.js:19
 msgid ""
-"This page polls cached typed snapshots. It does not send AT or bearer "
-"commands."
+"Set the APN and, only when required by the provider, authentication, PIN, "
+"roaming, and IP-family options."
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:146
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:50
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:67
-msgid "Topology"
+#: luci-app-fibocom/root/usr/share/luci/menu.d/luci-app-fibocom.json:41
+msgid "Settings"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:147
-msgid "Topology reason"
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:128
+msgid "Signal"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:49
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:66
-msgid "USB ID"
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:157
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:78
-msgid "USB interface"
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:144
-msgid "USB product ID"
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:143
-msgid "USB vendor ID"
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:304
-msgid "Unable to load Fibocom status:"
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:82
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:118
+msgid "Signal is recent"
 msgstr ""
 
 #: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:81
-msgid "Unable to schedule a Fibocom inventory rescan: %s"
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:117
+msgid "Signal quality"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:133
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:24
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:32
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:54
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:91
+msgid "Slot"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:74
+msgid "Snapshot freshness"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:61
+msgid "Snapshot generated"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:76
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:155
+msgid "Snapshot state"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:115
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:57
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:137
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:168
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:200
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:214
+msgid "State"
+msgstr ""
+
+#: luci-app-fibocom/root/usr/share/luci/menu.d/luci-app-fibocom.json:32
+msgid "Status"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:71
+msgid "Support"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:72
+msgid "Support reason"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:61
+msgid "Supported"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:144
+msgid "TAC/LAC"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:124
+msgid "Technology"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:340
+msgid ""
+"The bridge returned API schema %s, while this interface supports schema 1."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:61
+#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:67
+msgid "The request failed."
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:175
+msgid "Transmitted bytes"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:67
+msgid "Type"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:70
+msgid "USB composition"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:329
+msgid "Unable to load Fibocom modem information:"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:220
+#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:287
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:62
 msgid "Unknown"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:306
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:82
+#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:331
 msgid "Unknown error"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:42
-#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:48
+#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:46
+#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:52
 msgid "Unknown transport error"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:29
-msgid "Unmatched device"
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:62
+msgid "Unsupported"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:139
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:173
+msgid "Uptime"
+msgstr ""
+
+#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:146
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:124
 msgid "Value"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:98
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:115
+#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/status.js:200
 msgid "Version"
 msgstr ""
 
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/settings.js:22
-msgid ""
-"When the fibocom network protocol is enabled, create or edit the connection "
-"under Network Interfaces. Runtime port names, addresses, routes, DNS "
-"servers, and session identifiers are never stored here."
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:16
+#: luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js:20
 msgid "Yes"
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/overview.js:118
-msgid ""
-"fibocomd observes USB topology but does not claim, configure, or dial the "
-"modem."
-msgstr ""
-
-#: luci-app-fibocom/htdocs/luci-static/resources/view/fibocom/diagnostics.js:69
-msgid "ubus connected"
 msgstr ""

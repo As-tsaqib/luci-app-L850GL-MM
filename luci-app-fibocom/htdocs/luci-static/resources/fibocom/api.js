@@ -5,42 +5,33 @@
 'require baseclass';
 'require rpc';
 
-const callList = rpc.declare({
-	object: 'fibocom',
-	method: 'list',
+const callListModems = rpc.declare({
+	object: 'fibocom.mm',
+	method: 'list_modems',
 	reject: true,
 	expect: { '': {} }
 });
 
-const callStatus = rpc.declare({
-	object: 'fibocom',
-	method: 'status',
-	params: [ 'device_id' ],
+const callGetOverview = rpc.declare({
+	object: 'fibocom.mm',
+	method: 'get_overview',
+	params: [ 'modem_id' ],
 	reject: true,
 	expect: { '': {} }
 });
 
-const callCapabilities = rpc.declare({
-	object: 'fibocom',
-	method: 'capabilities',
-	params: [ 'device_id' ],
+const callGetStatus = rpc.declare({
+	object: 'fibocom.mm',
+	method: 'get_status',
+	params: [ 'modem_id' ],
 	reject: true,
 	expect: { '': {} }
 });
 
-const callDiagnostics = rpc.declare({
-	object: 'fibocom',
-	method: 'diagnostics',
-	params: [ 'device_id' ],
-	reject: true,
-	expect: { '': {} }
-});
-
-const callRescan = rpc.declare({
-	object: 'fibocom',
-	method: 'rescan',
-	params: [ 'reason', 'subsystem', 'action' ],
-	nobatch: true,
+const callGetCapabilities = rpc.declare({
+	object: 'fibocom.mm',
+	method: 'get_capabilities',
+	params: [ 'modem_id' ],
 	reject: true,
 	expect: { '': {} }
 });
@@ -48,23 +39,19 @@ const callRescan = rpc.declare({
 return baseclass.extend({
 	SCHEMA_VERSION: 1,
 
-	list: function() {
-		return callList();
+	listModems: function() {
+		return callListModems();
 	},
 
-	status: function(deviceId) {
-		return callStatus(deviceId);
+	getOverview: function(modemId) {
+		return callGetOverview(modemId);
 	},
 
-	capabilities: function(deviceId) {
-		return callCapabilities(deviceId);
+	getStatus: function(modemId) {
+		return callGetStatus(modemId);
 	},
 
-	diagnostics: function(deviceId) {
-		return callDiagnostics(deviceId);
-	},
-
-	rescan: function(reason, subsystem, action) {
-		return callRescan(reason, subsystem, action);
+	getCapabilities: function(modemId) {
+		return callGetCapabilities(modemId);
 	}
 });

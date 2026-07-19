@@ -1,7 +1,16 @@
 {
-	"admin/network/fibocom": {
+	"admin/modem": {
+		"title": "Modem",
+		"order": 25,
+		"action": {
+			"type": "firstchild"
+		},
+		"depends": {}
+	},
+
+	"admin/modem/fibocom": {
 		"title": "Fibocom Modem",
-		"order": 85,
+		"order": 10,
 		"action": {
 			"type": "firstchild"
 		},
@@ -10,7 +19,7 @@
 		}
 	},
 
-	"admin/network/fibocom/overview": {
+	"admin/modem/fibocom/overview": {
 		"title": "Overview",
 		"order": 10,
 		"action": {
@@ -19,7 +28,7 @@
 		}
 	},
 
-	"admin/network/fibocom/status": {
+	"admin/modem/fibocom/status": {
 		"title": "Status",
 		"order": 20,
 		"action": {
@@ -28,21 +37,12 @@
 		}
 	},
 
-	"admin/network/fibocom/settings": {
+	"admin/modem/fibocom/settings": {
 		"title": "Settings",
-		"order": 30,
+		"order": 50,
 		"action": {
 			"type": "view",
 			"path": "fibocom/settings"
-		}
-	},
-
-	"admin/network/fibocom/diagnostics": {
-		"title": "Diagnostics",
-		"order": 40,
-		"action": {
-			"type": "view",
-			"path": "fibocom/diagnostics"
 		}
 	}
 }
