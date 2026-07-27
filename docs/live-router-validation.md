@@ -5,10 +5,10 @@ SPDX-License-Identifier: Apache-2.0
 
 # Live router validation
 
-> Historical record only: this page documents schema-1 v0.2 testing performed
-> on 2026-07-19. It does not validate the schema-2 0.3.0 source or packages.
-> No result below may be cited as live validation of current PCI, Band Lock, or
-> SMS mutation behavior.
+> This page separates schema-1 v0.2 testing from 2026-07-19 and the approved
+> L850 firmware command/recovery matrix from 2026-07-27. The latter validates
+> the exact PCI grammar and hardware behavior, but package-level schema-2
+> ubus/LuCI acceptance is recorded separately. No live SMS mutation was run.
 
 ## Scope
 
@@ -34,6 +34,63 @@ retained only as provenance for a package retired in 0.3.
 | Firmware | `18500.5001.00.05.27.30` |
 | Plugin | `fibocom` |
 | Composition | MBIM, `2cb7:0007` |
+
+## Approved PCI command/recovery matrix, 2026-07-27
+
+The user provided alternate hotspot access and explicitly approved scan, lock,
+clear, reset, and reprobe testing. Every modem command went through
+ModemManager's serialized queue; no TTY, MBIM device, sysfs path, or direct
+port was opened by the test. Stock ModemManager rejected `Command` at INFO
+with `Core.Unauthorized`, so debug mode was enabled temporarily for discovery
+and restored afterward. The production expert artifact instead rebuilds
+ModemManager with its reviewed AT-via-D-Bus option.
+
+Firmware help returned the typed signature:
+
+```text
+freq_lock(sim_id, rat, band, inter_frequency_lock_enable, frequency, psc_pci)
+```
+
+The exact target-firmware grammar proven live is:
+
+```text
+set exact:   AT@SIC:FREQ_LOCK(0,3,<logical-band>,1,<earfcn>,<pci>)
+set EARFCN:  AT@SIC:FREQ_LOCK(0,3,<logical-band>,1,<earfcn>,65535)
+clear:       AT@SIC:FREQ_LOCK(0,3,255,0,65535,65535)
+state query: AT@NVM:DYN_CPS.NAS_ASM.FREQ_LOCK_PARAMS.*??
+apply/reset: AT+CFUN=15
+scan:        AT+XMCI=1
+```
+
+Set and clear returned exactly
+`Frequency Lock Configuration Success CPS_MSG_TYPE_ASM_EM_CTRL_CNF`.
+Locked NVM state used `rat=3`, `band_info=0`,
+`inter_freq_lock_support=1`, the requested frequency, and the requested PCI or
+`65535`. Clear state used frequency/PCI `65535` and
+`inter_freq_lock_support=0`. The observed `band_info` is `0`, not `255`.
+
+The sanitized result matrix was:
+
+| Test | Result |
+|---|---|
+| Fixed XMCI scan | Type-4 serving and type-5 neighbors returned; blank lines, quoted hex, signed/sentinel RSSNR, and discarded-field sentinels observed |
+| Clear + reset | NVM clear state survived reprobe; registration and bearer recovered |
+| Exact current cell | NVM and post-reset serving EARFCN/PCI matched |
+| Exact visible neighbor | Serving cell changed to the requested band-1 EARFCN/PCI |
+| EARFCN-only | NVM PCI wildcard `65535`; modem registered on the requested EARFCN |
+| Final restoration | Clear/reset restored automatic serving selection and connected bearer |
+
+`CFUN=15` returned the expected post-dispatch cancellation, removed the old
+ModemManager object, and produced a replacement in roughly 14--15 seconds.
+The exact internal hardware slot, Fibocom plugin, model, revision, MBIM
+composition, and `2cb7:0007` attestation were stable. Raw TAC/cell ID,
+subscriber identifiers, addresses, and logs were not retained.
+
+Not exercised in this matrix: unavailable-cell registration timeout, physical
+unplug during the operation, ModemManager restart mid-state-machine, and full
+router-reboot persistence. At handoff the modem was clear/automatic,
+registered with a connected bearer, ModemManager was back at INFO, and all
+temporary debug files were removed.
 
 ## Staged v0.2 application validation
 

@@ -54,7 +54,9 @@ luci-app-fibocom
 Do not install the retired `luci-app-fibocom-esim` addon. The base ModemManager
 build must keep generic AT-over-D-Bus disabled. Use an expert image only when
 its broader ModemManager capability and separate ACL have been explicitly
-reviewed.
+reviewed. The expert artifact includes a matching upstream OpenWrt
+`modemmanager` package rebuilt with that capability; install it together with
+the expert bridge rather than mixing the bridge with the stock package.
 
 After installation:
 
@@ -76,7 +78,9 @@ Writes are separate maintenance actions, not migration prerequisites.
 - Band Lock requires confirmation, alternate access, and one reviewed change
   at a time because an invalid subset can remove WAN.
 - Do not run live cell scan, PCI lock, clear, or reset without explicit user
-  permission. Current PCI mutation must remain `unsupported_firmware`.
+  permission. The expert path is mutable only on the exact live-validated
+  L850-GL hardware/firmware tuple; all other revisions remain
+  `unsupported_firmware`.
 
 After a stale-generation or `outcome_unknown` response, refresh the live modem
 and do not retry until its state makes a new request safe.
@@ -112,5 +116,7 @@ the working ModemManager/netifd owner merely to restore an old LuCI page.
 
 If a separately approved band test disrupts WAN, use the prepared alternate
 management path and restore automatic `["any"]` only after the modem object and
-generation have been refreshed. There is no PCI rollback procedure in 0.3;
-that is precisely why PCI mutation is fail-closed.
+generation have been refreshed. For the allowlisted expert firmware, PCI
+rollback is the typed `clear_cell_lock` action followed by its reset/reprobe and
+exact NVM-clear verification. Never issue a copied raw clear tuple, and do not
+blindly retry an `outcome_unknown` result.

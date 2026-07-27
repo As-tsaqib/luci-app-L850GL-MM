@@ -24,8 +24,9 @@ list_sms, send_sms, delete_sms
 Band Lock uses standard ModemManager bands and requires confirmation. The PCI
 section discovers the optional `fibocom.mm.l850` expert object through its
 status call. It remains disabled on the base build. In an expert build,
-standard cell scan is independently gated from mutation; set/clear stays
-fail-closed while the firmware allowlist is empty.
+standard cell scan is independently gated from mutation. The exact
+live-validated firmware can use the fixed set/clear/reprobe/verification state
+machine; all other firmware remains fail-closed.
 
 SMS polls the backend cache every 10 seconds and exposes All, Inbox, Outbox,
 Draft, and Unknown. Each backend page is at most 100 messages; Load more follows

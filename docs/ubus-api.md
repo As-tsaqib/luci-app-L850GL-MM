@@ -104,8 +104,9 @@ pci_lock = { state, mutable, reason }
 ```
 
 The base build always reports `pci_lock.state = unsupported_build` and does
-not publish the expert object. An expert binary reports
-`unsupported_firmware` while its mutation allowlist is empty.
+not publish the expert object. An expert binary reports `available` only for
+the exact live-validated hardware/firmware tuple, `busy` during mutation or
+cooldown, and `unsupported_firmware` for every other revision.
 
 ### `set_bands(modem_id, generation, bands, confirm)`
 
@@ -185,22 +186,32 @@ Returns the mutation state independently from scan capability:
 
 ```json
 {
-  "state": "unsupported_firmware",
-  "mutable": false,
-  "reason": "firmware-allowlist-empty",
+  "state": "available",
+  "mutable": true,
+  "reason": "live-validated-firmware-and-nvm-state",
+  "lock": {
+    "state": "configured_exact",
+    "enabled": true,
+    "postcondition_verified": false,
+    "earfcn": 1300,
+    "pci": 0,
+    "band": 3,
+    "source": "l850-nvm-via-modemmanager"
+  },
   "scan": {
     "state": "available",
     "available": true,
-    "reason": "standard-modemmanager-get-cell-info",
+    "reason": "standard-with-live-validated-xmci-fallback",
     "source": "modemmanager"
   }
 }
 ```
 
 Scan state may instead be `busy`, `not_ready`, or `rate_limited`; a rate-limited
-status includes `retry_after_ms`. `scan.available` is true only for an allowed
-button-driven standard scan attempt. It does not imply vendor fallback support
-or mutation support.
+status includes `retry_after_ms`. The nested lock is a bounded NVM
+configuration observation (`clear`, `configured_earfcn`, or
+`configured_exact`), not a serving-cell postcondition. Unsupported firmware
+still advertises a standard-only scan when ready.
 
 ### `cell_scan(modem_id, generation)`
 
@@ -211,6 +222,7 @@ calls asynchronous ModemManager `GetCellInfo`. Success is:
 {
   "state": "scan_ready",
   "source": "modemmanager",
+  "method": "l850-xmci",
   "cells": [{
     "type": 4,
     "serving": true,
@@ -229,25 +241,59 @@ RSRQ are omitted when ModemManager reports its unavailable sentinel. More than
 64 LTE records or malformed data fail closed. The operation has a 45-second
 timeout, cancellation, and callback generation checks.
 
-On the historically tested firmware, standard GetCellInfo was unsupported.
-Because the vendor grammar/firmware/recovery tuple is unverified and the
-allowlist is empty, that result is `unsupported_firmware`; no command is sent.
+On the allowlisted firmware, standard GetCellInfo is unsupported and the
+bridge falls back to its fixed XMCI query through ModemManager. `method` is
+`standard-cell-info` or `l850-xmci`. Other firmware receives no vendor
+fallback.
 
 ### `set_cell_lock(modem_id, generation, earfcn, pci?, confirm)`
 
 ### `clear_cell_lock(modem_id, generation, confirm)`
 
 Confirmation is mandatory. EARFCN must map to a live supported band; optional
-PCI is 0..503. The offline implementation validates these typed inputs, exact
-hardware, firmware allowlist, and the shared mutation lock. The allowlist is
-empty, so both methods currently return `unsupported_firmware` and dispatch no
-lock, clear, reset, or recovery action.
+PCI is 0..503. The implementation validates typed input, exact hardware,
+firmware, cooldown, and the shared mutation lock, then dispatches only the
+compiled-in set or clear tuple. Exact command acknowledgement is followed by
+fixed reset, hardware-slot replacement correlation, and registration. NVM is
+always verified; set additionally verifies the serving EARFCN and optional
+PCI.
+
+The ubus request remains deferred through verification. Success therefore
+contains the replacement's new opaque identity, not the stale input identity:
+
+```json
+{
+  "ok": true,
+  "modem_id": "<new 32-hex opaque id>",
+  "generation": 9,
+  "replacement": true,
+  "accepted": true,
+  "operation": "set_cell_lock",
+  "state": "applied_verified",
+  "cooldown_ms": 60000,
+  "verification": {
+    "registration": true,
+    "nvm": true,
+    "serving_cell": true,
+    "earfcn": 1300,
+    "pci": 0,
+    "band": 3
+  }
+}
+```
+
+Clear success is `cleared_verified` and requires the exact NVM clear sentinel;
+its verification object has `registration` and `nvm` only. A new write always
+requires the returned replacement to be refreshed and confirmed as a new
+request.
 
 The state policy models `available`, `scan_ready`,
 `lock_applied_reset_required`, `resetting`, `applied_verified`,
 `cleared_verified`, `reprobe_timeout`, `registration_timeout`,
-`verification_mismatch`, and `outcome_unknown`, but no verified state is
-reported without a live postcondition.
+`verification_mismatch`, and `outcome_unknown`. Command acknowledgement alone
+never yields a verified state. Transport loss, timeout, or ambiguous reset
+completion after dispatch is non-retryable `outcome_unknown` unless the
+coordinator can establish all postconditions.
 
 ## ACL split
 

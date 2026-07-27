@@ -17,8 +17,10 @@ not copied.
 - sanitized L850 observations and bounded synthetic fixtures;
 - original implementation and tests authored for this repository.
 
-The project links OpenWrt's native unmodified ModemManager package. It does not
-fork, patch, or ship ModemManager. netifd and `luci-proto-modemmanager` remain
+The base project links OpenWrt's native unmodified ModemManager package. The
+expert CI artifact rebuilds and ships that same upstream recipe with its
+existing `MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS` option enabled; it carries no
+ModemManager source patch or fork. netifd and `luci-proto-modemmanager` remain
 upstream packages and retain connection ownership.
 
 ## Audit snapshot ledger
@@ -79,14 +81,14 @@ Commit IDs are evidence anchors, not source-import points.
   established in ModemManager and is not a companion feature.
 - ModemManager provides typed asynchronous bands, Messaging/Sms, and
   GetCellInfo APIs used by 0.3.
-- The XMCI LTE field schema and community lock-command family are corroborated,
-  but exact firmware sentinels, band encoding, optional-PCI wildcard, NVM
-  state, clear tuple, reset/apply sequence, persistence, and postcondition are
-  not proven for the target firmware.
+- The XMCI LTE field schema and community lock-command family were candidate
+  evidence only. The 2026-07-27 local target-firmware matrix independently
+  proved logical band encoding, PCI wildcard `65535`, clear tuple, NVM state,
+  `CFUN=15`, reprobe/registration, and serving-cell postconditions.
 - Stock OpenWrt keeps generic AT-over-D-Bus disabled. The base 0.3 build must
   keep it disabled and omit the expert object.
-- Firmware `18500.5001.00.05.27.30` was observed live but is not a PCI mutation
-  allowlist entry.
+- Firmware `18500.5001.00.05.27.30` is the sole PCI mutation allowlist entry,
+  based on the dated local matrix rather than a public post.
 
 A USB ID, manual, community trace, synthetic fixture, or successful parser test
 does not establish hardware mutation support. Every future allowlist claim must
@@ -132,13 +134,16 @@ new code.
   SMS dedupe eviction/expiry, UI pagination, compact Overview, Band Lock, and a
   separately gated `fibocom.mm.l850` API with cell parser fixtures and
   asynchronous standard GetCellInfo.
-- 2026-07-27: the expert firmware allowlist remains empty and no vendor command,
-  lock, clear, reset, or recovery tuple is embedded or dispatched.
-- 2026-07-27: direct 4PDA posts were re-reviewed. They refine candidate hardware
-  tests but contain incompatible tuple/apply claims and no complete target
-  firmware matrix, so they do not change the fail-closed verdict.
+- 2026-07-27: direct 4PDA posts were re-reviewed. They refined the candidate
+  matrix but their incompatible tuple/apply claims were not copied as proof.
+- 2026-07-27: an approved local matrix on the exact L850-GL MBIM firmware proved
+  XMCI, exact and EARFCN-only set, clear, `CFUN=15`, NVM state, object
+  replacement, registration/bearer recovery, and serving-cell postconditions.
+  The fixed typed grammar and one-entry allowlist were then implemented.
+- 2026-07-27: the expert SDK artifact was changed to rebuild/package the
+  unmodified OpenWrt ModemManager recipe with its reviewed command-transport
+  option; the base artifact keeps that option disabled.
 
-The 0.3.0 implementation has no live validation record yet. Historical v0.2
-schema-1 results must stay explicitly labeled and must not be rewritten as
-schema-2 evidence. Add a dated entry only after a current SDK artifact or live
-test actually completes.
+Historical v0.2 schema-1 results remain explicitly labeled and are not
+rewritten as schema-2 package evidence. Firmware command-level live evidence
+and installed schema-2 ubus/LuCI evidence are also reported separately.

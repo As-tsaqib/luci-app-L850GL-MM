@@ -41,9 +41,11 @@ Lock contains:
 - A build-gated L850 PCI/EARFCN section. The base binary does not contain or
   publish `fibocom.mm.l850`. An explicit expert build first tries standard
   ModemManager `GetCellInfo`, normalizes at most 64 LTE cells, and validates
-  PCI and EARFCN against live supported bands. The vendor fallback and every
-  set/clear mutation remain fail-closed because no firmware command, clear,
-  reset, recovery, and postcondition tuple has been live-proven.
+  PCI and EARFCN against live supported bands. For the single allowlisted
+  firmware `18500.5001.00.05.27.30`, `Core.Unsupported` falls back to a fixed
+  XMCI query through ModemManager. Set/clear use fixed typed tuples, `CFUN=15`,
+  exact hardware-slot reprobe correlation, registration wait, NVM verification,
+  and serving-cell verification. Every other firmware fails closed.
 
 SMS uses ModemManager Messaging/Sms only. The cache consumes Added, Deleted,
 and property-change signals, reconciles every 30 seconds, keeps the newest
@@ -113,16 +115,16 @@ by default and depends on an explicitly enabled
 
 ## Evidence status
 
-Historical live testing on 2026-07-19 validated the ModemManager/netifd MBIM
-lifecycle and selected schema-1 v0.2 read/SMS behavior on an L850-GL running
-firmware `18500.5001.00.05.27.30`. It did not validate schema 2 or the 0.3.0
-package. That firmware is deliberately not in the PCI mutation allowlist.
-
-As of 2026-07-27, 0.3.0 has offline/static implementation evidence only until
-the current packages are cross-built and installed in a separately approved
-maintenance window. No PCI lock, clear, reset, live scan, or live SMS mutation
-has been run for this release. See [hardware evidence](docs/hardware-evidence.md)
-and the [historical live record](docs/live-router-validation.md).
+Live testing on 2026-07-27 validated the fixed grammar and recovery matrix on
+an L850-GL MBIM `2cb7:0007` running firmware
+`18500.5001.00.05.27.30`: sanitized XMCI scan, exact current-cell lock,
+exact neighbor-cell lock, EARFCN-only lock, clear, `CFUN=15` removal/reprobe,
+registration, bearer recovery, NVM postconditions, and serving-cell changes.
+The router was returned to clear/automatic state with its bearer connected.
+The allowlist contains only that exact firmware. Full schema-2 ubus/LuCI
+package validation is recorded separately from this command-level matrix; no
+live SMS send/delete was performed. See [hardware evidence](docs/hardware-evidence.md)
+and the [live record](docs/live-router-validation.md).
 
 ## Development
 
@@ -135,9 +137,10 @@ make check
 The suite covers package/API/menu/ACL contracts, JavaScript and JSON syntax,
 CSPRNG IDs, hardware attestation, band policy, SMS policy and dedupe
 eviction/expiry, malformed ubus blobs, and valid/invalid PCI parser fixtures.
-The SDK workflow builds the base binary and an explicit fail-closed expert
-variant separately, and verifies that the base binary does not contain the
-expert object name.
+The SDK workflow builds the base binary and an explicit expert variant
+separately. It verifies that the base binary does not contain the expert object
+name and rebuilds/packages ModemManager with reviewed AT-via-D-Bus transport
+only for the expert artifact.
 
 Further design details are in [architecture](docs/architecture.md), the
 [ubus API](docs/ubus-api.md), [threat model](docs/threat-model.md), and

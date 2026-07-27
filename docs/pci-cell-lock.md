@@ -8,17 +8,20 @@ SPDX-License-Identifier: Apache-2.0
 ## Current verdict
 
 Version 0.3.0 implements the expert contract, build/ACL gates, standard
-GetCellInfo scan path, bounded vendor-response parser and fixtures, input
-policy, state names, rate limiting, cancellation, timeout, and fail-closed
-LuCI section.
+GetCellInfo-first scan path, bounded XMCI and NVM parsers, typed command
+builders, rate limiting, cancellation, timeout, shared mutation locking, and
+the reset/reprobe/registration/postcondition state machine.
 
-It does not implement or dispatch a vendor scan fallback, lock tuple, clear
-tuple, NVM query/write, reset, or recovery sequence. The firmware allowlist is
-empty. Firmware `18500.5001.00.05.27.30` was historically observed but has not
-passed a mutation/recovery matrix and is not allowlisted.
+Firmware `18500.5001.00.05.27.30` completed the approved live matrix on
+2026-07-27 and is the only allowlist entry. Exact and EARFCN-only set, clear,
+`CFUN=15`, object replacement, registration and bearer recovery, NVM state,
+and serving-cell postconditions were observed through ModemManager's command
+queue. Every other firmware, non-L850 model, non-MBIM composition, plugin
+mismatch, or failed `2cb7:0007` attestation remains fail-closed.
 
-Status is therefore: implemented offline but fail-closed. No PCI claim is live
-verified for schema-2 0.3.0.
+Status is therefore: implemented and command-level live-verified for that one
+hardware/firmware tuple. Cross-built schema-2 ubus/LuCI package validation is
+tracked separately from the firmware matrix.
 
 ## 4PDA community evidence
 
@@ -55,11 +58,12 @@ negative evidence, but it is not local hardware validation:
   still without a public successful resolution in
   [post 143656918](https://4pda.to/forum/index.php?showtopic=1066668&view=findpost&p=143656918).
 
-These reports narrow the live test candidates, but do not settle band
-encoding, enable/clear semantics, the one safe apply sequence, durability, or
-serving-cell verification. No raw tuple from the thread is embedded or
-dispatched by 0.3.0, direct NVM writes remain excluded, and the target firmware
-remains outside the allowlist.
+These reports narrowed the live-test candidates but were not treated as proof.
+The embedded tuple was selected only after the target firmware's own help
+signature and a local set/clear/recovery matrix established logical LTE band
+encoding, wildcard and clear sentinels, NVM semantics, and `CFUN=15` behavior.
+No community-only alternative, direct NVM write, fallback ladder, or direct
+device access is embedded.
 
 ## Ownership and build gate
 
@@ -85,8 +89,9 @@ CONFIG_FIBOCOM_MM_BRIDGE_L850_EXPERT=y
 ```
 
 It is protected by `luci-app-fibocom-lock-pci-expert`, separate from Band Lock.
-The same daemon/cache is used so a future set/clear operation can share the
-existing per-modem mutation lock.
+SMS, Band Lock, and PCI operations share the existing per-modem mutation lock;
+an internal hardware-slot coordinator keeps that exclusion active across the
+new opaque modem object created by reset.
 
 ## Typed API
 
@@ -99,7 +104,10 @@ clear_cell_lock(modem_id, generation, confirm)
 
 Every method resolves the exact current opaque modem and generation and
 attests L850-GL, Fibocom plugin, MBIM composition, and USB `2cb7:0007`.
-Replacement objects are read-only observations; no old request is retargeted.
+The in-flight reset coordinator may observe and verify a replacement at the
+same internal hardware slot. Its final response carries the replacement's new
+opaque ID and generation. No subsequent write is retargeted; a new mutation
+requires a new snapshot and confirmation.
 
 `cell_lock_status` keeps two independent capability surfaces:
 
@@ -107,8 +115,11 @@ Replacement objects are read-only observations; no old request is retargeted.
 - nested `scan` describes whether a button-driven standard GetCellInfo attempt
   is currently available, busy, not ready, or rate limited.
 
-The empty allowlist makes mutation `unsupported_firmware` while standard scan
-may still be advertised.
+Unsupported firmware makes mutation `unsupported_firmware` while standard scan
+may still be advertised. On the exact allowlisted firmware, `cell_lock_status`
+queries a fixed NVM path asynchronously and exports only `clear`,
+`configured_earfcn`, or `configured_exact`; this status read is not itself a
+serving-cell postcondition.
 
 ## Standard scan path
 
@@ -130,21 +141,27 @@ normalizes LTE objects only:
 - MCC/MNC, TAC, cell ID, and other raw identifiers are not exported.
 
 Success is `scan_ready`, `source: modemmanager`, and a bounded `cells` array.
-The historically tested L850 returned Core.Unsupported for GetCellInfo. With
-no proven vendor fallback, that case returns `unsupported_firmware` and sends
-no raw command.
+The target L850 returns `Core.Unsupported` for GetCellInfo. Only on the exact
+allowlisted firmware does that error dispatch fixed `AT+XMCI=1` through
+asynchronous `mm_modem_command()`; the browser cannot supply or alter it.
+Success identifies `method` as `standard-cell-info` or `l850-xmci`.
 
-## Offline vendor parser contract
+## Vendor parser contract
 
 The Fibocom L8/L860 manual describes an XMCI response with 14 LTE fields. The
-offline parser accepts only complete `+XMCI:` records followed by one `OK` and:
+live ModemManager response contains `+XMCI:` records with blank lines and no
+terminal `OK`; the parser accepts that shape or exactly one optional trailing
+`OK`, and:
 
 - LTE type 4 serving and type 5 neighbor only; type 6 is rejected;
 - at most one serving record and at most 64 total records;
-- decimal fields, with hexadecimal accepted only when explicitly prefixed;
+- decimal or explicitly prefixed hexadecimal fields, optionally wrapped in
+  one pair of quotes;
 - PCI 0..503, including zero;
 - an EARFCN that maps through the complete LTE band table;
-- documented measurement ranges and explicit sentinel rejection;
+- RSRP/RSRQ required-field sentinel rejection and reviewed ranges;
+- signed RSSNR, and known sentinels only in discarded CI, uplink EARFCN,
+  pathloss, RSSNR, and timing-advance fields;
 - bounded input no larger than 16,384 bytes;
 - no embedded NUL, truncated/extra field, integer overflow, trailing record
   after `OK`, or ambiguous encoding.
@@ -153,29 +170,54 @@ RSRP fixture conversion is raw minus 141 dBm. RSRQ uses the reviewed half-dB
 mapping stored as tenths of dB. MCC/MNC/TAC/cell ID fields are validated for
 shape/range but deliberately discarded from normalized output.
 
-Fixtures under `tests/fixtures/pci` cover valid serving/neighbor data, hex PCI
-zero, type 6, PCI 504, sentinels, malformed fields, overflow, and invalid
-encoding. These fixtures prove parser behavior only; they do not prove that a
-firmware command is safe or supported.
+Fixtures under `tests/fixtures/pci` cover the sanitized live quoted/no-OK
+shape, valid serving/neighbor data, hex PCI zero, type 6, PCI 504, required
+sentinels, allowed discarded sentinels, malformed fields, overflow, invalid
+encoding, and data after `OK`. Separate fixtures cover clear, exact, and
+EARFCN-only NVM states plus inconsistent/extra-field rejection.
 
 ## Set/clear policy
 
-The current handlers enforce typed fields and confirmation. EARFCN must map to
-a live supported band, and optional PCI must be 0..503. Exact hardware and
-generation are checked again before any potential dispatch.
+The handlers enforce typed fields and confirmation. EARFCN must map to a live
+supported LTE band, optional PCI must be 0..503, and hardware, generation,
+firmware, cooldown, and the shared mutation lock are checked before dispatch.
+The target firmware's own help response established this six-field signature:
 
-The following facts remain unproven and are intentionally absent from code:
+```text
+freq_lock(sim_id, rat, band, inter_frequency_lock_enable, frequency, psc_pci)
+```
 
-- firmware-specific lock argument order and band encoding;
-- whether frequency-only lock has a safe wildcard representation;
-- exact clear/unlock tuple;
-- NVM instance/path, active-lock flag, and query semantics;
-- exact one reset/apply sequence;
-- persistence across ModemManager restart, USB replug, or router reboot;
-- reliable post-reprobe correlation and rollback behavior.
+The only compiled-in target-firmware grammar is:
 
-Consequently `set_cell_lock` and `clear_cell_lock` return
-`unsupported_firmware`; an `OK` string alone could never become final success.
+```text
+exact:       AT@SIC:FREQ_LOCK(0,3,<logical-band>,1,<earfcn>,<pci>)
+EARFCN-only: AT@SIC:FREQ_LOCK(0,3,<logical-band>,1,<earfcn>,65535)
+clear:       AT@SIC:FREQ_LOCK(0,3,255,0,65535,65535)
+apply:       AT+CFUN=15
+state query: AT@NVM:DYN_CPS.NAS_ASM.FREQ_LOCK_PARAMS.*??
+```
+
+Set and clear require the exact response
+`Frequency Lock Configuration Success CPS_MSG_TYPE_ASM_EM_CTRL_CNF`; a bare
+`OK` is rejected. `CFUN=15` normally completes with `Core.Cancelled` after
+dispatch because the modem object disappears. The coordinator retains only
+internal hardware-slot correlation data, observes the new attested object,
+waits for registered/connected state, then queries NVM. Set additionally runs
+XMCI and matches the serving EARFCN and, when requested, PCI. Clear succeeds
+only when the five-field NVM clear sentinel is exact.
+
+The observed target-firmware NVM invariants are:
+
+```text
+rat=3
+band_info=0
+inter_freq_lock_support=1 and frequency/requested PCI (or 65535) when locked
+inter_freq_lock_support=0 and frequency/PCI=65535 when clear
+```
+
+Unexpected response shape, state, replacement identity, attestation, NVM, or
+serving cell fails closed. Timeout or transport loss after dispatch becomes
+`outcome_unknown` and is never retried automatically.
 
 ## State policy
 
@@ -198,11 +240,11 @@ outcome_unknown
 
 The transition policy allows a reviewed flow from available to scan-ready,
 then dispatch/reset, and finally only a verified or explicit failure state.
-No current runtime mutation enters the dispatch/reset states. A future write
-must revalidate immediately before dispatch, mark post-dispatch uncertainty,
-observe object replacement read-only, wait for registration, and compare the
-serving EARFCN/PCI postcondition before reporting `applied_verified` or
-`cleared_verified`.
+The runtime revalidates immediately before dispatch, marks post-dispatch
+uncertainty, observes object replacement read-only, waits for registration,
+and compares NVM plus serving-cell postconditions. `applied_verified` requires
+matching NVM and serving EARFCN/PCI; `cleared_verified` requires the exact NVM
+clear sentinel. Neither state is inferred from command acknowledgement alone.
 
 ## Why the previous implementation is not copied
 
@@ -212,30 +254,34 @@ state from incomplete data, exposed broad command/device choices, opened modem
 ports outside ModemManager, and treated command success as final despite reset
 and postcondition uncertainty. Those are design warnings, not reusable source.
 
-## Hardware matrix required
+## Hardware matrix status
 
-No live scan, lock, clear, or reset may be run without explicit user approval.
-A PCI maintenance window needs alternate access or physical recovery.
+The user approved disruptive testing with alternate hotspot access on
+2026-07-27. All commands used ModemManager's queue; no TTY or WDM device was
+opened. Stock ModemManager required temporary debug mode for discovery. The
+production expert artifact instead rebuilds ModemManager with the reviewed
+AT-via-D-Bus build option and returns normal logging to INFO.
 
-Read-only phase:
+Completed on `18500.5001.00.05.27.30` / L850-GL / Fibocom plugin / MBIM
+`2cb7:0007`:
 
-1. Record exact sanitized model, firmware, composition, plugin, bands, and
-   current serving tuple.
-2. Prove ModemManager command transport and command capability without direct
-   device access.
-3. Capture bounded sanitized serving/type-5 neighbor fixtures and all sentinel
-   encodings.
-4. Establish the exact lock-state query and SIM instance.
+1. Sanitized XMCI serving and neighbor scan, including real quote/blank-line/
+   sentinel behavior.
+2. Clear plus exact NVM clear postcondition.
+3. Exact current-cell lock and matching NVM/serving postcondition.
+4. Exact visible neighbor lock; serving changed to the requested EARFCN/PCI.
+5. EARFCN-only lock with PCI wildcard `65535`.
+6. `CFUN=15` cancellation, object disappearance, replacement in about
+   14--15 seconds, registration, bearer recovery, and final clear/automatic
+   restoration.
 
-Disruptive phase, one candidate at a time:
+Still not claimed by this matrix:
 
-1. Apply a lock to a currently visible frequency-only target.
-2. Apply an exact EARFCN+PCI lock, including a synthetic parser test for PCI 0.
-3. Prove the exact clear operation.
-4. Prove exactly one reset/apply sequence; do not try a fallback ladder.
-5. Observe removal/reprobe, registration, bearer/netifd recovery, and serving
-   postcondition.
-6. Exercise mismatch, timeout, unplug, rollback, restart, replug, and reboot.
+- unavailable-cell registration timeout behavior;
+- physical unplug or ModemManager restart during the state machine;
+- persistence across a full router reboot.
 
-Only a complete dated matrix may add one exact firmware to the allowlist and
-change the status from fail-closed to live-verified.
+Those remaining fault/persistence cases do not broaden the allowlist and do
+not weaken the runtime timeout, cancellation, identity, attestation, or
+fail-closed checks. They remain explicit follow-up evidence rather than an
+invitation to guess recovery commands.

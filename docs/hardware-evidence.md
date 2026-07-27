@@ -7,9 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Evidence boundary
 
-The live record in this repository is historical schema-1 v0.2 evidence from
-2026-07-19. It does not validate the current schema-2 0.3.0 packages. Source,
-fixture, host test, or SDK success is not a substitute for a dated live result.
+The repository separates historical schema-1 v0.2 evidence from 2026-07-19,
+the approved L850 firmware command/recovery matrix from 2026-07-27, and the
+schema-2 package-level acceptance run. Source, fixture, SDK success, firmware
+command evidence, and installed-package evidence are not interchangeable.
 
 Never store IMEI, IMSI, ICCID, EID, phone numbers, SMS body, APN credentials,
 PIN/PUK, activation codes, tokens, or assigned IP configuration. Evidence must
@@ -17,9 +18,9 @@ use an allowlist and sanitized fixtures rather than raw diagnostic dumps.
 
 ## Tested hardware context
 
-| Item | Historical observed value |
+| Item | Observed value |
 |---|---|
-| Date | 2026-07-19 |
+| Dates | 2026-07-19 lifecycle/v0.2; 2026-07-27 PCI matrix |
 | Router | Linksys EA6350v3 |
 | CPU / target | ARMv7 / `ipq40xx/generic` |
 | OpenWrt | 25.12.5, kernel 6.12.94 |
@@ -59,9 +60,10 @@ That historical run did not send or delete a live SMS and did not execute a
 band, radio, reset, SIM-slot, PCI, or connection mutation. Old eSIM menu/probe
 observations concern a retired package and make no 0.3 product claim.
 
-## Cell-control observations
+## Cell-control observations and live matrix
 
-Two read-only historical probes established the current blocker:
+The historical probes established why a stock build cannot provide the expert
+path:
 
 ```text
 ModemManager GetCellInfo
@@ -71,10 +73,28 @@ generic Modem.Command introspection
   Core.Unauthorized on the stock OpenWrt build
 ```
 
-SupportedBands reported five UTRAN and 24 E-UTRAN entries. These observations
-do not prove PCI lock support. Firmware `18500.5001.00.05.27.30` is deliberately
-not allowlisted merely because manuals or community projects mention a command
-family.
+SupportedBands reported five UTRAN and 24 E-UTRAN entries. During the approved
+2026-07-27 window, ModemManager was temporarily restarted in debug mode solely
+to exercise its own command queue; it was restored to INFO afterward. No modem
+device node was opened directly.
+
+The firmware's help response proved the six typed `freq_lock` arguments. Live
+tests then proved, one candidate at a time:
+
+- fixed XMCI scan response shape and sanitized type-4/type-5 parsing;
+- exact clear tuple and five-field NVM clear state;
+- exact current-cell lock on a serving band-3 tuple;
+- exact visible neighbor lock on a band-1 tuple, with the serving cell changing
+  to the requested EARFCN/PCI;
+- EARFCN-only lock using PCI sentinel `65535`;
+- `CFUN=15` dispatch cancellation, old-object disappearance, replacement in
+  approximately 14--15 seconds, registration, and bearer recovery;
+- final clear/reset restoring automatic selection and a connected bearer.
+
+The stored evidence uses sanitized values; live TAC, cell ID, subscriber data,
+addresses, and command logs were not added as fixtures. This complete local
+matrix, rather than community text, permits the one exact firmware allowlist
+entry `18500.5001.00.05.27.30`.
 
 ## Community evidence is not local validation
 
@@ -89,17 +109,18 @@ semantics, and whether apply needs pre-registration, CFUN4, CFUN15, a band
 toggle, or two separate lock steps. One malformed/different tuple preceded a
 registration cycle; its apparent recovery was confounded by a tariff payment.
 
-The exact target firmware has only incomplete and contradictory public
+The exact target firmware has incomplete and contradictory public
 reports: one user described a temporary fix/CFUN4/unfix result, while another
 reported that repeated `freq_lock` attempts did not produce aggregation. No
 post supplies the target model/firmware/composition together with exact set,
 clear, one reset/apply path, reprobe correlation, registration recovery, and a
-serving EARFCN/PCI postcondition. None of these commands were run during this
-repository work, so the local allowlist stays empty.
+serving EARFCN/PCI postcondition. The local 2026-07-27 matrix supplied that
+missing proof independently; public posts are retained as provenance, not as
+the allowlist authority.
 
 ## Current 0.3.0 evidence status
 
-Implemented and testable offline:
+Implemented and covered by source/host/static tests:
 
 - exact schema-2 base/expert method tables and build gate;
 - CSPRNG identity, generation, cancellation, timeout, cooldown, and mutation
@@ -107,10 +128,13 @@ Implemented and testable offline:
 - native SMS cache/send/delete flow and pagination;
 - standard band policy and asynchronous SetCurrentBands call;
 - structural malformed-blob tests;
-- PCI vendor-response parser fixtures, including PCI 0, LTE types 4/5, type 6
-  rejection, sentinels, malformed fields, overflow, and oversized responses;
-- asynchronous standard GetCellInfo normalization and 64-cell bound;
-- empty firmware mutation allowlist and no embedded vendor command tuple.
+- XMCI and NVM fixtures, including the sanitized live quote/no-OK shape, PCI 0,
+  LTE types 4/5, type 6 rejection, required/allowed sentinels, malformed fields,
+  overflow, duplicate/extra NVM keys, and oversized responses;
+- asynchronous standard GetCellInfo normalization, fixed XMCI fallback, and
+  64-cell bound;
+- exact firmware allowlist, typed-only command builder, reset/reprobe/
+  registration coordinator, NVM and serving-cell postconditions.
 
 Not yet live-validated for 0.3.0:
 
@@ -118,8 +142,15 @@ Not yet live-validated for 0.3.0:
 - Overview field accuracy across modem states;
 - SMS send/delete and pagination with more than 100 stored messages;
 - Band Lock automatic/subset/recovery and outcome-unknown behavior;
-- standard cell scan on current packages;
-- any PCI set/clear/reset/reprobe/postcondition behavior.
+- installed expert ModemManager/bridge package behavior through schema-2 ubus
+  and LuCI (tracked by the current package acceptance run).
+
+Live-validated at command/hardware level on the exact allowlisted tuple:
+
+- XMCI scan, exact lock, EARFCN-only lock, clear, reset, reprobe, registration,
+  bearer recovery, NVM verification, and serving-cell verification.
+
+No live SMS send/delete was performed.
 
 ## Required non-disruptive acceptance
 
@@ -146,28 +177,20 @@ In a maintenance window with alternate management access:
 - registration and traffic recovery;
 - no claim of persistence across reset/replug unless separately proven.
 
-## PCI evidence required before allowlisting
+## Remaining PCI evidence
 
-Read-only fixture work must establish, for one exact firmware:
+The allowlisted firmware has proven the positive set/clear/recovery matrix.
+The following fault and persistence cases remain explicit follow-up work:
 
-- command capability/introspection and complete serving/neighbor responses;
-- exact type, field, encoding, PCI, EARFCN, RSRP, and RSRQ sentinel behavior;
-- lock-state query semantics and supported SIM instance;
-- safe timeout/cancellation behavior through ModemManager's queue.
+- unavailable-cell registration timeout;
+- physical unplug during an operation;
+- ModemManager restart mid-state-machine;
+- full-router reboot persistence.
 
-A separately approved disruptive matrix must then prove:
-
-- frequency-only and exact EARFCN+PCI lock, including PCI 0 policy;
-- the exact band encoding and optional-PCI representation;
-- exact clear/unlock tuple;
-- exactly one reset/apply sequence, not a fallback ladder;
-- object disappearance, reprobe correlation, registration, bearer/netifd
-  recovery, and serving-cell postcondition;
-- mismatch, timeout, unplug, rollback, reboot, and persistence behavior.
-
-Only after that matrix may the exact model/firmware tuple enter the allowlist.
-Until then the expert implementation is correctly reported as implemented but
-fail-closed.
+Runtime handling for these cases remains bounded and fail-closed: exact
+identity/attestation checks, cancellation, deadlines, `outcome_unknown`, and no
+automatic retry. No additional firmware may be allowlisted without its own
+complete dated matrix.
 
 ## NCM boundary
 

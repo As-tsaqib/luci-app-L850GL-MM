@@ -8,12 +8,16 @@ set -eu
 ROOT=$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)
 BUILD_DIR=$(mktemp -d)
 trap 'rm -rf "$BUILD_DIR"' EXIT HUP INT TERM
+mkdir -p "$BUILD_DIR/include"
+ln -s "$LIBUBOX_SOURCE_DIR" "$BUILD_DIR/include/libubox"
 
 ${CC:-cc} -std=gnu11 -Wall -Wextra -Werror \
-	-I"$ROOT/fibocom-mm-bridge/src" -I"$LIBUBOX_SOURCE_DIR" \
+	-I"$ROOT/fibocom-mm-bridge/src" -I"$BUILD_DIR/include" \
+	-I"$LIBUBOX_SOURCE_DIR" \
 	-c "$ROOT/tests/host-ubus-blob.c" -o "$BUILD_DIR/host-ubus-blob.o"
 ${CC:-cc} -std=gnu11 -Wall -Wextra -Werror \
-	-I"$ROOT/fibocom-mm-bridge/src" -I"$LIBUBOX_SOURCE_DIR" \
+	-I"$ROOT/fibocom-mm-bridge/src" -I"$BUILD_DIR/include" \
+	-I"$LIBUBOX_SOURCE_DIR" \
 	-c "$ROOT/fibocom-mm-bridge/src/ubus_request.c" \
 	-o "$BUILD_DIR/ubus-request.o"
 ${CC:-cc} -std=gnu11 -I"$LIBUBOX_SOURCE_DIR" \

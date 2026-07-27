@@ -87,8 +87,8 @@ length, bad name termination, duplicate fields, and malformed session data.
 - ModemManager exclusively owns modem ports, SIM, SMS, radio, and bearers.
 - netifd exclusively owns persistent connection configuration and network
   state.
-- SMS and band mutations share one per-modem single-flight lock; expert
-  mutations must use the same lock when they become implementable.
+- SMS, band, and expert PCI mutations share one per-modem single-flight lock.
+  The PCI coordinator preserves hardware-slot exclusion across reset/reprobe.
 - Cell scan is blocked while a per-modem mutation is active and is rate-limited
   to one attempt per minute.
 - Band Lock uses only standard `SetCurrentBands`, exact supported/current-mode
@@ -102,13 +102,22 @@ length, bad name termination, duplicate fields, and malformed session data.
 - Standard GetCellInfo is tried asynchronously before any fallback.
 - Standard cell results are limited to 64 LTE records, PCI 0..503, valid
   EARFCN-to-live-supported-band mappings, and finite metrics.
-- The vendor parser accepts LTE types 4/5 only and rejects type 6, sentinels,
-  truncated/extra fields, invalid encoding, overflow, and oversized output.
-- The firmware allowlist is empty. Therefore no vendor scan fallback, lock,
-  clear, reset, NVM operation, or post-reprobe write is dispatched.
-- `18500.5001.00.05.27.30` is evidence context, not an allowlisted release.
-- A future mutation cannot report verified success until reset/reprobe,
-  registration, and serving-cell postconditions pass.
+- The vendor parser accepts LTE types 4/5 only, rejects sentinels in exported
+  PCI/EARFCN/RSRP/RSRQ, permits only reviewed sentinels in discarded fields,
+  and rejects truncation, extra fields, encoding errors, overflow, and
+  oversized output.
+- The firmware allowlist contains exactly `18500.5001.00.05.27.30`, added only
+  after the dated live command/recovery matrix. Other revisions cannot use the
+  XMCI fallback or any mutation.
+- Commands are compiled-in fixed grammar built only from typed bounded
+  integers; no browser command, path, wildcard, RAT, SIM ID, or band encoding
+  is accepted.
+- Exact acknowledgement is followed by fixed reset, re-attested hardware-slot
+  replacement, registration, NVM state, and (for set) serving-cell checks.
+  No post-reprobe write is issued.
+- A mutation cannot report verified success until all applicable
+  postconditions pass; post-dispatch ambiguity is `outcome_unknown` with no
+  automatic retry.
 
 ### SMS safety and privacy
 
@@ -141,7 +150,9 @@ dependencies. A browser poll can lag state by up to its interval. Cancellable
 D-Bus APIs cannot prove rollback after a write reached hardware. In-memory SMS
 dedupe cannot provide exactly-once delivery across eviction or restart.
 
-Schema-2 0.3.0 has not yet been live-validated. Historical schema-1 v0.2
-read/incoming-SMS evidence does not establish current send/delete/band behavior.
-PCI remains implemented offline but fail-closed pending a user-approved
-maintenance window and exact hardware recovery matrix.
+The PCI command/recovery matrix is live-validated only for one exact
+hardware/firmware tuple; it does not establish behavior for another firmware.
+Unavailable-cell timeout, unplug mid-operation, ModemManager restart
+mid-state-machine, and full-router reboot persistence remain unverified. The
+schema-1 v0.2 read/incoming-SMS evidence still does not establish current live
+SMS send/delete, Band Lock mutation, or pagination beyond 100 stored messages.

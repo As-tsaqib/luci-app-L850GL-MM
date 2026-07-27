@@ -172,7 +172,9 @@ jobs:
             exit 1
           fi
           ./scripts/feeds update -a 2>&1 | tee "${GITHUB_WORKSPACE}/logs/feeds-update.log"
-          ./scripts/feeds install -a 2>&1 | tee "${GITHUB_WORKSPACE}/logs/feeds-install.log"
+          ./scripts/feeds install modemmanager luci-base \
+            luci-proto-modemmanager 2>&1 | \
+            tee "${GITHUB_WORKSPACE}/logs/feeds-install.log"
           modemmanager_recipe='feeds/packages/net/modemmanager/Makefile'
           grep -Fq -- '-Dbuiltin_plugins=true' "${modemmanager_recipe}"
           grep -F -- '-Dbuiltin_plugins=true' "${modemmanager_recipe}" \

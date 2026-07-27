@@ -338,6 +338,31 @@ const expertResult = {
 		retryable: false
 	}
 };
+const availableExpertResult = {
+	schema: 2,
+	generated_at: 1,
+	ok: true,
+	modem_id: 'fibocom-test',
+	generation: 4,
+	state: 'available',
+	mutable: true,
+	reason: 'live-validated-firmware-and-nvm-state',
+	lock: {
+		state: 'configured_exact',
+		enabled: true,
+		postcondition_verified: false,
+		earfcn: 1325,
+		pci: 0,
+		band: 3,
+		source: 'l850-nvm-via-modemmanager'
+	},
+	scan: {
+		state: 'available',
+		available: true,
+		reason: 'standard-with-live-validated-xmci-fallback',
+		source: 'modemmanager'
+	}
+};
 
 const overviewView = evaluate(
 	'htdocs/luci-static/resources/view/fibocom/overview.js', viewDependencies);
@@ -354,6 +379,14 @@ assert.strictEqual(lockView.render({
 	list: listResult,
 	entries: [ { summary: summary, lock: lockResult, expert: expertResult } ]
 }).tag, 'div');
+const renderedAvailableLock = lockView.render({
+	list: listResult,
+	entries: [ { summary: summary, lock: Object.assign({}, lockResult, {
+		pci_lock: { state: 'available', mutable: true,
+			reason: 'live-validated-l850-command-state-machine' }
+	}), expert: availableExpertResult } ]
+});
+assert.strictEqual(renderedAvailableLock.tag, 'div');
 const renderedSms = smsView.render({
 	list: listResult,
 	entries: [ { summary: summary, messages: smsResult } ]
@@ -451,6 +484,9 @@ assert.ok(lockSource.includes("result.source !== 'modemmanager'"));
 assert.ok(lockSource.includes("'unsupported_build'"));
 assert.ok(lockSource.includes("'unsupported_firmware'"));
 assert.ok(lockSource.includes("error.code === 'outcome_unknown'"));
+assert.ok(lockSource.includes('replacementIdentityIsValid'));
+assert.ok(lockSource.includes("'applied_verified'"));
+assert.ok(lockSource.includes("'cleared_verified'"));
 assert.ok(lockSource.includes('do not retry until the live modem state confirms'));
 assert.match(lockSource, /api\.setBands\([\s\S]*?bands, true\)/);
 assert.match(lockSource, /api\.setCellLock\([\s\S]*?true\)/);
