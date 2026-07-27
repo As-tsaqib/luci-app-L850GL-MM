@@ -214,15 +214,42 @@ jobs:
         run: |
           set -euo pipefail
           cd "${SDK_ROOT}"
+          set +e
           make -j"$(nproc)" package/fibocom-mm-bridge/compile \
             package/luci-app-fibocom/compile V=s 2>&1 | \
             tee "${GITHUB_WORKSPACE}/logs/build-base.log"
-          grep -Fq 'libmm-plugin-fibocom.a' "${GITHUB_WORKSPACE}/logs/build-base.log"
-          grep -Fq 'libmm-shared-xmm.a' "${GITHUB_WORKSPACE}/logs/build-base.log"
+          build_status="${PIPESTATUS[0]}"
+          set -e
+          if [ "${build_status}" -ne 0 ]; then
+            echo "Base package build failed with status ${build_status}" >&2
+            exit "${build_status}"
+          fi
+          if ! grep -Fq 'libmm-plugin-fibocom.a' \
+            "${GITHUB_WORKSPACE}/logs/build-base.log"; then
+            echo 'Fibocom ModemManager plugin was not linked in the base build' >&2
+            exit 1
+          fi
+          if ! grep -Fq 'libmm-shared-xmm.a' \
+            "${GITHUB_WORKSPACE}/logs/build-base.log"; then
+            echo 'XMM shared plugin code was not linked in the base build' >&2
+            exit 1
+          fi
           mapfile -t binaries < <(find build_dir/target-* \
-            -path '*/fibocom-mm-bridge-0.3.0/fibocom-mm-bridge' -type f)
-          [ "${#binaries[@]}" -eq 1 ]
-          ! strings "${binaries[0]}" | grep -Fxq 'fibocom.mm.l850'
+            -path '*/fibocom-mm-bridge-0.3.0/.pkgdir/fibocom-mm-bridge/usr/sbin/fibocom-mm-bridge' \
+            -type f)
+          printf 'Base_bridge_binary_count=%s\n' "${#binaries[@]}" | \
+            tee "${GITHUB_WORKSPACE}/logs/verify-base.txt"
+          if [ "${#binaries[@]}" -ne 1 ]; then
+            printf '%s\n' "${binaries[@]}" >&2
+            echo 'Expected exactly one packaged base bridge binary' >&2
+            exit 1
+          fi
+          if strings "${binaries[0]}" | grep -Fx 'fibocom.mm.l850' \
+            >> "${GITHUB_WORKSPACE}/logs/verify-base.txt"; then
+            echo 'Base bridge unexpectedly contains the expert object name' >&2
+            exit 1
+          fi
+          echo 'Expert_Object=absent' >> "${GITHUB_WORKSPACE}/logs/verify-base.txt"
 
       - name: Collect base packages
         shell: bash
@@ -280,16 +307,39 @@ jobs:
           cd "${SDK_ROOT}"
           make package/feeds/packages/modemmanager/clean
           make package/fibocom-mm-bridge/clean
+          set +e
           make -j"$(nproc)" \
             package/feeds/packages/modemmanager/compile \
             package/fibocom-mm-bridge/compile V=s 2>&1 | \
             tee "${GITHUB_WORKSPACE}/logs/build-expert.log"
-          grep -Fq -- '-Dat_command_via_dbus=true' \
-            "${GITHUB_WORKSPACE}/logs/build-expert.log"
+          build_status="${PIPESTATUS[0]}"
+          set -e
+          if [ "${build_status}" -ne 0 ]; then
+            echo "Expert package build failed with status ${build_status}" >&2
+            exit "${build_status}"
+          fi
+          if ! grep -Fq -- '-Dat_command_via_dbus=true' \
+            "${GITHUB_WORKSPACE}/logs/build-expert.log"; then
+            echo 'Expert ModemManager did not enable AT command transport' >&2
+            exit 1
+          fi
           mapfile -t binaries < <(find build_dir/target-* \
-            -path '*/fibocom-mm-bridge-0.3.0/fibocom-mm-bridge' -type f)
-          [ "${#binaries[@]}" -eq 1 ]
-          strings "${binaries[0]}" | grep -Fxq 'fibocom.mm.l850'
+            -path '*/fibocom-mm-bridge-0.3.0/.pkgdir/fibocom-mm-bridge/usr/sbin/fibocom-mm-bridge' \
+            -type f)
+          printf 'Expert_bridge_binary_count=%s\n' "${#binaries[@]}" | \
+            tee "${GITHUB_WORKSPACE}/logs/verify-expert.txt"
+          if [ "${#binaries[@]}" -ne 1 ]; then
+            printf '%s\n' "${binaries[@]}" >&2
+            echo 'Expected exactly one packaged expert bridge binary' >&2
+            exit 1
+          fi
+          if ! strings "${binaries[0]}" | grep -Fx 'fibocom.mm.l850' \
+            >> "${GITHUB_WORKSPACE}/logs/verify-expert.txt"; then
+            echo 'Expert bridge does not contain the expert object name' >&2
+            exit 1
+          fi
+          echo 'Expert_Object=fibocom.mm.l850' \
+            >> "${GITHUB_WORKSPACE}/logs/verify-expert.txt"
 
       - name: Collect expert package
         shell: bash
