@@ -5,13 +5,19 @@ SPDX-License-Identifier: Apache-2.0
 
 # Live router validation
 
+> Historical record only: this page documents schema-1 v0.2 testing performed
+> on 2026-07-19. It does not validate the schema-2 0.3.0 source or packages.
+> No result below may be cited as live validation of current PCI, Band Lock, or
+> SMS mutation behavior.
+
 ## Scope
 
 Validation was performed on 2026-07-19. Identifiers and secrets were not
 recorded. The evidence proves the MBIM/ModemManager lifecycle and the explicitly
-listed companion-app reads on this hardware; it does not claim every L850
-firmware or OpenWrt release. SMS send/delete, Advanced mutations, and eSIM
-profile mutations were not exercised.
+listed v0.2 companion-app reads/inbound-SMS observation on this hardware; it
+does not claim every L850 firmware or OpenWrt release. SMS send/delete and
+radio/band/SIM-slot mutations were not exercised. The historical eSIM probe is
+retained only as provenance for a package retired in 0.3.
 
 ## Environment
 
@@ -172,8 +178,9 @@ no message path or content was recorded. This proves API availability only,
 not the companion bridge's automatic SMS synchronization or send/delete paths.
 
 The recorded netifd state came from direct read-only router inspection. The
-current bridge does not yet export dynamic logical-interface up/down state,
-uptime, or traffic counters; schema 1 reports those fields as unavailable.
+historical v0.2 bridge did not export dynamic logical-interface up/down state,
+uptime, or traffic counters; schema 1 reported those fields as unavailable.
+Schema 2 intentionally omits that diagnostic/network-status surface.
 
 ## Capability probes
 

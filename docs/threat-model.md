@@ -5,221 +5,143 @@ SPDX-License-Identifier: Apache-2.0
 
 # Threat model
 
-## Protected assets
+## Security objective
 
-- WAN availability and routing;
-- modem firmware, radio, SIM, and registration state;
-- ModemManager AT/MBIM port ownership;
-- SMS content and correspondent numbers;
-- APN credentials and SIM PIN;
-- IMEI, IMSI, ICCID, EID, and device identifiers;
-- eSIM profiles, activation codes, and confirmation codes;
-- other attached modems and network interfaces.
+An authenticated LuCI user may view a narrow modem/SMS snapshot and invoke
+only reviewed SMS, band, or explicitly gated expert actions. Browser input must
+never become a path, command, process argument, arbitrary D-Bus call, UCI
+write, or direct device operation.
+
+Protected assets include modem firmware and registration state, SIM and SMS
+content, phone numbers, subscriber/device identifiers, network credentials and
+topology, WAN availability, and the integrity of ModemManager/netifd ownership.
 
 ## Trust boundaries
 
 ```text
-browser
-  │ LuCI session + rpcd ACL
-  ▼
-typed ubus API
-  │
-  ▼
-root fibocom-mm-bridge
-  │ system D-Bus
-  ▼
-ModemManager
-  │
-  ▼
-modem ports
+browser (untrusted values)
+  -> LuCI rpc + rpcd ACL
+  -> libubox request parser
+  -> fibocom-mm-bridge policy/cache
+  -> asynchronous typed libmm-glib
+  -> ModemManager/plugins
+  -> modem hardware
 ```
 
-`luci-app-lpac` is a separate privileged boundary for eUICC operations.
-`/etc/config/network` is the network-intent boundary owned by netifd.
+netifd is a separate authority for persistent connection intent. Its APN,
+routes, addresses, DNS, PIN, and credentials are outside the API.
 
 ## Primary threats
 
-1. Browser input becomes shell, D-Bus object path, or AT syntax.
-2. Generic ModemManager AT access exposes destructive commands.
-3. A stale ModemManager index controls a different modem after replug.
-4. An application opens TTY concurrently and steals/corrupts MM responses.
-5. A GUI method creates or tears down a bearer behind netifd.
-6. A reset/cell lock leaves WAN down or camps on an unintended cell.
-7. SMS text, phone numbers, identifiers, or credentials leak through logs,
-   argv, events, diagnostics, or raw D-Bus dumps.
-8. An opaque SMS ID is replayed against another modem/generation.
-9. eSIM profile mutation races a bearer/SIM reprobe.
-10. A global `cdc-wdm0` configuration targets the wrong eUICC after replug or
-    in a multi-modem system.
-11. Capability is inferred from a vendor name and a command is sent to an
-    unsupported firmware.
-12. Malformed D-Bus data, oversized SMS, or cell scan output consumes memory or
-    blocks the event loop.
-13. A direct radio disable races the configured netifd reconnect intent and is
-    immediately undone or leaves ownership ambiguous.
-14. A UCI status response leaks APN/PIN credentials or mistakes configuration
-    presence for live interface state.
+1. A crafted blob causes out-of-bounds access before libubox validates it.
+2. Unknown or duplicated fields bypass typed request policy.
+3. A D-Bus/sysfs/device path or raw command crosses from the browser.
+4. An opaque ID is predictable, reused after replug, or retargets a replacement
+   modem/SMS.
+5. A stale callback mutates or reports success for the wrong generation.
+6. Concurrent SMS/band/PCI writes race ModemManager or each other.
+7. Timeout or transport loss is mistaken for a definitely failed dispatched
+   write, causing a blind retry.
+8. A band choice disables the current allowed radio family or disconnects WAN.
+9. A guessed PCI lock/clear/reset sequence leaves the router offline or camps
+   on an unintended cell.
+10. Malformed or oversized SMS/cell data consumes memory or reaches the DOM.
+11. SMS send retries duplicate a chargeable/private message.
+12. Logs, general status, or binary/PDU fields leak phone numbers or content.
+13. Schema drift leaves old UI mutation controls enabled.
+14. Broad ACL, shell, file, cgi-io, or UCI grants expand compromise impact.
+15. A second dialer, direct TTY reader, or SMS tool races ModemManager.
 
-## Ownership controls
+## Controls
 
-- ModemManager is the only owner of AT/MBIM ports and bearers.
-- netifd is the only owner of logical interface and network configuration.
-- bridge API has no connect/disconnect/create/delete bearer method.
-- no direct TTY/WDM fallback exists.
-- custom hotplug, sysfs discovery, and netifd proto Fibocom are retired.
-- SMS is accessed only through ModemManager Messaging.
-- lpac uses MBIM proxy and does not stop ModemManager.
-- exact `proto modemmanager` UCI correlation is read-only; direct radio
-  mutation fails closed when netifd owns that modem.
+### Parsing and API shape
 
-## API controls
+- Every untrusted blob attribute passes structural length validation before
+  `blobmsg_name`, type, or data access.
+- Requests accept exact typed fields plus at most one validated canonical
+  `ubus_rpc_session`; malformed, missing, duplicate, and unknown fields fail.
+- The base method table is fixed to seven schema-2 methods.
+- Raw AT, D-Bus/sysfs/device paths, shell/process execution, arbitrary ubus,
+  and bearer lifecycle calls are absent.
+- Text is UTF-8/control-character checked and bounded before serialization.
 
-- exact typed methods and exact rpcd ACL lists;
-- no `cgi-io`, `file.exec`, shell, raw D-Bus, raw AT, or path input;
-- separate permissions for read, SMS mutation, Advanced mutation, and eSIM;
-- opaque random `modem_id`, generation-scoped `sms_id`, an explicit
-  `generation` on every mutation, and `messaging_generation` on SMS writes;
-- bounded strings, arrays, and response sizes;
-- UTF-8 validation and normalized integer parsing;
-- unknown fields rejected rather than ignored on mutating methods;
-- operation timeout and one mutation per modem;
-- one shared per-modem lock across SMS and standard Advanced writes;
-- reset confirmation and cooldown;
-- cell scan is explicit and rate-limited, not polled.
+Malformed-blob behavior is tested against pinned libubox source, including bad
+length, bad name termination, duplicate fields, and malformed session data.
 
-## Identity and replug controls
+### Identity and asynchronous lifetime
 
-- public ID is a random 128-bit token per admitted object, never a hash of
-  `DeviceIdentifier`, an equipment identifier, or physical path;
-- numeric D-Bus indexes and runtime node names are never selectors;
-- every mutation supplies and revalidates exact `{modem_id, generation}`
-  immediately before dispatch;
-- operation context includes internal generation and operation ID;
-- object removal invalidates pending work;
-- replug/re-export and bridge restart issue new IDs;
-- failure to obtain secure randomness fails closed;
-- callbacks cannot retry against a replacement object;
-- reset/cell-lock may observe a correlated replacement read-only, but any
-  follow-up write requires a new confirmation and its new ID/generation;
-- SMS cache entries are generation-scoped.
-- a SIM/Messaging epoch change invalidates old SMS cursors, forms, and writes.
+- Modem, SMS, and client-token IDs use kernel CSPRNG bytes and canonical opaque
+  formats.
+- Every write carries modem generation; SMS also carries
+  `messaging_generation`.
+- Removal marks objects non-live, cancels operations, and creates a new opaque
+  identity on reprobe.
+- Callbacks revalidate the original live proxy and generation.
+- All D-Bus work is asynchronous and cancellable with bounded timeouts.
+- A dispatched send/band operation with uncertain completion returns
+  `outcome_unknown`, is not automatically retried, and requires refreshed live
+  state before another request.
 
-## Privacy controls
+### Ownership and concurrency
 
-The normal status schema excludes:
+- ModemManager exclusively owns modem ports, SIM, SMS, radio, and bearers.
+- netifd exclusively owns persistent connection configuration and network
+  state.
+- SMS and band mutations share one per-modem single-flight lock; expert
+  mutations must use the same lock when they become implementable.
+- Cell scan is blocked while a per-modem mutation is active and is rate-limited
+  to one attempt per minute.
+- Band Lock uses only standard `SetCurrentBands`, exact supported/current-mode
+  validation, confirmation, cooldown, and a prominent WAN interruption warning.
 
-- equipment/subscriber/card identifiers;
-- own phone numbers;
-- APN username/password and PIN;
-- SMS body and recipient/sender except inside the explicit SMS view;
-- eSIM activation/confirmation secrets;
-- raw physical paths where not diagnostically required.
+### Hardware and PCI gates
 
-Logging rules:
+- Mutations require exact live L850-GL, Fibocom plugin, MBIM composition, and
+  USB `2cb7:0007` attestation.
+- The expert object is absent from base binaries and has a separate ACL.
+- Standard GetCellInfo is tried asynchronously before any fallback.
+- Standard cell results are limited to 64 LTE records, PCI 0..503, valid
+  EARFCN-to-live-supported-band mappings, and finite metrics.
+- The vendor parser accepts LTE types 4/5 only and rejects type 6, sentinels,
+  truncated/extra fields, invalid encoding, overflow, and oversized output.
+- The firmware allowlist is empty. Therefore no vendor scan fallback, lock,
+  clear, reset, NVM operation, or post-reprobe write is dispatched.
+- `18500.5001.00.05.27.30` is evidence context, not an allowlisted release.
+- A future mutation cannot report verified success until reset/reprobe,
+  registration, and serving-cell postconditions pass.
 
-- never log SMS text or number;
-- never log user AT/D-Bus input because neither is accepted;
-- redact identifier-like values before any support bundle;
-- do not log raw `mmcli -K`, raw UCI network sections, or raw NVM output;
-- D-Bus/ubus events report state changes without message content.
+### SMS safety and privacy
 
-## Generic AT risk
+- Inventory is bounded to the newest 1,024 messages; each API page is at most
+  100 entries.
+- Outbound text is valid UTF-8 and bounded by character and byte limits.
+- Send uses Messaging.Create/Sms.Send; delete uses Messaging.Delete and a
+  confirmation dialog. There is no direct PDU or SMS-tool fallback.
+- Client tokens are bound to a digest. At most 64 entries are retained for up
+  to 300 seconds; capacity eviction and restart are documented honestly.
+- Unknown send outcome is cached and never resent automatically.
+- Phone number/body may appear only in an authorized SMS response and UI.
+  They are excluded from normal logs, Overview, diagnostics, process arguments,
+  binary payloads, and raw PDU exports.
 
-OpenWrt defaults to:
+### Frontend and ACL
 
-```text
-MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS=n
-polkit=no
-```
+- LuCI requires schema 2 and complete typed success objects. Unknown schema or
+  malformed data disables every mutation.
+- Cell records are structurally validated again before rendering.
+- DOM nodes are built without `innerHTML`; private data is not written to
+  localStorage or console output.
+- Five ACL groups grant exact read/write ubus methods only. There are no
+  wildcards, filesystem, cgi-io, shell/file execution, or UCI-write grants.
 
-The base product retains this safe default. L850 cell controls require an
-expert image that enables generic Command as a transport. Mitigations:
+## Residual risk and validation boundary
 
-- do not run ModemManager with `--debug`;
-- restrict system D-Bus control/Command callers as far as the platform allows;
-- bridge exposes fixed typed methods only;
-- command grammar is constructed internally from bounded integers;
-- exact VID/PID, plugin, model, and firmware allowlist;
-- raw response is parsed and discarded;
-- no web/API method can pass arbitrary AT.
+ModemManager, modem firmware, rpcd, and authenticated LuCI are privileged
+dependencies. A browser poll can lag state by up to its interval. Cancellable
+D-Bus APIs cannot prove rollback after a write reached hardware. In-memory SMS
+dedupe cannot provide exactly-once delivery across eviction or restart.
 
-If the D-Bus policy cannot be hardened acceptably, vendor cell controls remain
-unavailable.
-
-## PCI lock safety
-
-- `GetCellInfo` is attempted before vendor AT fallback;
-- XMCI parser accepts LTE types 4 and 5 only;
-- PCI 0–503 includes zero;
-- sentinel and malformed values are rejected;
-- EARFCN must map to a ModemManager-supported band;
-- lock-state query failure prevents unlock guesses;
-- command success and reset/reprobe/registration are separate states;
-- serving cell is verified after reconnect;
-- a mismatch is never reported as success;
-- there is no chain of alternate CFUN commands;
-- live lock/reset testing requires explicit user notice and a rollback path.
-
-## SMS safety
-
-- native Messaging Create/Send/Delete;
-- automatic cache refresh from Added/Deleted/property signals, plus a bounded
-  30-second reconciliation fallback and 10-second LuCI cache polling;
-- newest-first retention before the 1,024-entry cache safety bound;
-- in-memory send deduplication is limited to five minutes and is never claimed
-  as exactly-once delivery across bridge restarts;
-- phone and text never appear in process argv;
-- maximum lengths and UTF-8 enforced;
-- list/get/delete accept only cached opaque IDs;
-- no raw object path;
-- body is returned only to an authorized SMS call, never a general status call;
-- multipart handling remains ModemManager's responsibility;
-- no `sms-tool` race.
-
-## eSIM safety
-
-- eSIM code remains in `luci-app-lpac`;
-- base package cannot invoke lpac;
-- optional package contributes menu/dependency only;
-- MBIM proxy required;
-- initial claim limited to a single L850;
-- global WDM path is preflighted and must fail closed on ambiguity;
-- profile mutation may trigger SIM/bearer reprobe; MM/netifd recovers it;
-- online RSP operations remain disabled while packaged lpac lacks TLS peer and
-  hostname verification.
-
-## OpenWrt configuration risk
-
-Settings does not duplicate APN/auth/PIN. The bridge performs an exact,
-read-only libuci correlation and returns only allowlisted non-secret policy;
-the UI links to the existing `proto modemmanager` section using standard
-LuCI/network permissions.
-
-The UCI result describes configured ownership, not runtime health. Dynamic
-netifd up/down, uptime, availability, and traffic counters remain unavailable
-in schema 1. A unique binding blocks direct radio mutation with
-`managed_by_netifd`; ambiguous or lookup-error cases fail closed.
-
-The bridge does not read credentials into its status cache. Bugs in the
-upstream protocol form should be fixed in separate OpenWrt/LuCI patches rather
-than worked around with a second configuration store.
-
-## Required security tests
-
-- ACL allow/deny matrix for every method;
-- unknown key, type mismatch, oversized, invalid UTF-8, and integer-boundary
-  tests;
-- stale modem and stale SMS ID tests;
-- unplug during every mutation;
-- multiple modem identity isolation;
-- no bearer method/API/static string regression;
-- no raw AT/path input regression;
-- SMS log/event privacy test;
-- support-bundle redaction test;
-- D-Bus outage and ModemManager restart;
-- cell parser fixtures for types 4/5/6, PCI 0, sentinels, truncated and
-  oversized output;
-- cell reset/reprobe read-only verification and separately confirmed rollback;
-- eSIM ambiguity and proxy preflight;
-- fuzz normalized D-Bus dictionaries;
-- target ASAN/UBSAN where feasible plus OpenWrt SDK builds.
+Schema-2 0.3.0 has not yet been live-validated. Historical schema-1 v0.2
+read/incoming-SMS evidence does not establish current send/delete/band behavior.
+PCI remains implemented offline but fail-closed pending a user-approved
+maintenance window and exact hardware recovery matrix.

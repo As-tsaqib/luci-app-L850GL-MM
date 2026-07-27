@@ -1,0 +1,5 @@
+frequency=1325
+rat=3
+psc_or_pci=381
+band_info=0
+inter_freq_lock_support=0

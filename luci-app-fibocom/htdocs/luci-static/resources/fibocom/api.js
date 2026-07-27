@@ -5,101 +5,50 @@
 'require baseclass';
 'require rpc';
 
-const callListModems = rpc.declare({
-	object: 'fibocom.mm',
-	method: 'list_modems',
-	reject: true,
-	expect: { '': {} }
-});
+function declare(object, method, params) {
+	const specification = {
+		object: object,
+		method: method,
+		reject: true,
+		expect: { '': {} }
+	};
 
-const callGetOverview = rpc.declare({
-	object: 'fibocom.mm',
-	method: 'get_overview',
-	params: [ 'modem_id' ],
-	reject: true,
-	expect: { '': {} }
-});
+	if (params)
+		specification.params = params;
+	return rpc.declare(specification);
+}
 
-const callGetStatus = rpc.declare({
-	object: 'fibocom.mm',
-	method: 'get_status',
-	params: [ 'modem_id' ],
-	reject: true,
-	expect: { '': {} }
-});
+const callListModems = declare('fibocom.mm', 'list_modems');
+const callGetOverview = declare('fibocom.mm', 'get_overview', [ 'modem_id' ]);
+const callGetLockStatus = declare('fibocom.mm', 'get_lock_status', [ 'modem_id' ]);
+const callSetBands = declare('fibocom.mm', 'set_bands', [
+	'modem_id', 'generation', 'bands', 'confirm'
+]);
+const callListSms = declare('fibocom.mm', 'list_sms', [
+	'modem_id', 'folder', 'limit', 'cursor'
+]);
+const callSendSms = declare('fibocom.mm', 'send_sms', [
+	'modem_id', 'generation', 'messaging_generation', 'recipient', 'text', 'client_token'
+]);
+const callDeleteSms = declare('fibocom.mm', 'delete_sms', [
+	'modem_id', 'generation', 'messaging_generation', 'sms_id', 'confirm'
+]);
 
-const callGetCapabilities = rpc.declare({
-	object: 'fibocom.mm',
-	method: 'get_capabilities',
-	params: [ 'modem_id' ],
-	reject: true,
-	expect: { '': {} }
-});
-
-const callSetBands = rpc.declare({
-	object: 'fibocom.mm',
-	method: 'set_bands',
-	params: [ 'modem_id', 'generation', 'bands', 'confirm' ],
-	reject: true,
-	expect: { '': {} }
-});
-
-const callSetRadio = rpc.declare({
-	object: 'fibocom.mm',
-	method: 'set_radio',
-	params: [ 'modem_id', 'generation', 'enabled', 'confirm' ],
-	reject: true,
-	expect: { '': {} }
-});
-
-const callReset = rpc.declare({
-	object: 'fibocom.mm',
-	method: 'reset',
-	params: [ 'modem_id', 'generation', 'confirm' ],
-	reject: true,
-	expect: { '': {} }
-});
-
-const callSetPrimarySimSlot = rpc.declare({
-	object: 'fibocom.mm',
-	method: 'set_primary_sim_slot',
-	params: [ 'modem_id', 'generation', 'slot', 'confirm' ],
-	reject: true,
-	expect: { '': {} }
-});
-
-const callListSms = rpc.declare({
-	object: 'fibocom.mm',
-	method: 'list_sms',
-	params: [ 'modem_id', 'folder', 'limit', 'cursor' ],
-	reject: true,
-	expect: { '': {} }
-});
-
-const callSendSms = rpc.declare({
-	object: 'fibocom.mm',
-	method: 'send_sms',
-	params: [
-		'modem_id', 'generation', 'messaging_generation',
-		'recipient', 'text', 'client_token'
-	],
-	reject: true,
-	expect: { '': {} }
-});
-
-const callDeleteSms = rpc.declare({
-	object: 'fibocom.mm',
-	method: 'delete_sms',
-	params: [
-		'modem_id', 'generation', 'messaging_generation',
-		'sms_id', 'confirm'
-	],
-	reject: true,
-	expect: { '': {} }
-});
+const callCellScan = declare('fibocom.mm.l850', 'cell_scan', [
+	'modem_id', 'generation'
+]);
+const callCellLockStatus = declare('fibocom.mm.l850', 'cell_lock_status', [
+	'modem_id', 'generation'
+]);
+const callSetCellLock = declare('fibocom.mm.l850', 'set_cell_lock', [
+	'modem_id', 'generation', 'earfcn', 'pci', 'confirm'
+]);
+const callClearCellLock = declare('fibocom.mm.l850', 'clear_cell_lock', [
+	'modem_id', 'generation', 'confirm'
+]);
 
 return baseclass.extend({
-	SCHEMA_VERSION: 1,
+	SCHEMA_VERSION: 2,
 
 	listModems: function() {
 		return callListModems();
@@ -109,28 +58,12 @@ return baseclass.extend({
 		return callGetOverview(modemId);
 	},
 
-	getStatus: function(modemId) {
-		return callGetStatus(modemId);
-	},
-
-	getCapabilities: function(modemId) {
-		return callGetCapabilities(modemId);
+	getLockStatus: function(modemId) {
+		return callGetLockStatus(modemId);
 	},
 
 	setBands: function(modemId, generation, bands, confirm) {
 		return callSetBands(modemId, generation, bands, confirm);
-	},
-
-	setRadio: function(modemId, generation, enabled, confirm) {
-		return callSetRadio(modemId, generation, enabled, confirm);
-	},
-
-	reset: function(modemId, generation, confirm) {
-		return callReset(modemId, generation, confirm);
-	},
-
-	setPrimarySimSlot: function(modemId, generation, slot, confirm) {
-		return callSetPrimarySimSlot(modemId, generation, slot, confirm);
 	},
 
 	listSms: function(modemId, folder, limit, cursor) {
@@ -144,5 +77,22 @@ return baseclass.extend({
 
 	deleteSms: function(modemId, generation, messagingGeneration, smsId, confirm) {
 		return callDeleteSms(modemId, generation, messagingGeneration, smsId, confirm);
+	},
+
+	cellScan: function(modemId, generation) {
+		return callCellScan(modemId, generation);
+	},
+
+	cellLockStatus: function(modemId, generation) {
+		return callCellLockStatus(modemId, generation);
+	},
+
+	setCellLock: function(modemId, generation, earfcn, pci, confirm) {
+		return callSetCellLock(modemId, generation, earfcn,
+			pci == null ? undefined : pci, confirm);
+	},
+
+	clearCellLock: function(modemId, generation, confirm) {
+		return callClearCellLock(modemId, generation, confirm);
 	}
 });

@@ -4,8 +4,8 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=fibocom-mm-bridge
-PKG_VERSION:=0.2.0
-PKG_RELEASE:=3
+PKG_VERSION:=0.3.0
+PKG_RELEASE:=1
 
 PKG_MAINTAINER:=As Tsaqib <0xfiqks@gmail.com>
 PKG_LICENSE:=GPL-2.0-or-later
@@ -30,12 +30,26 @@ define Package/fibocom-mm-bridge
 	+libuci
 endef
 
+define Package/fibocom-mm-bridge/config
+	config FIBOCOM_MM_BRIDGE_L850_EXPERT
+		bool "Build the reviewed L850 PCI/EARFCN expert object"
+		depends on PACKAGE_fibocom-mm-bridge
+		depends on MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS
+		default n
+		help
+		  Publish fibocom.mm.l850 with fixed, typed commands for the exact
+		  live-validated L850-GL firmware allowlist. This requires a matching
+		  ModemManager build that enables reviewed AT command transport.
+endef
+
 define Package/fibocom-mm-bridge/description
  A typed ubus facade over ModemManager for Fibocom modems. The initial
  supported target is the L850-GL in MBIM composition. It observes modem state
  and implements SMS and capability-gated standard radio controls through the
- native ModemManager API. It never dials, creates or deletes bearers, executes
- AT commands, or changes UCI.
+ native ModemManager API. It never dials, creates or deletes bearers, or
+ changes UCI. The base build never executes AT commands; the explicit expert
+ build can dispatch only its compiled-in, firmware-gated L850 grammar through
+ ModemManager's asynchronous command queue.
 endef
 
 define Build/Prepare
@@ -47,6 +61,7 @@ define Build/Compile
 	+$(MAKE) $(PKG_JOBS) -C $(PKG_BUILD_DIR) \
 		$(TARGET_CONFIGURE_OPTS) \
 		PKG_CONFIG="$(PKG_CONFIG)" \
+		FIBOCOM_MM_L850_EXPERT="$(if $(CONFIG_FIBOCOM_MM_BRIDGE_L850_EXPERT),1,)" \
 		CPPFLAGS="$(TARGET_CPPFLAGS)" \
 		CFLAGS="$(TARGET_CFLAGS)" \
 		LDFLAGS="$(TARGET_LDFLAGS)"

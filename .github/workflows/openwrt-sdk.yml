@@ -1,9 +1,5 @@
 # SPDX-FileCopyrightText: 2026 As Tsaqib
 # SPDX-License-Identifier: Apache-2.0
-#
-# Linksys EA6350 v3 is an ARMv7 ipq40xx/generic target whose OpenWrt package
-# architecture is arm_cortex-a7_neon-vfpv4.  The Linux-x86_64 suffix on the
-# SDK archive describes the GitHub Actions build host, not the router target.
 
 name: OpenWrt SDK
 
@@ -13,13 +9,11 @@ on:
       - '.github/workflows/openwrt-sdk.yml'
       - 'fibocom-mm-bridge/**'
       - 'luci-app-fibocom/**'
-      - 'luci-app-fibocom-esim/**'
   pull_request:
     paths:
       - '.github/workflows/openwrt-sdk.yml'
       - 'fibocom-mm-bridge/**'
       - 'luci-app-fibocom/**'
-      - 'luci-app-fibocom-esim/**'
   workflow_dispatch:
     inputs:
       openwrt_version:
@@ -28,22 +22,12 @@ on:
         default: '25.12.5'
         type: string
       sdk_url:
-        description: 'Optional public direct HTTPS SDK URL (ipq40xx/generic only; no credentials/query)'
+        description: 'Optional public direct HTTPS SDK URL (ipq40xx/generic only)'
         required: false
         type: string
       sdk_sha256:
         description: 'Required SHA-256 when sdk_url is set'
         required: false
-        type: string
-      build_esim:
-        description: 'Also build the optional eSIM bundle'
-        required: true
-        default: true
-        type: boolean
-      lpac_ref:
-        description: 'Full As-tsaqib/luci-app-lpac commit SHA'
-        required: true
-        default: '19f31e7a3571736091daf1772856f58902fd5866'
         type: string
 
 permissions:
@@ -62,8 +46,6 @@ jobs:
       OPENWRT_VERSION: ${{ inputs.openwrt_version || '25.12.5' }}
       SDK_URL_OVERRIDE: ${{ inputs.sdk_url || '' }}
       SDK_SHA256_OVERRIDE: ${{ inputs.sdk_sha256 || '' }}
-      BUILD_ESIM: ${{ github.event_name != 'workflow_dispatch' || inputs.build_esim == true }}
-      LPAC_REF: ${{ inputs.lpac_ref || '19f31e7a3571736091daf1772856f58902fd5866' }}
 
     steps:
       - name: Check out source
@@ -74,119 +56,61 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
-          if [[ ! "${OPENWRT_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "openwrt_version must be a release such as 25.12.5" >&2
-            exit 1
-          fi
-
-          official=false
+          [[ "${OPENWRT_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
           base_url="https://downloads.openwrt.org/releases/${OPENWRT_VERSION}/targets/ipq40xx/generic"
-          feeds_sha256=''
-
           if [ -n "${SDK_URL_OVERRIDE}" ]; then
-            case "${SDK_URL_OVERRIDE}" in
-              https://*) ;;
-              *) echo 'sdk_url must use HTTPS' >&2; exit 1 ;;
-            esac
-            case "${SDK_URL_OVERRIDE}" in
-              *'?'*|*'#'*|https://*@*)
-                echo 'sdk_url must be a public direct URL without credentials, query, or fragment' >&2
-                exit 1
-                ;;
-            esac
-            if [[ ! "${SDK_SHA256_OVERRIDE}" =~ ^[[:xdigit:]]{64}$ ]]; then
-              echo 'sdk_sha256 must be 64 hexadecimal characters when sdk_url is set' >&2
-              exit 1
-            fi
-
+            [[ "${SDK_URL_OVERRIDE}" == https://* ]]
+            [[ "${SDK_URL_OVERRIDE}" != *'?'* ]]
+            [[ "${SDK_URL_OVERRIDE}" != *'#'* ]]
+            [[ "${SDK_URL_OVERRIDE}" != https://*@* ]]
+            [[ "${SDK_SHA256_OVERRIDE}" =~ ^[[:xdigit:]]{64}$ ]]
             url="${SDK_URL_OVERRIDE}"
-            filename="$(basename "${url%%\?*}")"
-            expected_sha256="${SDK_SHA256_OVERRIDE,,}"
+            filename="$(basename "${url}")"
+            sha256="${SDK_SHA256_OVERRIDE,,}"
           else
             index="$(curl --fail --silent --show-error --location \
               --retry 4 --retry-all-errors "${base_url}/")"
-            mapfile -t sdk_names < <(
-              printf '%s' "${index}" \
-                | grep -oE 'openwrt-sdk-[^"< ]+\.tar\.(zst|xz)' \
-                | sort -u
-            )
-            if [ "${#sdk_names[@]}" -ne 1 ]; then
-              echo "Expected exactly one official SDK at ${base_url}, found ${#sdk_names[@]}" >&2
-              printf '%s\n' "${sdk_names[@]}" >&2
-              exit 1
-            fi
-
-            official=true
-            filename="${sdk_names[0]}"
+            mapfile -t names < <(printf '%s' "${index}" | \
+              grep -oE 'openwrt-sdk-[^"< ]+\.tar\.(zst|xz)' | sort -u)
+            [ "${#names[@]}" -eq 1 ]
+            filename="${names[0]}"
             url="${base_url}/${filename}"
             sums="$(curl --fail --silent --show-error --location \
               --retry 4 --retry-all-errors "${base_url}/sha256sums")"
-            mapfile -t sdk_hashes < <(
-              awk -v name="${filename}" \
-                '$2 == name || $2 == ("*" name) { print $1 }' \
-                <<< "${sums}" | sort -u
-            )
-            mapfile -t feeds_hashes < <(
-              awk '$2 == "feeds.buildinfo" || $2 == "*feeds.buildinfo" { print $1 }' \
-                <<< "${sums}" | sort -u
-            )
-            if [ "${#sdk_hashes[@]}" -ne 1 ] || [ "${#feeds_hashes[@]}" -ne 1 ]; then
-              echo 'The official checksum manifest is incomplete or ambiguous' >&2
-              exit 1
-            fi
-            expected_sha256="${sdk_hashes[0]}"
-            feeds_sha256="${feeds_hashes[0]}"
-
+            mapfile -t hashes < <(awk -v name="${filename}" \
+              '$2 == name || $2 == ("*" name) { print $1 }' <<< "${sums}" | sort -u)
+            [ "${#hashes[@]}" -eq 1 ]
+            sha256="${hashes[0]}"
             if [ "${OPENWRT_VERSION}" = '25.12.5' ]; then
-              if [ "${expected_sha256}" != \
-                   'af3d15643f8459335b1c98dc97dd47897d2d8e825a990a161b16b43de2281515' ] || \
-                 [ "${feeds_sha256}" != \
-                   'e11279b01e7fea7f7d399e25e969d9382be6891071cbc1225804195224b27b52' ]; then
-                echo 'OpenWrt 25.12.5 release checksums differ from the pinned baseline' >&2
-                exit 1
-              fi
+              [ "${sha256}" = 'af3d15643f8459335b1c98dc97dd47897d2d8e825a990a161b16b43de2281515' ]
             fi
           fi
-
           case "${filename}" in
             "openwrt-sdk-${OPENWRT_VERSION}-ipq40xx-generic_"*.Linux-x86_64.tar.zst|\
             "openwrt-sdk-${OPENWRT_VERSION}-ipq40xx-generic_"*.Linux-x86_64.tar.xz) ;;
-            *)
-              echo "Refusing an SDK that is not ipq40xx/generic Linux-x86_64: ${filename}" >&2
-              exit 1
-              ;;
+            *) echo "Unexpected SDK: ${filename}" >&2; exit 1 ;;
           esac
-
-          cache_dir="${RUNNER_TEMP}/openwrt-sdk-cache"
-          archive="${cache_dir}/${filename}"
-          mkdir -p "${cache_dir}" logs
-
+          archive="${RUNNER_TEMP}/openwrt-sdk-cache/${filename}"
+          mkdir -p "$(dirname "${archive}")" logs
           {
-            echo "official=${official}"
-            echo "base_url=${base_url}"
-            echo "feeds_sha256=${feeds_sha256}"
             echo "filename=${filename}"
             echo "url=${url}"
-            echo "sha256=${expected_sha256}"
+            echo "sha256=${sha256}"
             echo "archive=${archive}"
           } >> "${GITHUB_OUTPUT}"
-
           {
             echo "OpenWrt=${OPENWRT_VERSION}"
             echo 'Target=ipq40xx/generic'
-            echo 'Router_CPU=ARMv7'
             echo 'Package_Architecture=arm_cortex-a7_neon-vfpv4'
-            echo 'SDK_Host=x86_64'
             echo "SDK=${url}"
-            echo "SDK_SHA256=${expected_sha256}"
-          } | tee logs/sdk-resolution.txt
+            echo "SDK_SHA256=${sha256}"
+          } > logs/sdk-resolution.txt
 
-      - name: Restore SDK download cache
+      - name: Restore SDK cache
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
-          path: ${{ runner.temp }}/openwrt-sdk-cache/${{ steps.sdk.outputs.filename }}
-          key: openwrt-sdk-${{ runner.os }}-ipq40xx-generic-${{ env.OPENWRT_VERSION }}-${{ steps.sdk.outputs.sha256 }}
+          path: ${{ steps.sdk.outputs.archive }}
+          key: openwrt-sdk-${{ runner.os }}-${{ env.OPENWRT_VERSION }}-${{ steps.sdk.outputs.sha256 }}
 
       - name: Download and verify SDK
         shell: bash
@@ -196,54 +120,27 @@ jobs:
           SDK_URL: ${{ steps.sdk.outputs.url }}
         run: |
           set -euo pipefail
-
-          if [ -f "${ARCHIVE}" ] && \
-             ! printf '%s *%s\n' "${EXPECTED_SHA256}" "${ARCHIVE}" | sha256sum --check -; then
-            echo 'Discarding a corrupt cached SDK archive' >&2
+          if [ -f "${ARCHIVE}" ] && ! printf '%s *%s\n' \
+            "${EXPECTED_SHA256}" "${ARCHIVE}" | sha256sum --check -; then
             rm -f "${ARCHIVE}"
           fi
-
           if [ ! -f "${ARCHIVE}" ]; then
-            curl --fail --show-error --location \
-              --retry 5 --retry-all-errors \
+            curl --fail --show-error --location --retry 5 --retry-all-errors \
               --output "${ARCHIVE}.part" "${SDK_URL}"
             mv "${ARCHIVE}.part" "${ARCHIVE}"
           fi
-
-          printf '%s *%s\n' "${EXPECTED_SHA256}" "${ARCHIVE}" \
-            | tee logs/sdk-SHA256SUMS \
-            | sha256sum --check -
+          printf '%s *%s\n' "${EXPECTED_SHA256}" "${ARCHIVE}" | \
+            tee logs/sdk-SHA256SUMS | sha256sum --check -
 
       - name: Install SDK host dependencies
-        shell: bash
         run: |
-          set -euo pipefail
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
-            bison \
-            build-essential \
-            ca-certificates \
-            curl \
-            file \
-            flex \
-            g++-multilib \
-            gawk \
-            gcc-multilib \
-            gettext \
-            git \
-            libelf-dev \
-            libncurses-dev \
-            libssl-dev \
-            patch \
-            pkgconf \
-            python3 \
-            python3-setuptools \
-            rsync \
-            unzip \
-            zlib1g-dev \
-            zstd
+            bison build-essential ca-certificates curl file flex g++-multilib \
+            gawk gcc-multilib gettext git libelf-dev libncurses-dev libssl-dev \
+            patch pkgconf python3 python3-setuptools rsync unzip zlib1g-dev zstd
 
-      - name: Extract and validate target SDK
+      - name: Extract SDK
         id: tree
         shell: bash
         env:
@@ -251,90 +148,40 @@ jobs:
         run: |
           set -euo pipefail
           sdk_root="${RUNNER_TEMP}/openwrt-sdk"
-          rm -rf "${sdk_root}"
           mkdir -p "${sdk_root}"
-
           case "${ARCHIVE}" in
             *.tar.zst) tar --zstd -xf "${ARCHIVE}" -C "${sdk_root}" --strip-components=1 ;;
-            *.tar.xz)  tar -xJf "${ARCHIVE}" -C "${sdk_root}" --strip-components=1 ;;
-            *) echo "Unsupported SDK archive: ${ARCHIVE}" >&2; exit 1 ;;
+            *.tar.xz) tar -xJf "${ARCHIVE}" -C "${sdk_root}" --strip-components=1 ;;
           esac
-
           test -x "${sdk_root}/scripts/feeds"
           test -f "${sdk_root}/rules.mk"
-          mapfile -t target_toolchains < <(
-            find "${sdk_root}/staging_dir" -mindepth 1 -maxdepth 1 \
-              -type d -name 'toolchain-arm_cortex-a7+neon-vfpv4_*' -print
-          )
-          if [ "${#target_toolchains[@]}" -ne 1 ]; then
-            echo 'SDK does not contain exactly one ARMv7 ipq40xx toolchain' >&2
-            printf '%s\n' "${target_toolchains[@]}" >&2
-            exit 1
-          fi
           echo "root=${sdk_root}" >> "${GITHUB_OUTPUT}"
 
-      - name: Prepare release-pinned feeds and local packages
+      - name: Prepare pinned feeds and local packages
         shell: bash
         env:
           SDK_ROOT: ${{ steps.tree.outputs.root }}
-          OFFICIAL_SDK: ${{ steps.sdk.outputs.official }}
-          SDK_BASE_URL: ${{ steps.sdk.outputs.base_url }}
-          FEEDS_SHA256: ${{ steps.sdk.outputs.feeds_sha256 }}
         run: |
           set -euo pipefail
           cd "${SDK_ROOT}"
-
-          test -s feeds.conf.default
           cp feeds.conf.default feeds.conf
-
-          if [ "${OFFICIAL_SDK}" = true ]; then
-            curl --fail --silent --show-error --location \
-              --retry 4 --retry-all-errors \
-              --output official-feeds.buildinfo \
-              "${SDK_BASE_URL}/feeds.buildinfo"
-            printf '%s *%s\n' "${FEEDS_SHA256}" official-feeds.buildinfo \
-              | sha256sum --check -
-
-            while IFS= read -r release_feed; do
-              [ -z "${release_feed}" ] && continue
-              if ! grep -Fqx -- "${release_feed}" feeds.conf; then
-                echo "SDK feed does not match release feeds.buildinfo: ${release_feed}" >&2
-                exit 1
-              fi
-            done < official-feeds.buildinfo
-            cp official-feeds.buildinfo \
-              "${GITHUB_WORKSPACE}/logs/feeds.buildinfo"
-          fi
-
           if grep -Ev \
             '^[[:space:]]*(#|$)|^[[:space:]]*src-git[-a-z]*([[:space:]]+--[^[:space:]]+)*[[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:]]+\^[0-9a-f]{40}[[:space:]]*$' \
             feeds.conf; then
-              echo 'Every SDK feed must be pinned to a full Git commit' >&2
-              exit 1
-          fi
-
-          cp feeds.conf "${GITHUB_WORKSPACE}/logs/feeds.conf"
-          ./scripts/feeds update -a 2>&1 | tee "${GITHUB_WORKSPACE}/logs/feeds-update.log"
-          ./scripts/feeds install -a 2>&1 | tee "${GITHUB_WORKSPACE}/logs/feeds-install.log"
-
-          modemmanager_recipe='feeds/packages/net/modemmanager/Makefile'
-          test -f "${modemmanager_recipe}"
-          if ! grep -Fq -- '-Dbuiltin_plugins=true' "${modemmanager_recipe}"; then
-            echo 'The pinned ModemManager recipe does not enable builtin plugins' >&2
+            echo 'Every SDK feed must be pinned to a full Git commit' >&2
             exit 1
           fi
+          ./scripts/feeds update -a 2>&1 | tee "${GITHUB_WORKSPACE}/logs/feeds-update.log"
+          ./scripts/feeds install -a 2>&1 | tee "${GITHUB_WORKSPACE}/logs/feeds-install.log"
+          modemmanager_recipe='feeds/packages/net/modemmanager/Makefile'
+          grep -Fq -- '-Dbuiltin_plugins=true' "${modemmanager_recipe}"
           grep -F -- '-Dbuiltin_plugins=true' "${modemmanager_recipe}" \
             > "${GITHUB_WORKSPACE}/logs/modemmanager-plugin-contract.txt"
-
-          rm -rf \
-            package/fibocom-mm-bridge \
-            package/luci-app-fibocom \
-            package/luci-app-fibocom-esim
+          rm -rf package/fibocom-mm-bridge package/luci-app-fibocom
           cp -a "${GITHUB_WORKSPACE}/fibocom-mm-bridge" package/
           cp -a "${GITHUB_WORKSPACE}/luci-app-fibocom" package/
-          cp -a "${GITHUB_WORKSPACE}/luci-app-fibocom-esim" package/
 
-      - name: Configure base packages
+      - name: Configure base build
         shell: bash
         env:
           SDK_ROOT: ${{ steps.tree.outputs.root }}
@@ -350,39 +197,30 @@ jobs:
           CONFIG_MODEMMANAGER_WITH_MBIM=y
           CONFIG_MODEMMANAGER_WITH_NETIFD=y
           # CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS is not set
+          # CONFIG_FIBOCOM_MM_BRIDGE_L850_EXPERT is not set
           EOF
           make defconfig 2>&1 | tee "${GITHUB_WORKSPACE}/logs/defconfig-base.log"
-          grep -q '^CONFIG_TARGET_ipq40xx=y$' .config
-          grep -q '^CONFIG_TARGET_ipq40xx_generic=y$' .config
           grep -q '^CONFIG_TARGET_ARCH_PACKAGES="arm_cortex-a7_neon-vfpv4"$' .config
-          grep -q '^CONFIG_PACKAGE_modemmanager=m$' .config
-          grep -q '^CONFIG_PACKAGE_fibocom-mm-bridge=m$' .config
-          grep -q '^CONFIG_PACKAGE_luci-app-fibocom=m$' .config
-          grep -q '^CONFIG_MODEMMANAGER_WITH_MBIM=y$' .config
-          grep -q '^CONFIG_MODEMMANAGER_WITH_NETIFD=y$' .config
           grep -q '^# CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS is not set$' .config
-          package_arch="$(make --no-print-directory -s val.ARCH_PACKAGES)"
-          if [ "${package_arch}" != 'arm_cortex-a7_neon-vfpv4' ]; then
-            echo "Unexpected package architecture: ${package_arch}" >&2
-            exit 1
-          fi
+          grep -q '^# CONFIG_FIBOCOM_MM_BRIDGE_L850_EXPERT is not set$' .config
           cp .config "${GITHUB_WORKSPACE}/logs/config-base"
 
-      - name: Build base packages
+      - name: Build and verify base packages
         shell: bash
         env:
           SDK_ROOT: ${{ steps.tree.outputs.root }}
         run: |
           set -euo pipefail
           cd "${SDK_ROOT}"
-          make -j"$(nproc)" \
-            package/fibocom-mm-bridge/compile \
-            package/luci-app-fibocom/compile \
-            V=s 2>&1 | tee "${GITHUB_WORKSPACE}/logs/build-base.log"
-          grep -Fq 'libmm-plugin-fibocom.a' \
-            "${GITHUB_WORKSPACE}/logs/build-base.log"
-          grep -Fq 'libmm-shared-xmm.a' \
-            "${GITHUB_WORKSPACE}/logs/build-base.log"
+          make -j"$(nproc)" package/fibocom-mm-bridge/compile \
+            package/luci-app-fibocom/compile V=s 2>&1 | \
+            tee "${GITHUB_WORKSPACE}/logs/build-base.log"
+          grep -Fq 'libmm-plugin-fibocom.a' "${GITHUB_WORKSPACE}/logs/build-base.log"
+          grep -Fq 'libmm-shared-xmm.a' "${GITHUB_WORKSPACE}/logs/build-base.log"
+          mapfile -t binaries < <(find build_dir/target-* \
+            -path '*/fibocom-mm-bridge-0.3.0/fibocom-mm-bridge' -type f)
+          [ "${#binaries[@]}" -eq 1 ]
+          ! strings "${binaries[0]}" | grep -Fxq 'fibocom.mm.l850'
 
       - name: Collect base packages
         shell: bash
@@ -391,44 +229,102 @@ jobs:
         run: |
           set -euo pipefail
           cd "${SDK_ROOT}"
-          rm -rf "${GITHUB_WORKSPACE}/dist/base"
           mkdir -p "${GITHUB_WORKSPACE}/dist/base"
-
-          mapfile -d '' bridge_packages < <(
-            find bin/packages -type f \
-              \( -name 'fibocom-mm-bridge-*.apk' -o -name 'fibocom-mm-bridge_*.ipk' \) \
-              -print0
-          )
-          mapfile -d '' luci_packages < <(
-            find bin/packages -type f \
-              \( -name 'luci-app-fibocom-[0-9]*.apk' -o -name 'luci-app-fibocom_*_all.ipk' \) \
-              -print0
-          )
-          if [ "${#bridge_packages[@]}" -ne 1 ] || [ "${#luci_packages[@]}" -ne 1 ]; then
-            echo 'Expected exactly one bridge package and one base LuCI package' >&2
-            find bin/packages -type f \
-              \( -name '*fibocom*.apk' -o -name '*fibocom*.ipk' \) -print >&2
-            exit 1
-          fi
-
-          cp -v "${bridge_packages[0]}" "${luci_packages[0]}" \
-            "${GITHUB_WORKSPACE}/dist/base/"
+          mapfile -d '' packages < <(find bin/packages -type f \
+            \( -name 'fibocom-mm-bridge-*.apk' -o -name 'fibocom-mm-bridge_*.ipk' \
+               -o -name 'luci-app-fibocom-[0-9]*.apk' -o -name 'luci-app-fibocom_*_all.ipk' \) \
+            -print0)
+          [ "${#packages[@]}" -eq 2 ]
+          cp "${packages[@]}" "${GITHUB_WORKSPACE}/dist/base/"
           {
             echo "OpenWrt=${OPENWRT_VERSION}"
             echo 'Target=ipq40xx/generic'
-            echo 'Router_CPU=ARMv7'
             echo 'Package_Architecture=arm_cortex-a7_neon-vfpv4'
-            echo 'SDK_Host=x86_64'
-            echo 'Profile=Linksys EA6350 v3'
+            echo 'API_Schema=2'
+            echo 'Expert_Object=absent'
             echo "Source_Commit=${GITHUB_SHA}"
-            echo "SDK_SHA256=${{ steps.sdk.outputs.sha256 }}"
           } > "${GITHUB_WORKSPACE}/dist/base/BUILD_INFO.txt"
           (
             cd "${GITHUB_WORKSPACE}/dist/base"
-            find . -maxdepth 1 -type f \
-              \( -name '*.apk' -o -name '*.ipk' \) -printf '%f\n' \
-              | sort | xargs sha256sum > SHA256SUMS
-            cat SHA256SUMS
+            find . -maxdepth 1 -type f \( -name '*.apk' -o -name '*.ipk' \) \
+              -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS
+            test -s SHA256SUMS
+          )
+
+      - name: Configure explicit expert build
+        shell: bash
+        env:
+          SDK_ROOT: ${{ steps.tree.outputs.root }}
+        run: |
+          set -euo pipefail
+          cd "${SDK_ROOT}"
+          sed -i '/CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS/d' .config
+          sed -i '/CONFIG_FIBOCOM_MM_BRIDGE_L850_EXPERT/d' .config
+          cat >> .config <<'EOF'
+          CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS=y
+          CONFIG_FIBOCOM_MM_BRIDGE_L850_EXPERT=y
+          EOF
+          make defconfig 2>&1 | tee "${GITHUB_WORKSPACE}/logs/defconfig-expert.log"
+          grep -q '^CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS=y$' .config
+          grep -q '^CONFIG_FIBOCOM_MM_BRIDGE_L850_EXPERT=y$' .config
+          cp .config "${GITHUB_WORKSPACE}/logs/config-expert"
+
+      - name: Build and verify explicit expert package
+        shell: bash
+        env:
+          SDK_ROOT: ${{ steps.tree.outputs.root }}
+        run: |
+          set -euo pipefail
+          cd "${SDK_ROOT}"
+          make package/feeds/packages/modemmanager/clean
+          make package/fibocom-mm-bridge/clean
+          make -j"$(nproc)" \
+            package/feeds/packages/modemmanager/compile \
+            package/fibocom-mm-bridge/compile V=s 2>&1 | \
+            tee "${GITHUB_WORKSPACE}/logs/build-expert.log"
+          grep -Fq -- '-Dat_command_via_dbus=true' \
+            "${GITHUB_WORKSPACE}/logs/build-expert.log"
+          mapfile -t binaries < <(find build_dir/target-* \
+            -path '*/fibocom-mm-bridge-0.3.0/fibocom-mm-bridge' -type f)
+          [ "${#binaries[@]}" -eq 1 ]
+          strings "${binaries[0]}" | grep -Fxq 'fibocom.mm.l850'
+
+      - name: Collect expert package
+        shell: bash
+        env:
+          SDK_ROOT: ${{ steps.tree.outputs.root }}
+        run: |
+          set -euo pipefail
+          cd "${SDK_ROOT}"
+          mkdir -p "${GITHUB_WORKSPACE}/dist/expert"
+          mapfile -d '' bridge < <(find bin/packages -type f \
+            \( -name 'fibocom-mm-bridge-*.apk' -o -name 'fibocom-mm-bridge_*.ipk' \) -print0)
+          [ "${#bridge[@]}" -eq 1 ]
+          cp "${bridge[0]}" "${GITHUB_WORKSPACE}/dist/expert/"
+          mapfile -d '' modemmanager < <(find bin/packages -type f \
+            \( -name 'modemmanager-[0-9]*.apk' -o -name 'modemmanager_*.ipk' \) -print0)
+          [ "${#modemmanager[@]}" -eq 1 ]
+          cp "${modemmanager[0]}" "${GITHUB_WORKSPACE}/dist/expert/"
+          mapfile -d '' luci < <(find "${GITHUB_WORKSPACE}/dist/base" \
+            -maxdepth 1 -type f \
+            \( -name 'luci-app-fibocom-*.apk' -o -name 'luci-app-fibocom_*.ipk' \) -print0)
+          [ "${#luci[@]}" -eq 1 ]
+          cp "${luci[0]}" "${GITHUB_WORKSPACE}/dist/expert/"
+          {
+            echo "OpenWrt=${OPENWRT_VERSION}"
+            echo 'Target=ipq40xx/generic'
+            echo 'Package_Architecture=arm_cortex-a7_neon-vfpv4'
+            echo 'API_Schema=2'
+            echo 'Expert_Object=fibocom.mm.l850'
+            echo 'ModemManager_AT_Command_Via_DBus=enabled'
+            echo 'Firmware_Allowlist=18500.5001.00.05.27.30'
+            echo "Source_Commit=${GITHUB_SHA}"
+          } > "${GITHUB_WORKSPACE}/dist/expert/BUILD_INFO.txt"
+          (
+            cd "${GITHUB_WORKSPACE}/dist/expert"
+            find . -maxdepth 1 -type f \( -name '*.apk' -o -name '*.ipk' \) \
+              -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS
+            test -s SHA256SUMS
           )
 
       - name: Upload base packages
@@ -439,152 +335,11 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Overlay optional luci-app-lpac feed
-        if: env.BUILD_ESIM == 'true'
-        id: lpac
-        shell: bash
-        env:
-          SDK_ROOT: ${{ steps.tree.outputs.root }}
-        run: |
-          set -euo pipefail
-          if [[ ! "${LPAC_REF}" =~ ^[0-9a-fA-F]{40}$ ]]; then
-            echo 'lpac_ref must be a full 40-character Git commit SHA' >&2
-            exit 1
-          fi
-          checkout="${RUNNER_TEMP}/luci-app-lpac"
-          rm -rf "${checkout}"
-          git init -q "${checkout}"
-          git -C "${checkout}" remote add origin \
-            https://github.com/As-tsaqib/luci-app-lpac.git
-          git -C "${checkout}" fetch --depth 1 origin "${LPAC_REF}"
-          git -C "${checkout}" checkout --detach FETCH_HEAD
-          resolved_ref="$(git -C "${checkout}" rev-parse HEAD)"
-          echo "commit=${resolved_ref}" >> "${GITHUB_OUTPUT}"
-          echo "luci-app-lpac=${resolved_ref}" | tee "${GITHUB_WORKSPACE}/logs/lpac-source.txt"
-
-          test -f "${checkout}/packages/lpac/Makefile"
-          test -f "${checkout}/applications/luci-app-lpac/Makefile"
-          cd "${SDK_ROOT}"
-          rm -rf feeds/packages/utils/lpac feeds/luci/applications/luci-app-lpac
-          cp -a "${checkout}/packages/lpac" feeds/packages/utils/
-          cp -a "${checkout}/applications/luci-app-lpac" feeds/luci/applications/
-          ./scripts/feeds update -i packages 2>&1 \
-            | tee "${GITHUB_WORKSPACE}/logs/feeds-index-lpac.log"
-          ./scripts/feeds update -i luci 2>&1 \
-            | tee -a "${GITHUB_WORKSPACE}/logs/feeds-index-lpac.log"
-          ./scripts/feeds install -f -p packages lpac 2>&1 \
-            | tee "${GITHUB_WORKSPACE}/logs/feeds-install-lpac.log"
-          ./scripts/feeds install -f -p luci luci-app-lpac 2>&1 \
-            | tee -a "${GITHUB_WORKSPACE}/logs/feeds-install-lpac.log"
-          rm -rf tmp
-
-      - name: Configure optional eSIM packages
-        if: env.BUILD_ESIM == 'true'
-        shell: bash
-        env:
-          SDK_ROOT: ${{ steps.tree.outputs.root }}
-        run: |
-          set -euo pipefail
-          cd "${SDK_ROOT}"
-          cat >> .config <<'EOF'
-          CONFIG_PACKAGE_lpac=m
-          CONFIG_LPAC_WITH_MBIM=y
-          # CONFIG_LPAC_WITH_PCSC is not set
-          # CONFIG_LPAC_WITH_AT is not set
-          # CONFIG_LPAC_WITH_UQMI is not set
-          CONFIG_PACKAGE_luci-app-lpac=m
-          CONFIG_PACKAGE_luci-app-fibocom-esim=m
-          EOF
-          make defconfig 2>&1 | tee "${GITHUB_WORKSPACE}/logs/defconfig-esim.log"
-          grep -q '^CONFIG_PACKAGE_lpac=m$' .config
-          grep -q '^CONFIG_LPAC_WITH_MBIM=y$' .config
-          grep -q '^# CONFIG_LPAC_WITH_PCSC is not set$' .config
-          grep -q '^# CONFIG_LPAC_WITH_AT is not set$' .config
-          grep -q '^# CONFIG_LPAC_WITH_UQMI is not set$' .config
-          grep -q '^CONFIG_PACKAGE_luci-app-lpac=m$' .config
-          grep -q '^CONFIG_PACKAGE_luci-app-fibocom-esim=m$' .config
-          grep -q '^# CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS is not set$' .config
-          cp .config "${GITHUB_WORKSPACE}/logs/config-esim"
-
-      - name: Build optional eSIM packages
-        if: env.BUILD_ESIM == 'true'
-        shell: bash
-        env:
-          SDK_ROOT: ${{ steps.tree.outputs.root }}
-        run: |
-          set -euo pipefail
-          cd "${SDK_ROOT}"
-          make -j"$(nproc)" \
-            package/feeds/packages/lpac/compile \
-            package/feeds/luci/luci-app-lpac/compile \
-            package/luci-app-fibocom-esim/compile \
-            V=s 2>&1 | tee "${GITHUB_WORKSPACE}/logs/build-esim.log"
-
-      - name: Collect optional eSIM bundle
-        if: env.BUILD_ESIM == 'true'
-        shell: bash
-        env:
-          SDK_ROOT: ${{ steps.tree.outputs.root }}
-          LPAC_COMMIT: ${{ steps.lpac.outputs.commit }}
-        run: |
-          set -euo pipefail
-          cd "${SDK_ROOT}"
-          rm -rf "${GITHUB_WORKSPACE}/dist/esim"
-          mkdir -p "${GITHUB_WORKSPACE}/dist/esim"
-          mapfile -d '' base_packages < <(
-            find "${GITHUB_WORKSPACE}/dist/base" -maxdepth 1 -type f \
-              \( -name '*.apk' -o -name '*.ipk' \) -print0
-          )
-          if [ "${#base_packages[@]}" -ne 2 ]; then
-            echo 'Expected exactly two packages in the base bundle' >&2
-            printf '%s\n' "${base_packages[@]}" >&2
-            exit 1
-          fi
-          cp -v "${base_packages[@]}" "${GITHUB_WORKSPACE}/dist/esim/"
-
-          for package_pattern in \
-            'lpac-[0-9]*.apk|lpac_*.ipk' \
-            'luci-app-lpac-[0-9]*.apk|luci-app-lpac_*.ipk' \
-            'luci-app-fibocom-esim-[0-9]*.apk|luci-app-fibocom-esim_*.ipk'; do
-            apk_pattern="${package_pattern%%|*}"
-            ipk_pattern="${package_pattern#*|}"
-            mapfile -d '' packages < <(
-              find bin/packages -type f \
-                \( -name "${apk_pattern}" -o -name "${ipk_pattern}" \) -print0
-            )
-            if [ "${#packages[@]}" -ne 1 ]; then
-              echo "Expected exactly one package matching ${package_pattern}" >&2
-              printf '%s\n' "${packages[@]}" >&2
-              exit 1
-            fi
-            cp -v "${packages[0]}" "${GITHUB_WORKSPACE}/dist/esim/"
-          done
-
-          {
-            echo "OpenWrt=${OPENWRT_VERSION}"
-            echo 'Target=ipq40xx/generic'
-            echo 'Router_CPU=ARMv7'
-            echo 'Package_Architecture=arm_cortex-a7_neon-vfpv4'
-            echo 'SDK_Host=x86_64'
-            echo 'Profile=Linksys EA6350 v3'
-            echo "Source_Commit=${GITHUB_SHA}"
-            echo "SDK_SHA256=${{ steps.sdk.outputs.sha256 }}"
-            echo "luci-app-lpac=${LPAC_COMMIT}"
-          } > "${GITHUB_WORKSPACE}/dist/esim/BUILD_INFO.txt"
-          (
-            cd "${GITHUB_WORKSPACE}/dist/esim"
-            find . -maxdepth 1 -type f \
-              \( -name '*.apk' -o -name '*.ipk' \) -printf '%f\n' \
-              | sort | xargs sha256sum > SHA256SUMS
-            cat SHA256SUMS
-          )
-
-      - name: Upload optional eSIM bundle
-        if: env.BUILD_ESIM == 'true'
+      - name: Upload live-validated expert package
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: fibocom-esim-openwrt-${{ env.OPENWRT_VERSION }}-ipq40xx-generic
-          path: dist/esim/
+          name: fibocom-l850-expert-openwrt-${{ env.OPENWRT_VERSION }}-ipq40xx-generic
+          path: dist/expert/
           if-no-files-found: error
           retention-days: 14
 

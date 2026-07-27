@@ -48,5 +48,22 @@ jobs:
           git -C "${uci_tree}" checkout --detach FETCH_HEAD
           test "$(git -C "${uci_tree}" rev-parse HEAD)" = "${uci_ref}"
           echo "LIBUCI_SOURCE_DIR=${uci_tree}" >> "${GITHUB_ENV}"
+      - name: Prepare pinned libubox malformed-blob test source
+        shell: bash
+        run: |
+          set -euo pipefail
+          libubox_ref='e7608b69283d919d031d13cc8e21692503f5dbea'
+          libubox_tree="${RUNNER_TEMP}/libubox"
+          git init -q "${libubox_tree}"
+          git -C "${libubox_tree}" remote add origin \
+            https://git.openwrt.org/project/libubox.git
+          git -C "${libubox_tree}" fetch --depth 1 origin "${libubox_ref}"
+          git -C "${libubox_tree}" checkout --detach FETCH_HEAD
+          test "$(git -C "${libubox_tree}" rev-parse HEAD)" = "${libubox_ref}"
+          echo "LIBUBOX_SOURCE_DIR=${libubox_tree}" >> "${GITHUB_ENV}"
       - name: Run static checks
-        run: make check
+        run: |
+          test -f tests/run-host-ubus-blob.sh
+          test -f tests/run-host-sms-dedupe.sh
+          test -f tests/run-host-cell-parser.sh
+          make check

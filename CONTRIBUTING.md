@@ -5,92 +5,86 @@ SPDX-License-Identifier: Apache-2.0
 
 # Contributing
 
-## Keep ownership unambiguous
+## Preserve ownership
 
-This project is a ModemManager companion. ModemManager remains the only modem,
-port, SIM, SMS, radio, and bearer owner; netifd remains the connection-intent
-and L3 owner. Contributions must not add a second dialer, custom netifd
-protocol, hotplug scanner, direct TTY/WDM access, or bearer lifecycle method.
+ModemManager is the only owner of modem objects, ports, SIM, SMS, radio, and
+bearers. netifd is the only owner of APN, persistent connection intent, routes,
+and DNS. Do not add a dialer, bearer lifecycle API, hotplug/sysfs scanner,
+custom netifd protocol, direct TTY/WDM access, SMS tool, or external process.
 
-Connection settings, including persistent allowed/preferred modes, belong to
-the existing `proto modemmanager` network section. The application may display
-them or navigate to the standard editor; it must not keep a duplicate profile.
-UCI correlation must remain read-only, exact, and secret-free. Do not infer
-live netifd state or traffic counters from a matching configuration section.
+The browser must never submit raw AT, a D-Bus/sysfs/device path, or an arbitrary
+ubus method. Prefer typed asynchronous libmm-glib and fail closed when the
+standard capability is absent.
 
-## Evidence for hardware claims
+## Keep the 0.3 surface small
 
-A supported-device or capability contribution must include:
+The menu is exactly Overview, Lock, and SMS. The base `fibocom.mm` object is
+exactly seven schema-2 methods. Do not restore Status, Settings, old Advanced,
+radio toggle, generic reset, SIM-slot switching, eSIM, rescan, diagnostic dump,
+or connection controls without a new product decision.
 
-1. exact manufacturer, model, firmware, hardware IDs, composition, and
-   ModemManager plugin;
-2. sanitized ModemManager and OpenWrt lifecycle observations;
-3. connect, reconnect, replug, and data-plane results appropriate to the claim;
-4. capability-specific success, failure, unplug, and recovery cases;
-5. provenance for every protocol fact;
-6. fixtures with identifiers, credentials, addresses, and SMS content removed.
-
-Do not infer support from a shared vendor ID, similar model name, or an AT
-string found in another project. NCM connectivity is unsupported until its
-bearer backend exists in ModemManager and passes hardware testing.
-
-## Standard and expert changes
-
-Prefer typed libmm-glib APIs for status, SMS, bands, power, reset, and SIM
-slots. Persistent mode changes go through network UCI/netifd.
-
-Direct radio enable/disable must stay unavailable for an exact
-`proto modemmanager` binding; netifd owns persistent connection intent.
-
-L850 PCI/EARFCN support is an expert-only variant. It requires an exact
-firmware allowlist, fixed integer-only grammar, parser fixtures, system D-Bus
-policy review, reset/reprobe verification, and a separately confirmed rollback
-path. The base build must keep generic AT-via-D-Bus disabled and must not
-compile or expose the expert object.
+The expert object remains behind `FIBOCOM_MM_L850_EXPERT` and a separate ACL.
+The base binary must not contain its object name. Enabling the build gate is
+not permission to populate a firmware allowlist.
 
 ## Identity and asynchronous safety
 
-- Generate a random 128-bit `modem_id` for each admitted ModemManager object.
-- Never derive a selector from `DeviceIdentifier`, equipment identifiers,
-  physical paths, D-Bus paths, indexes, or runtime ports.
-- Every mutation must carry and revalidate exact `{modem_id, generation}`.
-- SMS writes must additionally carry the current `messaging_generation` so a
-  stale compose form cannot cross a SIM/eSIM epoch.
-- Object removal invalidates operations and SMS IDs immediately.
-- A callback may not retarget a replacement object; follow-up writes require a
-  new ID, generation, and confirmation.
-- Use bounded asynchronous D-Bus work; do not block ubus dispatch with `mmcli`
-  or a nested main loop.
-- Keep one shared per-modem mutation lock for SMS and Advanced operations.
+- Keep CSPRNG opaque modem/SMS/client-token IDs.
+- Require modem generation for every mutation and messaging generation for SMS.
+- Cancel on removal/transport loss and revalidate proxy/liveness/generation in
+  every callback.
+- Keep one shared per-modem lock across SMS, band, and future PCI writes.
+- Bound timeouts/cooldowns and distinguish pre-dispatch failure from
+  post-dispatch `outcome_unknown`.
+- Never retarget a write to a replacement modem after reprobe.
 
-## Security and privacy
+## Parsing, privacy, and ACL
 
-- No raw AT, arbitrary D-Bus, shell, `cgi-io`, or path RPC.
-- No global WDM/TTY/netdev fallback and no direct port lock.
-- No SMS text/number, IMEI, IMSI, ICCID, EID, APN credential, PIN, activation
-  code, assigned address, or raw diagnostic dump in logs or fixtures.
-- Reject unknown fields, invalid types, oversized data, stale generations, and
-  unsupported capabilities.
-- Keep status, SMS-read, SMS-write, radio, expert, and lpac ACLs separate.
-- Destructive operations require confirmation, serialization, timeout, and
-  an explicit recovery result.
+- Structurally validate every untrusted blob attribute before accessing its
+  name, type, or data. Reject malformed, unknown, duplicate, missing, and
+  mistyped fields.
+- Accept only one canonical rpcd session transport field.
+- Bound every text/list/response and keep frontend structural validation.
+- Never log or include in general status: phone numbers, SMS body, subscriber
+  identifiers, credentials, addresses, binary SMS, raw PDU, or raw modem output.
+- Grant only the five exact ACL groups and exact ubus methods. Never add
+  wildcard, filesystem, cgi-io, shell/file execution, or UCI-write access.
+- Keep LuCI fail-closed for every schema other than 2.
 
-## Clean-room policy
+## SMS contract
 
-QModem and the historical XModem repositories have incompatible or
-non-standard license combinations. Do not copy their source, comments, shell
-functions, or frontend. Reimplement behavior from public specifications,
-ModemManager/OpenWrt APIs, sanitized hardware observations, and independently
-written tests. Record sources in `docs/provenance.md`.
+Use native Messaging.List/Create/Delete and Sms.Send. Preserve signals plus
+30-second reconciliation, 10-second UI polling, newest-first 1,024 cache, and
+100-entry backend pages with Load more. Dedupe documentation/tests must state
+the real policy: at most 64 retained tokens, each expiring 300 seconds after
+its most recent stored state, with possible earlier capacity eviction and no
+restart persistence.
+
+## Band and PCI changes
+
+Band Lock must continue using asynchronous SetCurrentBands with automatic
+`["any"]`, exact supported-band/current-family validation, confirmation, WAN
+warning, hardware attestation, shared lock, timeout/cooldown, and stale outcome
+handling. Do not embed XACT commands.
+
+PCI work requires exact model/firmware/composition evidence, bounded parser
+fixtures, ModemManager arbitration, exact clear/reset/recovery behavior, and
+serving-cell postcondition. Never guess a band encoding, wildcard, NVM path,
+unlock tuple, or reset sequence. No live scan, lock, clear, reset, or SMS
+mutation may be run without explicit user permission.
 
 ## Development flow
 
-1. Update the public architecture, API, threat-model, and hardware-evidence
-   documents for ownership, capability, or hardware-command changes.
-2. Add a sanitized failing fixture/test before changing behavior.
-3. Run `make check` and inspect `git diff --check`.
-4. Build/install in a current OpenWrt SDK or buildroot; host tests do not prove
-   libmm-glib/libubus target compatibility.
-5. Run read-only live regression first. Announce any reset, radio, SIM, band,
-   cell-lock, or eSIM test that may interrupt WAN.
-6. Keep commits focused and add SPDX metadata to every new file.
+1. Update package/static tests to express the contract first.
+2. Add malformed, boundary, stale-generation, cancellation, timeout, eviction,
+   and expiry coverage appropriate to the change.
+3. Regenerate translations with `node tests/generate-pot.js`.
+4. Run `make check` where a POSIX compiler/toolchain is available, plus
+   `git diff --check`.
+5. Run separate base and expert OpenWrt SDK builds. Verify the base object is
+   absent from the binary and record artifact checksums.
+6. Label offline, SDK, historical live, and current live evidence separately.
+
+Every source/data file needs SPDX/REUSE coverage. Keep the clean-room boundary:
+reference projects may support facts and test design, but their source is not
+copied.

@@ -1,48 +1,50 @@
 {
-	"luci-app-fibocom-status": {
-		"description": "Grant read-only access to the Fibocom ModemManager bridge",
+	"luci-app-fibocom-overview": {
+		"description": "Grant read-only access to the Fibocom schema 2 overview and lock snapshots",
 		"read": {
 			"ubus": {
 				"fibocom.mm": [
 					"list_modems",
 					"get_overview",
-					"get_status",
-					"get_capabilities"
+					"get_lock_status"
 				]
 			}
 		}
 	},
 	"luci-app-fibocom-sms-read": {
-		"description": "Grant access to read SMS through the Fibocom ModemManager bridge",
+		"description": "Grant access to read paginated SMS through ModemManager",
 		"read": {
 			"ubus": {
-				"fibocom.mm": [
-					"list_sms"
-				]
+				"fibocom.mm": [ "list_sms" ]
 			}
 		}
 	},
 	"luci-app-fibocom-sms-write": {
-		"description": "Grant access to send and delete SMS through the Fibocom ModemManager bridge",
+		"description": "Grant access to send and delete SMS through ModemManager",
 		"write": {
 			"ubus": {
-				"fibocom.mm": [
-					"send_sms",
-					"delete_sms"
-				]
+				"fibocom.mm": [ "send_sms", "delete_sms" ]
 			}
 		}
 	},
-	"luci-app-fibocom-radio": {
-		"description": "Grant access to standard Fibocom modem radio controls",
+	"luci-app-fibocom-lock-band": {
+		"description": "Grant access to capability-gated standard band lock",
 		"write": {
 			"ubus": {
-				"fibocom.mm": [
-					"set_bands",
-					"set_radio",
-					"reset",
-					"set_primary_sim_slot"
-				]
+				"fibocom.mm": [ "set_bands" ]
+			}
+		}
+	},
+	"luci-app-fibocom-lock-pci-expert": {
+		"description": "Grant exact access to the build-gated L850 PCI/EARFCN expert object",
+		"read": {
+			"ubus": {
+				"fibocom.mm.l850": [ "cell_scan", "cell_lock_status" ]
+			}
+		},
+		"write": {
+			"ubus": {
+				"fibocom.mm.l850": [ "set_cell_lock", "clear_cell_lock" ]
 			}
 		}
 	}

@@ -9,8 +9,8 @@
 #include <glib.h>
 #include <libmm-glib.h>
 
-#define FIBOCOM_MM_API_SCHEMA 1U
-#define FIBOCOM_MM_BRIDGE_VERSION "0.2.0"
+#define FIBOCOM_MM_API_SCHEMA 2U
+#define FIBOCOM_MM_BRIDGE_VERSION "0.3.0"
 #define FIBOCOM_SMS_REQUEST_DIGEST_LEN 32U
 typedef struct _FibocomBridge FibocomBridge;
 typedef struct _FibocomModem FibocomModem;
@@ -21,6 +21,7 @@ typedef enum {
 	FIBOCOM_MUTATION_NONE = 0,
 	FIBOCOM_MUTATION_SMS,
 	FIBOCOM_MUTATION_ADVANCED,
+	FIBOCOM_MUTATION_L850,
 } FibocomMutationKind;
 
 struct _FibocomSms {
@@ -75,6 +76,9 @@ struct _FibocomModem {
 	FibocomMutationKind mutation_kind;
 	GCancellable *mutation_cancellable;
 	gint64 advanced_cooldown_until;
+#ifdef FIBOCOM_MM_L850_EXPERT
+	gint64 l850_last_scan_at;
+#endif
 	gulong messaging_added_handler;
 	gulong messaging_deleted_handler;
 	const gchar *sim_cache_state;

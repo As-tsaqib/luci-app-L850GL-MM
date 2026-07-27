@@ -5,57 +5,46 @@ SPDX-License-Identifier: Apache-2.0
 
 # luci-app-fibocom
 
-LuCI companion for Fibocom modems owned by ModemManager. The base UI contains
-**Overview**, **Status**, **SMS**, **Advanced**, and **Settings** under **Modem
--> Fibocom Modem**. Optional eSIM management is supplied by the separate addon.
+LuCI 0.3.0 frontend for the schema-2 `fibocom.mm` companion API. It installs
+exactly Overview, Lock, and SMS below Modem / Fibocom Modem.
 
-The browser talks only to the typed `fibocom.mm` ubus facade supplied by
-`fibocom-mm-bridge`:
+The browser uses only the shared typed RPC module. It never calls D-Bus,
+`mmcli`, a shell, UCI, the filesystem, or a modem device. Every response must
+have `schema: 2`, a valid envelope, and the expected object identity;
+otherwise the UI shows a compatibility/malformed-response error and disables
+mutations.
 
-- `list_modems`;
-- `get_overview`;
-- `get_status`;
-- `get_capabilities`;
-- `list_sms`, `send_sms`, and `delete_sms`;
-- `set_bands`, `set_radio`, `reset`, and `set_primary_sim_slot`.
+The base methods are exactly:
 
-It does not call D-Bus, modem command-line tools, files, host commands, or UCI
-directly. Separate rpcd ACL groups grant the minimum read, SMS, and standard
-radio methods. Every mutation is capability-gated and bound to an opaque modem
-ID plus its current generation. ModemManager remains responsible for discovery
-and modem objects; netifd's ModemManager protocol remains responsible for
-automatic connection, addresses, routes, and DNS.
+```text
+list_modems, get_overview, get_lock_status, set_bands,
+list_sms, send_sms, delete_sms
+```
 
-Connection and mode configuration is deliberately linked to **Network ->
-Interfaces** instead of being duplicated. Advanced exposes only standard
-ModemManager band, immediate radio, reset, and physical SIM-slot operations
-advertised as mutable by the bridge. It has no generic command console, direct
-mode mutation, or data-session lifecycle controls.
+Band Lock uses standard ModemManager bands and requires confirmation. The PCI
+section discovers the optional `fibocom.mm.l850` expert object through its
+status call. It remains disabled on the base build. In an expert build,
+standard cell scan is independently gated from mutation; set/clear stays
+fail-closed while the firmware allowlist is empty.
 
-The bridge reads UCI only to correlate an exact `proto modemmanager` section;
-it never changes UCI or returns connection secrets/device paths. Immediate
-radio control is unavailable for a modem with an exact netifd binding. Dynamic
-OpenWrt interface state and traffic counters are not implemented in schema 1,
-so the UI reports them as unavailable instead of deriving them from UCI.
+SMS polls the backend cache every 10 seconds and exposes All, Inbox, Outbox,
+Draft, and Unknown. Each backend page is at most 100 messages; Load more follows
+the opaque `next_cursor` so messages beyond the first page remain visible.
+Focused compose input is preserved across polling. Send uses a browser CSPRNG
+token and delete requires a confirmation modal.
 
-SMS inventory synchronizes automatically from ModemManager Added, Deleted,
-and property-change signals, with a 30-second backend reconciliation fallback.
-While open, the SMS view polls the bridge cache every 10 seconds; an update
-deferred to protect a focused compose editor is rendered when focus leaves.
-The bounded backend cache retains newest messages first. No `sms-tool`, direct
-TTY polling, or manual rescan is involved. Send deduplication is an in-memory
-five-minute retry aid, not an exactly-once guarantee across restarts.
+The exact ACL groups are:
 
-The package requires ModemManager built with MBIM and netifd support. Official
-OpenWrt 25.12.5 builds the Fibocom plugin into ModemManager. A downstream build
-that modularizes plugins must add its matching Fibocom plugin package at image
-level; the package name is not portable across both layouts.
+```text
+luci-app-fibocom-overview
+luci-app-fibocom-sms-read
+luci-app-fibocom-sms-write
+luci-app-fibocom-lock-band
+luci-app-fibocom-lock-pci-expert
+```
 
-The dependency is OpenWrt's native, unmodified ModemManager; this repository
-does not build or ship a patched ModemManager fork.
-
-Run the dependency-free frontend checks with:
+Run the dependency-free frontend checks from the repository root with:
 
 ```sh
-node tests/static.js
+node luci-app-fibocom/tests/static.js
 ```

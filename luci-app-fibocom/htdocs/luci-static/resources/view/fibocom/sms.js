@@ -11,6 +11,8 @@
 'require fibocom.widgets as widgets';
 
 const SMS_LIMIT = 100;
+const SMS_CACHE_MAX = 1024;
+const MAX_SMS_PAGES = Math.ceil(SMS_CACHE_MAX / SMS_LIMIT);
 const MAX_RECIPIENT_DIGITS = 20;
 const MAX_TEXT_SCALARS = 1600;
 const MAX_TEXT_BYTES = 6400;
@@ -36,6 +38,9 @@ function stateFor(modemId) {
 			tokenMessagingGeneration: null,
 			sending: false,
 			deleting: Object.create(null),
+			pageCount: 1,
+			loadedFolder: 'all',
+			loadingMore: false,
 			result: null
 		};
 	}
@@ -57,48 +62,98 @@ function pruneDeviceStates(summaries) {
 	});
 }
 
-function validateListResult(result, modemId) {
-	if (widgets.responseError(result))
-		return result;
+function loadSmsPages(summary, state) {
+	let page = 0;
+	let cursor = '';
+	let first = null;
+	const messages = [];
+	const seen = Object.create(null);
 
-	if (!widgets.isObject(result) || result.ok !== true || result.modem_id !== modemId ||
-		!Number.isSafeInteger(result.generation) ||
-		!Number.isSafeInteger(result.messaging_generation) ||
-		!Number.isSafeInteger(result.revision) || typeof result.cache_state !== 'string' ||
-		!Array.isArray(result.messages) || typeof result.next_cursor !== 'string' ||
-		typeof result.has_more !== 'boolean') {
-		return {
-			ok: false,
-			error: {
-				code: 'invalid_response',
-				message: _('The bridge returned an incomplete SMS list response.')
-			}
-		};
+	function next() {
+		return api.listSms(summary.modem_id, state.folder, SMS_LIMIT, cursor)
+			.catch(transportResult)
+			.then(function(result) {
+				const error = widgets.smsError(result, summary);
+
+				if (error && page > 0 && widgets.object(result.error).code === 'stale_cursor') {
+					state.pageCount = 1;
+					state.result = {
+						kind: 'warning',
+						message: _('The SMS inventory changed while paging. Older pages were reset; use Load more again if needed.')
+					};
+					return {
+						messages: Object.assign({}, first, {
+							messages: messages,
+							next_cursor: first.next_cursor,
+							has_more: first.has_more
+						}),
+						error: null
+					};
+				}
+				if (error)
+					return { messages: result, error: error };
+				if (first && (result.generation !== first.generation ||
+					result.messaging_generation !== first.messaging_generation ||
+					result.revision !== first.revision)) {
+					return {
+						messages: result,
+						error: _('The SMS inventory changed while loading pages. Refresh and try again.')
+					};
+				}
+				if (!first)
+					first = result;
+				if (messages.length + result.messages.length > SMS_CACHE_MAX) {
+					return {
+						messages: result,
+						error: _('The paginated SMS response exceeded the 1,024-message safety bound.')
+					};
+				}
+				result.messages.forEach(function(message) {
+					if (widgets.isObject(message) && typeof message.sms_id === 'string' &&
+					    !seen[message.sms_id]) {
+						seen[message.sms_id] = true;
+						messages.push(message);
+					}
+				});
+				page++;
+				cursor = result.next_cursor;
+				if (page < state.pageCount && result.has_more)
+					return next();
+				return {
+					messages: Object.assign({}, first, {
+						messages: messages,
+						next_cursor: cursor,
+						has_more: result.has_more
+					}),
+					error: null
+				};
+			});
 	}
 
-	return result;
+	return next();
 }
 
 function loadSnapshots() {
 	return api.listModems().then(function(listResult) {
-		if (widgets.responseError(listResult))
+		if (widgets.listError(listResult))
 			return { list: listResult, entries: [] };
 
-		const summaries = widgets.modems(listResult).filter(function(summary) {
-			return widgets.isObject(summary) && typeof summary.modem_id === 'string';
-		});
+		const summaries = widgets.modems(listResult);
 
 		pruneDeviceStates(summaries);
 
 		return Promise.all(summaries.map(function(summary) {
 			const state = stateFor(summary.modem_id);
 
-			return api.listSms(summary.modem_id, state.folder, SMS_LIMIT, '')
-				.catch(transportResult)
-				.then(function(messages) {
+			if (state.loadedFolder !== state.folder) {
+				state.loadedFolder = state.folder;
+				state.pageCount = 1;
+			}
+			return loadSmsPages(summary, state).then(function(loaded) {
 					return {
 						summary: summary,
-						messages: validateListResult(messages, summary.modem_id)
+						messages: loaded.messages,
+						messagesError: loaded.error
 					};
 				});
 		})).then(function(entries) {
@@ -247,8 +302,14 @@ function clearRetryToken(state) {
 	state.tokenMessagingGeneration = null;
 }
 
-function retrySafetyNotice() {
-	return _('Request-token deduplication is kept only in bridge memory for five minutes. After waiting longer or reloading, do not assume a retry is duplicate-safe.');
+function retrySafetyNotice(messages) {
+	const capacity = Number.isSafeInteger(messages && messages.dedupe_capacity) ?
+		messages.dedupe_capacity : 64;
+	const seconds = Number.isSafeInteger(messages && messages.dedupe_window_seconds) ?
+		messages.dedupe_window_seconds : 300;
+
+	return _('The bridge retains at most %d recent request tokens for up to %d seconds. Heavy request volume can evict an older token sooner; after eviction or a bridge restart, do not assume a retry is duplicate-safe.')
+		.format(capacity, seconds);
 }
 
 function updateDraft(state, field, value) {
@@ -264,10 +325,10 @@ function mutationContext(entry) {
 	const summary = widgets.object(entry.summary);
 	const messages = widgets.object(entry.messages);
 
-	if (typeof summary.modem_id !== 'string' || messages.modem_id !== summary.modem_id ||
-		!Number.isSafeInteger(messages.generation) ||
-		(summary.generation != null && summary.generation !== messages.generation) ||
-		!Number.isSafeInteger(messages.messaging_generation))
+	if (entry.messagesError || widgets.smsError(messages, summary, 1024) ||
+	    !widgets.mutationAllowed(messages, messages,
+		summary.modem_id, summary.generation) ||
+	    !Number.isSafeInteger(messages.messaging_generation))
 		return null;
 
 	return {
@@ -361,7 +422,9 @@ function handleSend(controller, entry, state, event) {
 		let error = widgets.responseError(result);
 		let incomplete = false;
 
-		if (!error && (!widgets.isObject(result) || result.ok !== true ||
+		if (!error && (!widgets.mutationAllowed(result, result,
+			context.modemId, context.generation) ||
+			result.messaging_generation !== context.messagingGeneration ||
 			typeof result.sms_id !== 'string' || typeof result.state !== 'string' ||
 			typeof result.deduplicated !== 'boolean')) {
 			error = _('The bridge returned an incomplete SMS send response.');
@@ -378,8 +441,8 @@ function handleSend(controller, entry, state, event) {
 			state.result = {
 				kind: outcomeUncertain ? 'warning' : 'danger',
 				message: outcomeUncertain ?
-					_('SMS send was not confirmed: %s. Review the message list before retrying. Retry without editing to reuse the same request token.').format(error) + ' ' + retrySafetyNotice() :
-					_('Unable to send SMS: %s. Edit the recipient or text to start a new request, or retry unchanged with the same request token.').format(error) + ' ' + retrySafetyNotice()
+					_('SMS send was not confirmed: %s. Review the message list before retrying. Retry without editing to reuse the same request token.').format(error) + ' ' + retrySafetyNotice(entry.messages) :
+					_('Unable to send SMS: %s. Edit the recipient or text to start a new request, or retry unchanged with the same request token.').format(error) + ' ' + retrySafetyNotice(entry.messages)
 			};
 			controller.redraw();
 			return null;
@@ -402,7 +465,7 @@ function handleSend(controller, entry, state, event) {
 			kind: 'warning',
 			message: _('The send result is unknown because the RPC connection failed: %s. Retry without editing the recipient or text to reuse the same request token.')
 				.format(widgets.display(error && error.message, _('Unknown transport error'))) +
-				' ' + retrySafetyNotice()
+				' ' + retrySafetyNotice(entry.messages)
 		};
 		controller.redraw();
 		return null;
@@ -434,7 +497,9 @@ function performDelete(controller, entry, state, smsId) {
 	).then(function(result) {
 		let error = widgets.responseError(result);
 
-		if (!error && (!widgets.isObject(result) || result.ok !== true ||
+		if (!error && (!widgets.mutationAllowed(result, result,
+			context.modemId, context.generation) ||
+			result.messaging_generation !== context.messagingGeneration ||
 			result.sms_id !== smsId || result.deleted !== true))
 			error = _('The bridge returned an incomplete SMS delete response.');
 
@@ -483,6 +548,38 @@ function confirmDelete(controller, entry, state, smsId) {
 			}, [ _('Delete') ])
 		])
 	]);
+}
+
+function loadMore(controller, entry, state) {
+	if (state.loadingMore || isMutationBusy(state) || state.pageCount >= MAX_SMS_PAGES)
+		return Promise.resolve();
+	state.loadingMore = true;
+	state.pageCount++;
+	state.result = { kind: 'notice', message: _('Loading older SMS messages…') };
+	controller.redraw();
+	return controller.refresh(true).then(function(snapshot) {
+		const updated = snapshot && snapshot.entries && snapshot.entries.find(function(candidate) {
+			return candidate.summary.modem_id === entry.summary.modem_id;
+		});
+
+		state.loadingMore = false;
+		if (!updated || updated.messagesError) {
+			state.pageCount = Math.max(1, state.pageCount - 1);
+			state.result = {
+				kind: 'warning',
+				message: updated && updated.messagesError ? updated.messagesError :
+					_('Unable to load the next SMS page.')
+			};
+		}
+		else {
+			state.result = {
+				kind: 'success',
+				message: _('Older SMS messages loaded.')
+			};
+		}
+		controller.redraw();
+		return snapshot;
+	});
 }
 
 function renderMessage(controller, entry, state, message) {
@@ -624,23 +721,19 @@ function renderDevice(controller, entry, index) {
 	const summary = widgets.object(entry.summary);
 	const messages = widgets.object(entry.messages);
 	const state = stateFor(summary.modem_id);
-	const error = widgets.responseError(entry.messages);
+	const error = entry.messagesError || widgets.smsError(entry.messages, summary, 1024);
 	const title = widgets.display(summary.model, _('Fibocom modem'));
 	const children = [ E('h3', {}, [ title ]) ];
 
 	if (error) {
-		children.push(widgets.errorPanel({ transport_error: error }));
+		children.push(widgets.errorPanel(error));
 		return E('div', { 'class': 'cbi-section' }, children);
 	}
 
-	const notice = widgets.schemaNotice(messages);
 	const list = Array.isArray(messages.messages) ? messages.messages.filter(function(message) {
 		return widgets.isObject(message);
 	}) : [];
 	const filterId = 'fibocom-sms-folder-' + index;
-
-	if (notice)
-		children.push(notice);
 
 	children.push(E('div', { 'class': 'cbi-section' }, [
 		E('div', { 'class': 'cbi-value' }, [
@@ -654,6 +747,8 @@ function renderDevice(controller, entry, index) {
 					'class': 'cbi-input-select',
 					'change': function(event) {
 						state.folder = event.target.value;
+						state.loadedFolder = state.folder;
+						state.pageCount = 1;
 						state.result = null;
 						return controller.refresh(true);
 					}
@@ -663,7 +758,10 @@ function renderDevice(controller, entry, index) {
 		widgets.keyValueTable([
 			[ _('Messaging cache'), widgets.badge(
 				widgets.display(messages.cache_state, _('Unknown')), messages.cache_state) ],
-			[ _('Revision'), messages.revision ]
+			[ _('Revision'), messages.revision ],
+			[ _('Loaded messages'), list.length ],
+			[ _('Request-token capacity'), messages.dedupe_capacity ],
+			[ _('Request-token maximum age (seconds)'), messages.dedupe_window_seconds ]
 		])
 	]));
 
@@ -675,9 +773,14 @@ function renderDevice(controller, entry, index) {
 		})) : E('div', { 'class': 'alert-message notice' }, [
 			_('No SMS messages are available in this folder.')
 		]),
-		messages.has_more === true ? E('div', { 'class': 'alert-message notice' }, [
-			_('Only the first %d messages are shown. Narrow the folder filter to find older messages.')
-				.format(SMS_LIMIT)
+		messages.has_more === true && state.pageCount < MAX_SMS_PAGES ?
+		E('div', { 'class': 'cbi-page-actions' }, [
+			E('button', {
+				'class': 'btn cbi-button cbi-button-neutral',
+				'type': 'button',
+				'disabled': state.loadingMore || isMutationBusy(state) ? '' : null,
+				'click': function() { return loadMore(controller, entry, state); }
+			}, [ state.loadingMore ? _('Loading…') : _('Load more') ])
 		]) : E([])
 	]));
 
@@ -685,10 +788,10 @@ function renderDevice(controller, entry, index) {
 }
 
 function renderSnapshots(snapshot, controller) {
-	const error = widgets.responseError(snapshot.list);
+	const error = widgets.listError(snapshot.list);
 
 	if (error)
-		return widgets.errorPanel({ transport_error: error });
+		return widgets.errorPanel(error);
 
 	if (!snapshot.entries.length) {
 		return E('div', { 'class': 'alert-message notice' }, [
@@ -769,7 +872,7 @@ return view.extend({
 		}, 10);
 
 		return E('div', { 'class': 'cbi-map' }, [
-			E('h2', {}, [ _('Fibocom Modem SMS') ]),
+			E('h2', {}, [ _('SMS') ]),
 			E('div', { 'class': 'cbi-map-descr' }, [
 				_('Messages are read, sent, and deleted through ModemManager. Recipient numbers and message text remain only in this authorized view and are never written to application logs.')
 			]),

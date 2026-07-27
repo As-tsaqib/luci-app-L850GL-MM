@@ -2,71 +2,39 @@
 	"admin/modem": {
 		"title": "Modem",
 		"order": 25,
-		"action": {
-			"type": "firstchild"
-		},
+		"action": { "type": "firstchild" },
 		"depends": {}
 	},
-
 	"admin/modem/fibocom": {
 		"title": "Fibocom Modem",
 		"order": 10,
-		"action": {
-			"type": "firstchild"
-		},
+		"action": { "type": "firstchild" },
 		"depends": {
-			"acl": [ "luci-app-fibocom-status" ]
+			"acl": [ "luci-app-fibocom-overview" ]
 		}
 	},
-
 	"admin/modem/fibocom/overview": {
 		"title": "Overview",
 		"order": 10,
-		"action": {
-			"type": "view",
-			"path": "fibocom/overview"
-		}
+		"action": { "type": "view", "path": "fibocom/overview" }
 	},
-
-	"admin/modem/fibocom/status": {
-		"title": "Status",
+	"admin/modem/fibocom/lock": {
+		"title": "Lock",
 		"order": 20,
-		"action": {
-			"type": "view",
-			"path": "fibocom/status"
+		"action": { "type": "view", "path": "fibocom/lock" },
+		"depends": {
+			"acl": [
+				"luci-app-fibocom-overview",
+				"luci-app-fibocom-lock-band"
+			]
 		}
 	},
-
 	"admin/modem/fibocom/sms": {
 		"title": "SMS",
 		"order": 30,
-		"action": {
-			"type": "view",
-			"path": "fibocom/sms"
-		},
+		"action": { "type": "view", "path": "fibocom/sms" },
 		"depends": {
 			"acl": [ "luci-app-fibocom-sms-read" ]
-		}
-	},
-
-	"admin/modem/fibocom/advanced": {
-		"title": "Advanced",
-		"order": 40,
-		"action": {
-			"type": "view",
-			"path": "fibocom/advanced"
-		},
-		"depends": {
-			"acl": [ "luci-app-fibocom-status", "luci-app-fibocom-radio" ]
-		}
-	},
-
-	"admin/modem/fibocom/settings": {
-		"title": "Settings",
-		"order": 50,
-		"action": {
-			"type": "view",
-			"path": "fibocom/settings"
 		}
 	}
 }

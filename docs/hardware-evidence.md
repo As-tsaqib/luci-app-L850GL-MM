@@ -5,254 +5,173 @@ SPDX-License-Identifier: Apache-2.0
 
 # Hardware evidence
 
-## Privacy rule
+## Evidence boundary
 
-Never commit IMEI, IMSI, ICCID, EID, phone numbers, SMS text, APN credentials,
-PIN/PUK, activation/confirmation codes, tokens, or public IP configuration.
-Capture only allowlisted fields or replace values with stable redaction markers.
+The live record in this repository is historical schema-1 v0.2 evidence from
+2026-07-19. It does not validate the current schema-2 0.3.0 packages. Source,
+fixture, host test, or SDK success is not a substitute for a dated live result.
 
-## Validated baseline
+Never store IMEI, IMSI, ICCID, EID, phone numbers, SMS body, APN credentials,
+PIN/PUK, activation codes, tokens, or assigned IP configuration. Evidence must
+use an allowlist and sanitized fixtures rather than raw diagnostic dumps.
 
-Read-only live validation completed on 2026-07-19:
+## Tested hardware context
 
-| Item | Evidence |
+| Item | Historical observed value |
 |---|---|
+| Date | 2026-07-19 |
 | Router | Linksys EA6350v3 |
-| CPU / OpenWrt target | ARMv7 / `ipq40xx/generic` |
+| CPU / target | ARMv7 / `ipq40xx/generic` |
 | OpenWrt | 25.12.5, kernel 6.12.94 |
 | ModemManager | 1.24.0-r10 |
 | Modem | Fibocom L850-GL |
 | Firmware | `18500.5001.00.05.27.30` |
-| Composition | MBIM `2cb7:0007` |
+| Composition / USB ID | MBIM / `2cb7:0007` |
 | Plugin | `fibocom` |
-| Network | `proto modemmanager` |
-| Messaging | storage `mt` available |
+| Network owner | netifd `proto modemmanager` |
+| Messaging storage | `mt` available |
 
-Observed port grouping:
+Observed runtime port names were `cdc-wdm0`, `ttyACM0`, `ttyACM1`, `ttyACM2`,
+and `wwan0`. They are evidence only and are never accepted as stable product
+identity or browser input.
 
-```text
-cdc-wdm0 (mbim)
-ttyACM0  (at)
-ttyACM1  (ignored)
-ttyACM2  (at)
-wwan0    (net)
-```
+## What the historical run proved
 
-The names are observations only. See `live-router-validation.md` for the
-sanitized replug timeline.
+The ModemManager/netifd lifecycle was live-validated:
 
-Validated behaviors:
+- unplug removed the old object and brought the netifd interface down;
+- replug regrouped MBIM/net/AT ports into a new modem object;
+- the OpenWrt monitor marked the configured interface available;
+- netifd enabled, registered, connected, and restored the interface in about
+  eleven seconds;
+- a later non-replug bearer recovery returned online in about five seconds.
 
-- unplug removes the old ModemManager object and brings netifd down;
-- replug adds MBIM/net/AT ports and creates a new modem object;
-- the OpenWrt monitor marks the configured interface available;
-- netifd automatically enables, registers, and connects;
-- bearer and logical interface return online in about eleven seconds;
-- final state is connected/attached and netifd up/available;
-- one connection attempt, no failed attempt in the observed cycle.
+Staged v0.2.0-r3 schema-1 testing also proved:
 
-Not validated by this baseline:
+- `fibocom.mm` registration and authenticated LuCI/rpcd transport after the
+  canonical `ubus_rpc_session` parser fix;
+- successful read-only list/overview/status/capability/SMS calls;
+- one externally delivered inbound SMS appeared automatically in the cache;
+- revision-only reconciliation continued approximately every 29-30 seconds;
+- no SMS number, body, opaque ID, or D-Bus path was retained in evidence.
 
-- SMS send/receive/delete;
-- band/mode/reset/SIM-slot mutation;
-- eSIM operations in this exact companion architecture;
-- PCI/EARFCN scan/lock;
-- live deployment of the current v0.2.0 SMS/Advanced bridge;
-- NCM connectivity.
+That historical run did not send or delete a live SMS and did not execute a
+band, radio, reset, SIM-slot, PCI, or connection mutation. Old eSIM menu/probe
+observations concern a retired package and make no 0.3 product claim.
 
-The v0.2.0 SMS and standard Advanced paths are implemented in source, but that
-is not hardware evidence. GitHub Actions run `29689537422` successfully
-cross-built package commit `487d427` for ARMv7 and verified the two-package
-base plus five-package eSIM artifact checksums. Staged router validation is
-still pending.
+## Cell-control observations
 
-## Capability observations
+Two read-only historical probes established the current blocker:
 
 ```text
-GetCellInfo
-  unsupported on the tested L850 MBIM combination
+ModemManager GetCellInfo
+  Core.Unsupported on this L850/firmware/plugin combination
 
-Modem.Command
-  unauthorized on the stock OpenWrt build
-
-SupportedBands
-  5 UTRAN entries and 24 E-UTRAN entries reported
-
-CurrentBands at capture
-  UTRAN 1/8 and E-UTRAN 1/3/5
+generic Modem.Command introspection
+  Core.Unauthorized on the stock OpenWrt build
 ```
 
-Do not infer PCI support from the existence of an AT string in XModem.
+SupportedBands reported five UTRAN and 24 E-UTRAN entries. These observations
+do not prove PCI lock support. Firmware `18500.5001.00.05.27.30` is deliberately
+not allowlisted merely because manuals or community projects mention a command
+family.
 
-## Bridge read/status acceptance
+## Community evidence is not local validation
 
-Schema 1 deliberately reports dynamic OpenWrt logical-interface state and
-traffic counters as unavailable. The implemented UCI lookup establishes only
-configured ownership through an exact, secret-free `proto modemmanager`
-binding; it is not runtime netifd evidence.
+The [4PDA Fibocom L8x0-GL thread](https://4pda.to/forum/index.php?showtopic=1066668)
+was re-reviewed on 2026-07-27. Relevant direct posts are recorded in
+`pci-cell-lock.md` and `provenance.md`. They corroborate a six-argument command
+family, candidate PCI/frequency wildcard and clear sentinels, and the fact that
+lock state may affect registration and persist in NVM.
 
-For every normalized field, record:
+They also conflict on logical versus encoded band values, enable/clear
+semantics, and whether apply needs pre-registration, CFUN4, CFUN15, a band
+toggle, or two separate lock steps. One malformed/different tuple preceded a
+registration cycle; its apparent recovery was confounded by a tariff payment.
 
-- exact libmm-glib property/method;
-- absent/null/placeholder cases;
-- privacy/redaction rule;
-- behavior while disabled, registered, connected, resetting, and absent;
-- firmware and fixture name.
+The exact target firmware has only incomplete and contradictory public
+reports: one user described a temporary fix/CFUN4/unfix result, while another
+reported that repeated `freq_lock` attempts did not produce aggregation. No
+post supplies the target model/firmware/composition together with exact set,
+clear, one reset/apply path, reprobe correlation, registration recovery, and a
+serving EARFCN/PCI postcondition. None of these commands were run during this
+repository work, so the local allowlist stays empty.
 
-Required runtime cases:
+## Current 0.3.0 evidence status
 
-- 10 cold boots;
-- 20 unplug/replug cycles;
-- ModemManager restart;
-- netifd down/up;
-- D-Bus loss/recovery if safely reproducible;
-- two identical modems;
-- unplug during every bridge mutation;
-- ModemManager path/index reuse.
+Implemented and testable offline:
 
-## MBIM data-plane acceptance
+- exact schema-2 base/expert method tables and build gate;
+- CSPRNG identity, generation, cancellation, timeout, cooldown, and mutation
+  policy;
+- native SMS cache/send/delete flow and pagination;
+- standard band policy and asynchronous SetCurrentBands call;
+- structural malformed-blob tests;
+- PCI vendor-response parser fixtures, including PCI 0, LTE types 4/5, type 6
+  rejection, sentinels, malformed fields, overflow, and oversized responses;
+- asynchronous standard GetCellInfo normalization and 64-cell bound;
+- empty firmware mutation allowlist and no embedded vendor command tuple.
 
-- plugin Fibocom/XMM selected for `2cb7:0007`;
-- WDM/net/AT mapping matches the same physical modem;
-- exactly one `proto modemmanager` connection owner;
-- registration and packet service reach expected state;
-- requested and activated IP families recorded;
-- bearer interface matches netifd L3 device;
-- IP, route, DNS, MTU, metric, and firewall state correct;
-- IPv4/IPv6 claimed only where traffic passes;
-- sustained two-way traffic;
-- disconnect cleanup;
-- replug/reconnect without saved MM index or runtime path.
+Not yet live-validated for 0.3.0:
 
-## SMS acceptance
+- package install/upgrade and schema-2 browser behavior;
+- Overview field accuracy across modem states;
+- SMS send/delete and pagination with more than 100 stored messages;
+- Band Lock automatic/subset/recovery and outcome-unknown behavior;
+- standard cell scan on current packages;
+- any PCI set/clear/reset/reprobe/postcondition behavior.
 
-- Messaging available and unavailable fixtures;
-- Added/Deleted/property-signal refresh, missed-signal recovery through the
-  30-second reconciliation, and visibility through the LuCI 10-second poll;
-- list/read received and sent SMS;
-- GSM-7 and Unicode/UCS-2 content;
-- short and multipart send;
-- stored/receiving/received/sending/sent state transitions;
-- send-method failure as an operation error, not a fabricated `failed` state;
-- delete allowed states;
-- modem/SIM storage differences and storage-full behavior;
-- replug reconciliation;
-- content and numbers absent from logs, argv, general status, and events;
-- L850 multipart-index workaround exercised if a multipart SMS is available.
+## Required non-disruptive acceptance
 
-## Standard Advanced acceptance
+Before enabling writes, record sanitized results for:
 
-### Bands
+- cold boot, unplug/replug, ModemManager restart, and netifd down/up;
+- two identical modems and ModemManager path/index reuse;
+- schema mismatch and malformed response behavior in LuCI;
+- Overview in absent, locked, registered, and connected states;
+- SMS initial list, signals, 30-second reconciliation, 10-second UI poll,
+  folder filtering, stale cursor, and more than 100 messages;
+- private content absent from logs, process lists, Overview, and artifacts.
 
-- read supported/current bands;
-- automatic → reviewed subset → automatic;
-- reject empty/unsupported/duplicate values;
+Live SMS send/delete still requires explicit user permission even if it is not
+expected to interrupt WAN.
+
+## Required Band Lock acceptance
+
+In a maintenance window with alternate management access:
+
+- automatic to reviewed LTE subset and back to automatic;
+- unsupported, duplicate, mixed-any, and disabled-family rejection;
+- stale generation, unplug, timeout, and transport-loss behavior;
 - registration and traffic recovery;
-- warn that a wrong subset can remove remote access.
+- no claim of persistence across reset/replug unless separately proven.
 
-### Modes
+## PCI evidence required before allowlisting
 
-Persistent mode changes belong to `/etc/config/network`, because
-`proto modemmanager` re-applies `allowedmode`/`preferredmode` on setup.
-Test Settings/network apply and reconnect; do not treat a direct transient MM
-call as saved configuration.
+Read-only fixture work must establish, for one exact firmware:
 
-### Radio and reset
+- command capability/introspection and complete serving/neighbor responses;
+- exact type, field, encoding, PCI, EARFCN, RSRP, and RSRQ sentinel behavior;
+- lock-state query semantics and supported SIM instance;
+- safe timeout/cancellation behavior through ModemManager's queue.
 
-- direct disable/enable allowed only without an exact netifd binding;
-- exact binding returns `managed_by_netifd`, and persistent intent is changed
-  through Network → Interfaces;
-- standard MM Reset only;
-- cooldown/no reset loop;
-- object removal/reprobe and WAN recovery;
-- clear error when remote recovery fails.
+A separately approved disruptive matrix must then prove:
 
-### SIM slot
+- frequency-only and exact EARFCN+PCI lock, including PCI 0 policy;
+- the exact band encoding and optional-PCI representation;
+- exact clear/unlock tuple;
+- exactly one reset/apply sequence, not a fallback ladder;
+- object disappearance, reprobe correlation, registration, bearer/netifd
+  recovery, and serving-cell postcondition;
+- mismatch, timeout, unplug, rollback, reboot, and persistence behavior.
 
-- method offered only if more than one valid slot is advertised;
-- profile/SIM state and bearer recovery after switch;
-- no NVM fallback.
+Only after that matrix may the exact model/firmware tuple enter the allowlist.
+Until then the expert implementation is correctly reported as implemented but
+fail-closed.
 
-## Optional eSIM acceptance
+## NCM boundary
 
-- exact `luci-app-lpac` and lpac versions;
-- `LPAC_WITH_MBIM=y`;
-- MBIM backend, correct WDM, `proxy=1`;
-- EID and profiles with identifiers redacted;
-- enable/disable/nickname/delete within supported lpac scope;
-- SIM refresh and MM/netifd reconnect;
-- active-bearer coexistence;
-- lock/timeout/recovery;
-- base image has no lpac/eSIM menu;
-- optional image contains no TgBot/Telegram artifacts.
-
-Initial claim is one L850. Multi-modem support is blocked until lpac settings
-bind to stable selected-device identity instead of a global WDM path.
-
-## PCI/EARFCN evidence required
-
-Testing is disruptive and must be announced before execution.
-
-### Read-only fixture phase
-
-Through the ModemManager AT queue on an expert build, capture sanitized:
-
-```text
-AT+XMCI=?
-AT+XMCI=1
-AT@SIC:FREQ_LOCK()??
-candidate lock-state query for SIM instance 0
-candidate lock-state query for SIM instance 1, only when relevant
-```
-
-Fixture requirements:
-
-- type 4 serving and type 5 neighbor;
-- explicit hex/decimal variants;
-- invalid sentinels;
-- PCI 0 synthetic case;
-- RSRP/RSRQ boundary values;
-- truncated and oversized response.
-
-### Mutation matrix
-
-- frequency-only lock;
-- exact EARFCN+PCI lock;
-- clear/unlock;
-- current and alternative visible cell;
-- each candidate reset/apply mechanism tested separately;
-- object reprobe and netifd reconnect;
-- post-lock serving tuple verification;
-- mismatch and rollback;
-- persistence across ModemManager restart, USB replug, and router reboot;
-- wrong band/PCI/EARFCN rejected before AT;
-- unplug during set/reset/verification.
-
-The current firmware is not allowlisted until this matrix passes.
-
-## NCM evidence for future ModemManager contribution
-
-NCM is not a companion-app connectivity feature. Evidence may support a separate
-ModemManager backend contribution:
-
-- `8087:095a` descriptors and all CDC-NCM candidates;
-- mapping to `/USBHS/NCM/0`;
-- consistent PDP CID;
-- `XDATACHANNEL`, `CGDATA="M-RAW_IP"`, IP query, and teardown trace;
-- netdev, ARP, address, route, DNS, and traffic proof;
-- boot/replug/error/cleanup cases;
-- target class actually advertising data-net support.
-
-Only a tested ModemManager implementation can change NCM from
-`detected/unsupported` to `supported`.
-
-## Evidence storage
-
-Raw fixtures must be:
-
-- sanitized before entering Git;
-- named by model, firmware, operation, and expected result;
-- accompanied by a source/date note;
-- bounded so fuzz/unit tests do not depend on device access.
-
-A synthetic fixture or USB ID alone never establishes hardware support.
+L850 NCM USB `8087:095a` connectivity is not supported by this companion. A
+future NCM data path belongs in ModemManager and needs its own bearer, RAW-IP,
+addressing, teardown, and traffic evidence. It must not become a second dialer
+inside this repository.

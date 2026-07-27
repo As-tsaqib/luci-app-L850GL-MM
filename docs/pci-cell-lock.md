@@ -5,338 +5,237 @@ SPDX-License-Identifier: Apache-2.0
 
 # L850 LTE neighbor scan and PCI/EARFCN lock
 
-## Verdict
+## Current verdict
 
-The command family used by XModem is plausible and independently documented,
-but the current XModem implementation must not be copied unchanged. The product
-implementation needs a typed parser, exact model/firmware gates, ModemManager
-AT serialization, and post-lock verification.
+Version 0.3.0 implements the expert contract, build/ACL gates, standard
+GetCellInfo scan path, bounded vendor-response parser and fixtures, input
+policy, state names, rate limiting, cancellation, timeout, and fail-closed
+LuCI section.
 
-This feature is not available on the stock tested OpenWrt image:
+It does not implement or dispatch a vendor scan fallback, lock tuple, clear
+tuple, NVM query/write, reset, or recovery sequence. The firmware allowlist is
+empty. Firmware `18500.5001.00.05.27.30` was historically observed but has not
+passed a mutation/recovery matrix and is not allowlisted.
 
-- ModemManager `GetCellInfo` returns unsupported on the L850;
-- generic `Modem.Command` is disabled by the OpenWrt build.
+Status is therefore: implemented offline but fail-closed. No PCI claim is live
+verified for schema-2 0.3.0.
 
-It remains a P3 expert milestone. The v0.2.0 base bridge neither compiles nor
-exports the vendor object, and the standard Advanced tab does not claim
-PCI/EARFCN scan or lock support.
+## 4PDA community evidence
 
-## Evidence
+The public [Fibocom L8x0-GL discussion](https://4pda.to/forum/index.php?showtopic=1066668)
+was reviewed through 2026-07-27. It supplies useful candidate grammar and
+negative evidence, but it is not local hardware validation:
 
-### Fibocom AT manual
+- [post 121801248](https://4pda.to/forum/index.php?showtopic=1066668&view=findpost&p=121801248)
+  publishes a six-field `freq_lock` help signature. The same post describes
+  both logical and encoded band values and several different apply paths, with
+  no exact firmware attached.
+- [posts 126464498](https://4pda.to/forum/index.php?showtopic=1066668&view=findpost&p=126464498)
+  and [126477912](https://4pda.to/forum/index.php?showtopic=1066668&view=findpost&p=126477912)
+  report L850 NVM observations, candidate `255`/`65535` clear and wildcard
+  sentinels, persistence, and frequency-only locking. Their enable-field
+  interpretation conflicts with the earlier post and neither report names an
+  exact firmware/composition or proves a complete recovery matrix.
+- [posts 129670484](https://4pda.to/forum/index.php?showtopic=1066668&view=findpost&p=129670484),
+  [129670766](https://4pda.to/forum/index.php?showtopic=1066668&view=findpost&p=129670766),
+  and [129673899](https://4pda.to/forum/index.php?showtopic=1066668&view=findpost&p=129673899)
+  show why guessing is unsafe: a malformed/different tuple was followed by a
+  registration cycle, while the reported recovery coincided with renewal of
+  the subscriber's tariff. The proposed clear operation is therefore
+  community evidence, not an isolated postcondition.
+- [post 139046345](https://4pda.to/forum/index.php?showtopic=1066668&view=findpost&p=139046345)
+  reports a two-stage exact-PCI then PCI-wildcard workflow on an L850-GL, but
+  does not identify firmware or prove clear, reprobe, or persistence.
+- For target firmware `18500.5001.00.05.27.30`,
+  [posts 142119412](https://4pda.to/forum/index.php?showtopic=1066668&view=findpost&p=142119412)
+  and [142133341](https://4pda.to/forum/index.php?showtopic=1066668&view=findpost&p=142133341)
+  lead to a report that a fix/CFUN4/unfix sequence was temporary. A later user
+  with the same firmware reports unsuccessful `freq_lock` and aggregation in
+  [post 143570066](https://4pda.to/forum/index.php?showtopic=1066668&view=findpost&p=143570066),
+  still without a public successful resolution in
+  [post 143656918](https://4pda.to/forum/index.php?showtopic=1066668&view=findpost&p=143656918).
 
-The L8/L860 AT manual documents `AT+XMCI=<meas>` as a snapshot of serving and
-neighboring cells. Pages 167–169 define the LTE schema:
+These reports narrow the live test candidates, but do not settle band
+encoding, enable/clear semantics, the one safe apply sequence, durability, or
+serving-cell verification. No raw tuple from the thread is embedded or
+dispatched by 0.3.0, direct NVM writes remain excluded, and the target firmware
+remains outside the allowlist.
 
-```text
-+XMCI:
-  <TYPE>,<MCC>,<MNC>,<TAC>,<CI>,<PCI>,<DLUARFCN>,<ULUARFCN>,
-  <PATHLOSS_LTE>,<RSRP>,<RSRQ>,<RSSNR>,<TA>,<CQI>
-```
+## Ownership and build gate
 
-Relevant types:
-
-| Type | Meaning |
-|---|---|
-| 4 | LTE serving cell |
-| 5 | LTE neighboring cell |
-| 6 | 1xRTT serving cell; not LTE |
-
-`AT+XMCI=1` requests fresh serving measurements plus available neighboring
-measurements. Numeric fields may be decimal or hexadecimal depending on
-firmware/output.
-
-Reference:
-<https://www.manualslib.com/manual/1655076/Fibocom-L860-Gl.html?page=167>.
-
-### Internal cell-lock command
-
-Fibocom L850/L860 community documentation and the modem's own function
-introspection describe:
-
-```text
-AT@SIC:FREQ_LOCK(
-    sim_id,
-    rat,
-    band,
-    inter_frequency_lock_enable,
-    frequency,
-    psc_pci
-)
-```
-
-Community LTE examples use:
-
-- `sim_id=0`;
-- `rat=3`;
-- `enable=1` to apply and `enable=0` to clear;
-- decimal EARFCN and PCI;
-- either an LTE band number, an XACT-style `100 + band`, or wildcard
-  `band=255` depending on the firmware/procedure;
-- `psc_pci=65535` as a wildcard for frequency-only locking.
-
-References:
-
-- <https://wiki.vps-server.ru/doku.php/wiki:openwrt:fibocom-850>
-- <https://forum.artnet.biz/threads/fibocom-l860-gl-16-lte-obsuzhdeniye-proshivka.444/>
-- <https://www.drive2.ru/b/706927153861633966/>
-
-These are behavioral evidence, not an official support guarantee for firmware
-`18500.5001.00.05.27.30`.
-
-## XModem audit
-
-Backend reference:
+The expert path is:
 
 ```text
-application/xmodem/files/usr/share/xmodem/vendor/fibocom.sh
-  get_neighborcell_intel()
-  lockcell_intel()
-  set_neighborcell()
+LuCI Lock
+  -> typed fibocom.mm.l850
+  -> opaque ID + generation + exact hardware gate
+  -> asynchronous libmm-glib / ModemManager queue
+  -> bounded normalized result
 ```
 
-Frontend reference:
+It never opens a TTY/WDM device and never accepts command, port, D-Bus path,
+sysfs path, device path, band encoding, wildcard, or NVM path from the browser.
+
+The base build keeps generic AT-over-D-Bus disabled and does not contain or
+publish the expert object. The object exists only with both:
 
 ```text
-luci/luci-app-xmodem-next/htdocs/luci-static/resources/view/
-  xmodem/config_advanced.js
+CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS=y
+CONFIG_FIBOCOM_MM_BRIDGE_L850_EXPERT=y
 ```
 
-Useful UX behavior:
+It is protected by `luci-app-fibocom-lock-pci-expert`, separate from Band Lock.
+The same daemon/cache is used so a future set/clear operation can share the
+existing per-modem mutation lock.
 
-- an explicit Scan button;
-- a table of detected cells;
-- Copy/select action to populate lock fields;
-- separate Lock and Unlock actions;
-- visible lock status.
-
-Implementation defects/gaps:
-
-1. **Wrong cell type**
-
-   The backend accepts types `4|5|6` as LTE. The manual defines type 6 as
-   1xRTT serving with a different field layout. Only types 4 and 5 belong in the
-   LTE list.
-
-2. **PCI zero is lost**
-
-   PCI 0 is valid in LTE's 0–503 range. Shell and UI truthiness checks currently
-   convert it into “not supplied”.
-
-3. **Invalid measurements are converted**
-
-   Raw RSRP 255 means invalid in this family, but the current conversion can
-   produce a bogus positive value.
-
-4. **Lock state is inferred incorrectly**
-
-   The NVM query reads an enable/support field but status is inferred only from
-   frequency. A stale frequency can therefore be presented as an active lock.
-
-5. **SIM-instance ambiguity**
-
-   XModem queries:
-
-   ```text
-   at@nvm:dyn_cps.nas_asm.freq_lock_params.*??
-   ```
-
-   Community traces also show
-   `dyn_cps.instance[0|1].nas_asm.freq_lock_params`. The correct path for the
-   active SIM/firmware has not been proven.
-
-6. **AT injection/range gap**
-
-   Browser values become shell/AT strings without a strict integer grammar and
-   complete model-specific range validation.
-
-7. **Unsafe unlock fallback**
-
-   If current lock parameters cannot be read, defaults are substituted and an
-   unlock is still attempted. Product behavior must fail closed instead.
-
-8. **Reset result is discarded**
-
-   `CFUN=1,1` is run with output suppressed. The result of the lock command is
-   returned as success even if reset/reconnect fails.
-
-9. **No postcondition**
-
-   `OK` is treated as success without checking that the modem re-registered
-   and camped on the requested EARFCN/PCI.
-
-10. **Frontend state defects**
-
-    The view has missing validation and error paths, including a callback branch
-    referring to an undefined `self`. Its UI ideas may be reimplemented, but
-    it is not a safe API contract.
-
-## ModemManager arbitration
-
-### Forbidden approach
-
-Do not open `ttyACM0` or `ttyACM2` while ModemManager exports the modem.
-`flock` does not help because ModemManager does not participate in an
-application-defined lock. Parallel reads can consume each other's responses and
-parallel writes can corrupt modem state.
-
-### Standard path
-
-Use standard ModemManager methods first:
-
-- `GetCellInfo` for cell discovery;
-- `SetCurrentBands` for band locking;
-- `Reset` for a modem reset.
-
-On the tested L850, `GetCellInfo` is unsupported, so a fallback is needed only
-for this capability.
-
-### Typed vendor fallback
-
-`Modem.Command` is acceptable only as a transport from a privileged typed
-backend because ModemManager performs AT port selection and queueing.
-
-OpenWrt default:
-
-```text
-CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS=n
-```
-
-An expert image may enable it without running ModemManager in debug mode. The
-image must also review/restrict the system D-Bus policy because OpenWrt builds
-ModemManager with `polkit=no`.
-
-The LuCI/ubus API never accepts a command string. It accepts only validated
-fields and constructs one fixed grammar internally.
-
-### InhibitDevice
-
-`InhibitDevice` causes ModemManager to disable the modem, release the bearer,
-close all ports, and unexport the object. It is too disruptive for a cell scan
-and is not a runtime fallback. It may be considered only for a separately
-confirmed maintenance operation.
-
-## Conditional expert API
-
-Object: `fibocom.mm.l850`. It is absent from the base build and protected by a
-separate expert ACL. The implementation is compiled into the same daemon only
-for an explicit expert variant so it shares the base cache and per-modem
-operation lock. It never exposes generic AT.
+## Typed API
 
 ```text
 cell_scan(modem_id, generation)
 cell_lock_status(modem_id, generation)
-set_cell_lock(modem_id, generation, earfcn, optional_pci, confirmation)
-clear_cell_lock(modem_id, generation, confirmation)
+set_cell_lock(modem_id, generation, earfcn, optional pci, confirm)
+clear_cell_lock(modem_id, generation, confirm)
 ```
 
-There is no `command`, `device`, `port`, `band_code`, or D-Bus path input
-from the browser.
+Every method resolves the exact current opaque modem and generation and
+attests L850-GL, Fibocom plugin, MBIM composition, and USB `2cb7:0007`.
+Replacement objects are read-only observations; no old request is retargeted.
 
-The backend:
+`cell_lock_status` keeps two independent capability surfaces:
 
-1. resolves and verifies exact `{modem_id, generation}` for the current object;
-2. verifies VID:PID `2cb7:0007`, plugin `fibocom`, model L850-GL, and a tested
-   firmware allowlist;
-3. verifies the object generation again immediately before dispatch;
-4. serializes one advanced mutation per modem;
-5. builds the command from integer fields;
-6. parses a bounded response;
-7. correlates a replacement object for read-only post-reprobe observation;
-8. verifies the postcondition without issuing another write to that object.
+- top-level `state`, `mutable`, and `reason` describe set/clear mutation;
+- nested `scan` describes whether a button-driven standard GetCellInfo attempt
+  is currently available, busy, not ready, or rate limited.
 
-Object removal invalidates the original token. Any clear/rollback write after
-reprobe is a new, explicitly confirmed request using the new
-`{modem_id, generation}`; the old operation never retargets a replacement.
+The empty allowlist makes mutation `unsupported_firmware` while standard scan
+may still be advertised.
 
-## Input and parser contract
+## Standard scan path
 
-### Cell scan
+`cell_scan` first calls asynchronous libmm-glib `mm_modem_get_cell_info()`.
+It is limited to one attempt per modem every 60 seconds, blocked while another
+per-modem mutation is active, cancelled with the modem/ubus lifetime, and timed
+out after 45 seconds.
 
-- command: exact `AT+XMCI=1`;
-- accept LTE type 4 and 5 only;
-- require the complete LTE field count;
-- parse hexadecimal only when it has an explicit `0x` prefix;
-- PCI range: 0–503, including 0;
-- reject invalid/unknown PCI and EARFCN sentinels;
-- raw RSRP 0–97 maps to `raw - 141` dBm; 255 is unavailable;
-- raw RSRQ maps according to the manual/fixture and rejects 255;
-- mark `serving=true` only for type 4;
-- do not expose MCC/MNC/TAC/cell ID unless the UI contract needs and redacts
-  them.
+The callback rejects removal, proxy mismatch, and generation changes. It
+normalizes LTE objects only:
 
-Scan is button-driven and rate-limited; it is never part of periodic polling.
+- serving becomes type 4; neighbor becomes type 5;
+- physical cell ID is parsed from ModemManager's hexadecimal PCI string and
+  must be 0..503, including 0;
+- EARFCN must map to an LTE band present in live SupportedBands;
+- unavailable `-G_MAXDOUBLE` RSRP/RSRQ is omitted;
+- non-finite metrics, malformed objects, duplicate LTE serving records, and
+  more than 64 LTE cells reject the complete response;
+- MCC/MNC, TAC, cell ID, and other raw identifiers are not exported.
 
-### Cell lock
+Success is `scan_ready`, `source: modemmanager`, and a bounded `cells` array.
+The historically tested L850 returned Core.Unsupported for GetCellInfo. With
+no proven vendor fallback, that case returns `unsupported_firmware` and sends
+no raw command.
 
-The release command cannot be frozen until hardware testing determines:
+## Offline vendor parser contract
 
-- actual band versus `100 + band` versus 255 for this firmware;
-- whether `65535` reliably means PCI wildcard;
-- correct NVM instance/path and active-lock flag;
-- exact unlock tuple;
-- which one reset/apply procedure works.
+The Fibocom L8/L860 manual describes an XMCI response with 14 LTE fields. The
+offline parser accepts only complete `+XMCI:` records followed by one `OK` and:
 
-EARFCN must map to a band reported in ModemManager `SupportedBands`. Do not use
-a generic `0..65535` check: L850 reports Band 66, whose EARFCNs can exceed
-65535.
+- LTE type 4 serving and type 5 neighbor only; type 6 is rejected;
+- at most one serving record and at most 64 total records;
+- decimal fields, with hexadecimal accepted only when explicitly prefixed;
+- PCI 0..503, including zero;
+- an EARFCN that maps through the complete LTE band table;
+- documented measurement ranges and explicit sentinel rejection;
+- bounded input no larger than 16,384 bytes;
+- no embedded NUL, truncated/extra field, integer overflow, trailing record
+  after `OK`, or ambiguous encoding.
 
-### Result state
+RSRP fixture conversion is raw minus 141 dBm. RSRQ uses the reviewed half-dB
+mapping stored as tenths of dB. MCC/MNC/TAC/cell ID fields are validated for
+shape/range but deliberately discarded from normalized output.
 
-Typed states:
+Fixtures under `tests/fixtures/pci` cover valid serving/neighbor data, hex PCI
+zero, type 6, PCI 504, sentinels, malformed fields, overflow, and invalid
+encoding. These fixtures prove parser behavior only; they do not prove that a
+firmware command is safe or supported.
+
+## Set/clear policy
+
+The current handlers enforce typed fields and confirmation. EARFCN must map to
+a live supported band, and optional PCI must be 0..503. Exact hardware and
+generation are checked again before any potential dispatch.
+
+The following facts remain unproven and are intentionally absent from code:
+
+- firmware-specific lock argument order and band encoding;
+- whether frequency-only lock has a safe wildcard representation;
+- exact clear/unlock tuple;
+- NVM instance/path, active-lock flag, and query semantics;
+- exact one reset/apply sequence;
+- persistence across ModemManager restart, USB replug, or router reboot;
+- reliable post-reprobe correlation and rollback behavior.
+
+Consequently `set_cell_lock` and `clear_cell_lock` return
+`unsupported_firmware`; an `OK` string alone could never become final success.
+
+## State policy
+
+The modeled states are:
 
 ```text
-applied_verified
-cleared_verified
+available
+unsupported_build
+unsupported_firmware
+scan_ready
 lock_applied_reset_required
 resetting
+applied_verified
+cleared_verified
 reprobe_timeout
 registration_timeout
 verification_mismatch
-unsupported_build
-unsupported_firmware
-stale_modem
-invalid_argument
+outcome_unknown
 ```
 
-Raw AT or NVM text is never returned to LuCI or written to normal logs.
+The transition policy allows a reviewed flow from available to scan-ready,
+then dispatch/reset, and finally only a verified or explicit failure state.
+No current runtime mutation enters the dispatch/reset states. A future write
+must revalidate immediately before dispatch, mark post-dispatch uncertainty,
+observe object replacement read-only, wait for registration, and compare the
+serving EARFCN/PCI postcondition before reporting `applied_verified` or
+`cleared_verified`.
 
-## Reset matrix still required
+## Why the previous implementation is not copied
 
-Observed references differ:
+The audited XModem path provided useful evidence but accepted non-LTE type 6,
+lost valid PCI 0 through truthiness checks, converted sentinels, inferred lock
+state from incomplete data, exposed broad command/device choices, opened modem
+ports outside ModemManager, and treated command success as final despite reset
+and postcondition uncertainty. Those are design warnings, not reusable source.
 
-| Source | Apply/reconnect action |
-|---|---|
-| XModem | `CFUN=1,1` |
-| Fibocom generic ModemManager | `CFUN=15` |
-| XMM ModemManager | `CFUN=16` |
-| community/Keenetic | `CFUN=4`, `CFUN=15`, or XACT toggle |
+## Hardware matrix required
 
-Testing must compare one action at a time. Do not implement a fallback chain
-that sends several CFUN variants.
+No live scan, lock, clear, or reset may be run without explicit user approval.
+A PCI maintenance window needs alternate access or physical recovery.
 
-## Hardware test plan
+Read-only phase:
 
-Testing cell lock is disruptive and requires an explicit maintenance window.
+1. Record exact sanitized model, firmware, composition, plugin, bands, and
+   current serving tuple.
+2. Prove ModemManager command transport and command capability without direct
+   device access.
+3. Capture bounded sanitized serving/type-5 neighbor fixtures and all sentinel
+   encodings.
+4. Establish the exact lock-state query and SIM instance.
 
-1. Record sanitized current firmware, current band/EARFCN/PCI, bearer, and route
-   health.
-2. Confirm a rollback WAN path or physical access.
-3. Enable the expert MM build and verify `Modem.Command` through MM without
-   opening TTY.
-4. Run only introspection/read commands first:
-   `AT+XMCI=?`, `AT+XMCI=1`, `AT@SIC:FREQ_LOCK()??`, and candidate
-   lock-state queries.
-5. Save sanitized raw fixtures.
-6. Test frequency-only lock against a currently visible cell.
-7. Test exact PCI lock.
-8. Test clear/unlock.
-9. For each reset candidate, verify object disappearance/reprobe, registration,
-   bearer, serving tuple, IP, route, DNS, and traffic.
-10. Reboot and replug to determine persistence.
-11. Test PCI 0 with a synthetic parser fixture even if no live PCI 0 is visible.
-12. Test malformed, sentinel, timeout, and unplug paths without sending a modem
-    mutation.
+Disruptive phase, one candidate at a time:
 
-No lock/reset command should be run remotely without telling the user it may
-interrupt WAN.
+1. Apply a lock to a currently visible frequency-only target.
+2. Apply an exact EARFCN+PCI lock, including a synthetic parser test for PCI 0.
+3. Prove the exact clear operation.
+4. Prove exactly one reset/apply sequence; do not try a fallback ladder.
+5. Observe removal/reprobe, registration, bearer/netifd recovery, and serving
+   postcondition.
+6. Exercise mismatch, timeout, unplug, rollback, restart, replug, and reboot.
+
+Only a complete dated matrix may add one exact firmware to the allowlist and
+change the status from fail-closed to live-verified.
