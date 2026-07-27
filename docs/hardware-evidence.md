@@ -138,12 +138,25 @@ Implemented and covered by source/host/static tests:
 
 Not yet live-validated for 0.3.0:
 
-- package install/upgrade and schema-2 browser behavior;
-- Overview field accuracy across modem states;
+- interactive browser rendering and schema-mismatch presentation;
+- Overview field accuracy outside the connected state;
 - SMS send/delete and pagination with more than 100 stored messages;
 - Band Lock automatic/subset/recovery and outcome-unknown behavior;
-- installed expert ModemManager/bridge package behavior through schema-2 ubus
-  and LuCI (tracked by the current package acceptance run).
+
+Live-validated through installed 0.3.0-r1 packages on the allowlisted tuple:
+
+- checksum-verified base and expert artifacts from SDK run `30261750513`;
+- router-matched ModemManager 1.24.0-r10 expert replacement at INFO log level;
+- exact seven-method base and four-method expert ubus tables;
+- NVM clear status and bounded type-4/type-5 XMCI fallback scan;
+- typed exact current-cell set with replacement identity, registration, NVM,
+  and serving-cell postconditions;
+- stale pre-reset identity rejection before dispatch;
+- typed clear with replacement identity, registration, NVM postcondition, and
+  final connected bearer;
+- least-privilege HTTP `/ubus` schema-2 reads with rpcd session injection;
+- installed three-menu layout and the five exact ACL grants;
+- no raw PCI command text in the normal system log.
 
 Live-validated at command/hardware level on the exact allowlisted tuple:
 

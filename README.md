@@ -121,10 +121,13 @@ an L850-GL MBIM `2cb7:0007` running firmware
 exact neighbor-cell lock, EARFCN-only lock, clear, `CFUN=15` removal/reprobe,
 registration, bearer recovery, NVM postconditions, and serving-cell changes.
 The router was returned to clear/automatic state with its bearer connected.
-The allowlist contains only that exact firmware. Full schema-2 ubus/LuCI
-package validation is recorded separately from this command-level matrix; no
-live SMS send/delete was performed. See [hardware evidence](docs/hardware-evidence.md)
-and the [live record](docs/live-router-validation.md).
+The allowlist contains only that exact firmware. The installed 0.3.0-r1 expert
+packages were then validated through schema-2 local ubus and an authorized
+HTTP `/ubus` rpcd session: XMCI fallback, exact current-cell set, replacement identity,
+stale-identity rejection, clear, NVM/registration/serving-cell postconditions,
+and final connected-bearer recovery all passed. No live SMS send/delete was
+performed. See [hardware evidence](docs/hardware-evidence.md) and the
+[live record](docs/live-router-validation.md).
 
 ## Development
 

@@ -19,9 +19,12 @@ and serving-cell postconditions were observed through ModemManager's command
 queue. Every other firmware, non-L850 model, non-MBIM composition, plugin
 mismatch, or failed `2cb7:0007` attestation remains fail-closed.
 
-Status is therefore: implemented and command-level live-verified for that one
-hardware/firmware tuple. Cross-built schema-2 ubus/LuCI package validation is
-tracked separately from the firmware matrix.
+Status is therefore: implemented and live-verified for that one
+hardware/firmware tuple, both at command level and through the installed
+schema-2 expert package. Exact set and clear returned replacement opaque
+identities and verified postconditions; an authorized HTTP `/ubus` session also
+returned the typed expert status. Interactive browser rendering remains a
+separate UI observation, not a blocker on the verified backend state machine.
 
 ## 4PDA community evidence
 

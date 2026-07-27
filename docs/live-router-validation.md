@@ -7,8 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 
 > This page separates schema-1 v0.2 testing from 2026-07-19 and the approved
 > L850 firmware command/recovery matrix from 2026-07-27. The latter validates
-> the exact PCI grammar and hardware behavior, but package-level schema-2
-> ubus/LuCI acceptance is recorded separately. No live SMS mutation was run.
+> the exact PCI grammar and hardware behavior; the installed package-level
+> schema-2 acceptance follows below. No live SMS mutation was run.
 
 ## Scope
 
@@ -91,6 +91,50 @@ unplug during the operation, ModemManager restart mid-state-machine, and full
 router-reboot persistence. At handoff the modem was clear/automatic,
 registered with a connected bearer, ModemManager was back at INFO, and all
 temporary debug files were removed.
+
+## Installed schema-2 package validation, 2026-07-27
+
+Static run `30261750255` and OpenWrt SDK run `30261750513` passed for source
+commit `307fcde`. Artifact `SHA256SUMS` passed locally and again on the router.
+The base bridge binary was verified to omit `fibocom.mm.l850`; the expert
+artifact contained the expert bridge, matching LuCI package, and a rebuilt
+OpenWrt ModemManager 1.24.0-r10. Its recipe was pinned to OpenWrt packages
+commit `d011c4fb8af70795928937ad5195479cc4ff6de9`, matching the installed router
+package release instead of downgrading to the older SDK feed recipe.
+
+The three expert packages installed in one APK transaction. ModemManager was
+explicitly restarted so the new binary, not the pre-upgrade process, handled
+the test. It remained at INFO log level. Runtime method tables were exactly:
+
+```text
+fibocom.mm:
+  list_modems, get_overview, get_lock_status, set_bands,
+  list_sms, send_sms, delete_sms
+
+fibocom.mm.l850:
+  cell_scan, cell_lock_status, set_cell_lock, clear_cell_lock
+```
+
+The sanitized installed-package result matrix was:
+
+| Test | Result |
+|---|---|
+| Initial expert status | `available`, mutable, exact NVM clear state |
+| Typed cell scan | `scan_ready` via `l850-xmci`; one type-4 serving cell and bounded type-5 neighbors |
+| Typed exact current-cell set | `applied_verified`; replacement opaque identity plus registration, NVM, serving EARFCN/PCI, and band postconditions |
+| Stale pre-reset identity | Rejected as non-retryable `stale_identity` before dispatch |
+| Cooldown | New identity reported `busy`, non-mutable, with bounded `retry_after_ms` |
+| Typed clear | `cleared_verified`; second replacement identity plus registration and exact NVM clear postcondition |
+| HTTP rpcd path | A least-privilege `/ubus` session returned schema 2 for `list_modems` and expert clear status; rpcd-injected session metadata was accepted |
+| UI/ACL package layout | Only Overview, Lock, SMS views; five exact ACL grants; no legacy view or wildcard grant |
+| Final restoration | NVM clear, modem connected/home, one bearer, power on, ModemManager INFO |
+
+The system log contained no raw XMCI, FREQ_LOCK, or NVM command text and no
+bridge warning/failure from the operation. No opaque identities, subscriber
+identifiers, addresses, or raw scan output are retained in this document.
+Interactive browser rendering, Band Lock mutation, live SMS send/delete, and
+the fault/persistence cases listed above were not exercised by this package
+acceptance run.
 
 ## Staged v0.2 application validation
 

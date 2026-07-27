@@ -143,6 +143,12 @@ new code.
 - 2026-07-27: the expert SDK artifact was changed to rebuild/package the
   unmodified OpenWrt ModemManager recipe with its reviewed command-transport
   option; the base artifact keeps that option disabled.
+- 2026-07-27: SDK run `30261750513` pinned the router-matched OpenWrt
+  ModemManager 1.24.0-r10 recipe commit
+  `d011c4fb8af70795928937ad5195479cc4ff6de9`. The checksum-verified expert
+  artifact was installed and schema-2 XMCI, exact set, replacement identity,
+  stale-identity rejection, clear, NVM/registration/serving postconditions,
+  least-privilege HTTP `/ubus`, and final connected-bearer recovery passed.
 
 Historical v0.2 schema-1 results remain explicitly labeled and are not
 rewritten as schema-2 package evidence. Firmware command-level live evidence
