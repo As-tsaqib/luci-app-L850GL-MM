@@ -360,6 +360,9 @@ assert.ok(sdkWorkflow.includes('package/feeds/packages/modemmanager/compile'),
 	'expert CI must rebuild the matching ModemManager package');
 assert.ok(sdkWorkflow.includes("grep -Fq -- '-Dat_command_via_dbus=true'"));
 assert.ok(sdkWorkflow.includes('Firmware_Allowlist=18500.5001.00.05.27.30'));
+assert.strictEqual((sdkWorkflow.match(/API_Schema=3/g) || []).length, 2,
+	'both SDK artifact manifests must identify schema 3');
+assert.ok(!sdkWorkflow.includes('API_Schema=2'));
 assert.ok(!sdkWorkflow.includes('luci-app-fibocom-esim'));
 assert.ok(!sdkWorkflow.includes('luci-app-lpac'));
 assert.ok(!sdkWorkflow.includes('LPAC_'));
