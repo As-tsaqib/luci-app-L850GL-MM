@@ -504,12 +504,12 @@ assert.ok(read('htdocs/luci-static/resources/fibocom/widgets.js').includes(
 
 const makefile = read('Makefile');
 for (const dependency of [
-	'@MODEMMANAGER_WITH_MBIM', '@MODEMMANAGER_WITH_NETIFD', '+luci-base',
-	'+fibocom-mm-bridge', '+modemmanager', '+luci-proto-modemmanager',
+	'+luci-base', '+fibocom-mm-bridge', '+modemmanager', '+luci-proto-modemmanager',
 	'+kmod-usb-acm', '+kmod-usb-net-cdc-mbim', '+kmod-usb-wdm'
 ]) {
 	assert.ok(makefile.includes(dependency), `Makefile must include ${dependency}`);
 }
+assert.doesNotMatch(makefile, /@MODEMMANAGER_WITH_(?:MBIM|NETIFD)/);
 assert.ok(makefile.includes('PKG_LICENSE:=Apache-2.0'));
 assert.ok(makefile.includes('include $(TOPDIR)/feeds/luci/luci.mk'));
 

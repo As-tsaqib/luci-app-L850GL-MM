@@ -273,12 +273,13 @@ assert.match(luciMakefile, /^PKG_RELEASE:=1$/m);
 assert.match(luciMakefile, /^LUCI_URL:=https:\/\/github\.com\/As-tsaqib\/luci-app-fibocom$/m);
 assert.match(luciMakefile, /^LUCI_MAINTAINER:=As Tsaqib <[^>]+>$/m);
 for (const dependency of [
-	'@MODEMMANAGER_WITH_MBIM', '@MODEMMANAGER_WITH_NETIFD', '+luci-base',
-	'+fibocom-mm-bridge', '+modemmanager', '+luci-proto-modemmanager',
+	'+luci-base', '+fibocom-mm-bridge', '+modemmanager', '+luci-proto-modemmanager',
 	'+kmod-usb-acm', '+kmod-usb-net-cdc-mbim', '+kmod-usb-wdm'
 ]) {
 	assert.ok(luciMakefile.includes(dependency), `LuCI Makefile must include ${dependency}`);
 }
+assert.doesNotMatch(luciMakefile, /@MODEMMANAGER_WITH_(?:MBIM|NETIFD)/,
+	'LuCI must not create a recursive PACKAGE_modemmanager Kconfig dependency');
 for (const forbidden of [
 	'fibocomd', 'luci-proto-fibocom', 'modemmanager-plugin-fibocom',
 	'sms-tool', '+lpac'

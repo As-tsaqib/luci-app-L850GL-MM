@@ -10,9 +10,10 @@ LUCI_TITLE:=LuCI companion for Fibocom modems managed by ModemManager
 LUCI_DESCRIPTION:=Minimal Fibocom Overview, Lock, and SMS UI backed by ModemManager
 LUCI_URL:=https://github.com/As-tsaqib/luci-app-fibocom
 LUCI_MAINTAINER:=As Tsaqib <0xfiqks@gmail.com>
+# The SDK/image configuration selects ModemManager MBIM and netifd features.
+# Do not add @MODEMMANAGER_WITH_* here: selecting +modemmanager while depending
+# on an option that itself depends on PACKAGE_modemmanager is a Kconfig cycle.
 LUCI_DEPENDS:= \
-	@MODEMMANAGER_WITH_MBIM \
-	@MODEMMANAGER_WITH_NETIFD \
 	+luci-base \
 	+fibocom-mm-bridge \
 	+modemmanager \

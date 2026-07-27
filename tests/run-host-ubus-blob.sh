@@ -13,16 +13,14 @@ ln -s "$LIBUBOX_SOURCE_DIR" "$BUILD_DIR/include/libubox"
 
 ${CC:-cc} -std=gnu11 -Wall -Wextra -Werror \
 	-I"$ROOT/fibocom-mm-bridge/src" -I"$BUILD_DIR/include" \
-	-I"$LIBUBOX_SOURCE_DIR" \
 	-c "$ROOT/tests/host-ubus-blob.c" -o "$BUILD_DIR/host-ubus-blob.o"
 ${CC:-cc} -std=gnu11 -Wall -Wextra -Werror \
 	-I"$ROOT/fibocom-mm-bridge/src" -I"$BUILD_DIR/include" \
-	-I"$LIBUBOX_SOURCE_DIR" \
 	-c "$ROOT/fibocom-mm-bridge/src/ubus_request.c" \
 	-o "$BUILD_DIR/ubus-request.o"
-${CC:-cc} -std=gnu11 -I"$LIBUBOX_SOURCE_DIR" \
+${CC:-cc} -std=gnu11 -I"$BUILD_DIR/include" \
 	-c "$LIBUBOX_SOURCE_DIR/blob.c" -o "$BUILD_DIR/blob.o"
-${CC:-cc} -std=gnu11 -I"$LIBUBOX_SOURCE_DIR" \
+${CC:-cc} -std=gnu11 -I"$BUILD_DIR/include" \
 	-c "$LIBUBOX_SOURCE_DIR/blobmsg.c" -o "$BUILD_DIR/blobmsg.o"
 ${CC:-cc} "$BUILD_DIR/host-ubus-blob.o" "$BUILD_DIR/ubus-request.o" \
 	"$BUILD_DIR/blob.o" "$BUILD_DIR/blobmsg.o" \
