@@ -440,6 +440,9 @@ fibocom_network_modes_update_at(const char *confdir, const char *device,
 	pointer.value = (char *)allowedmode;
 	if (uci_set(context, &pointer) != UCI_OK)
 		goto out;
+	memset(&pointer, 0, sizeof(pointer));
+	pointer.p = package;
+	pointer.s = section;
 	pointer.option = "preferredmode";
 	pointer.value = (char *)preferredmode;
 	if (uci_set(context, &pointer) != UCI_OK)
