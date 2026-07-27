@@ -93,6 +93,49 @@ find_supported(const struct FibocomRadioBand *supported,
 }
 
 enum FibocomRadioPolicyResult
+fibocom_radio_expand_lte_selection(
+	const char *const *requested, size_t requested_count,
+	const struct FibocomRadioBand *supported, size_t supported_count,
+	unsigned int allowed_families, const char **effective,
+	size_t *effective_count)
+{
+	size_t count;
+	size_t index;
+
+	if (requested == NULL || requested_count == 0U ||
+	    requested_count > FIBOCOM_RADIO_REQUEST_BANDS_MAX ||
+	    supported == NULL || supported_count == 0U ||
+	    effective == NULL || effective_count == NULL)
+		return FIBOCOM_RADIO_POLICY_INVALID_ARGUMENT;
+	if (requested_count == 1U && requested[0] != NULL &&
+	    strcmp(requested[0], "any") == 0) {
+		effective[0] = requested[0];
+		*effective_count = 1U;
+		return FIBOCOM_RADIO_POLICY_OK;
+	}
+	if ((allowed_families & FIBOCOM_RADIO_FAMILY_4G) == 0U)
+		return FIBOCOM_RADIO_POLICY_FAMILY_MISMATCH;
+	for (index = 0U; index < requested_count; index++) {
+		if (fibocom_radio_band_family(requested[index]) !=
+		    FIBOCOM_RADIO_FAMILY_4G)
+			return FIBOCOM_RADIO_POLICY_INVALID_ARGUMENT;
+		effective[index] = requested[index];
+	}
+	count = requested_count;
+	for (index = 0U; index < supported_count; index++) {
+		if (supported[index].family == FIBOCOM_RADIO_FAMILY_4G ||
+		    supported[index].family == FIBOCOM_RADIO_FAMILY_NONE ||
+		    (supported[index].family & allowed_families) == 0U)
+			continue;
+		if (count >= FIBOCOM_RADIO_REQUEST_BANDS_MAX)
+			return FIBOCOM_RADIO_POLICY_INVALID_ARGUMENT;
+		effective[count++] = supported[index].name;
+	}
+	*effective_count = count;
+	return FIBOCOM_RADIO_POLICY_OK;
+}
+
+enum FibocomRadioPolicyResult
 fibocom_radio_resolve_bands(const char *const *requested,
 			    size_t requested_count,
 			    const struct FibocomRadioBand *supported,

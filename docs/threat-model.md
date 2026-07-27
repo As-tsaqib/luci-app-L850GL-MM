@@ -8,9 +8,10 @@ SPDX-License-Identifier: Apache-2.0
 ## Security objective
 
 An authenticated LuCI user may view a narrow modem/SMS snapshot and invoke
-only reviewed SMS, band, or explicitly gated expert actions. Browser input must
-never become a path, command, process argument, arbitrary D-Bus call, UCI
-write, or direct device operation.
+only reviewed SMS, persistent mode, band, or explicitly gated expert actions.
+Browser input must never become a path, command, process argument, arbitrary
+D-Bus call, UCI section selector, arbitrary UCI write, or direct device
+operation.
 
 Protected assets include modem firmware and registration state, SIM and SMS
 content, phone numbers, subscriber/device identifiers, network credentials and
@@ -51,6 +52,8 @@ routes, addresses, DNS, PIN, and credentials are outside the API.
 13. Schema drift leaves old UI mutation controls enabled.
 14. Broad ACL, shell, file, cgi-io, or UCI grants expand compromise impact.
 15. A second dialer, direct TTY reader, or SMS tool races ModemManager.
+16. A mode request targets the wrong netifd section, overwrites a credential,
+    or is blindly retried after persistence/reload uncertainty.
 
 ## Controls
 
@@ -60,7 +63,7 @@ routes, addresses, DNS, PIN, and credentials are outside the API.
   `blobmsg_name`, type, or data access.
 - Requests accept exact typed fields plus at most one validated canonical
   `ubus_rpc_session`; malformed, missing, duplicate, and unknown fields fail.
-- The base method table is fixed to seven schema-2 methods.
+- The base method table is fixed to eight schema-3 methods.
 - Raw AT, D-Bus/sysfs/device paths, shell/process execution, arbitrary ubus,
   and bearer lifecycle calls are absent.
 - Text is UTF-8/control-character checked and bounded before serialization.
@@ -81,6 +84,22 @@ length, bad name termination, duplicate fields, and malformed session data.
 - A dispatched send/band operation with uncertain completion returns
   `outcome_unknown`, is not automatically retried, and requires refreshed live
   state before another request.
+- Mode persistence and network activation are reported separately; a lost
+  reload response never causes an automatic repeat of an already verified UCI
+  commit.
+
+### netifd mode-policy boundary
+
+- `set_modes` accepts only `3g`, `4g`, or canonical `3g|4g`, plus a consistent
+  `none`, `3g`, or `4g` preference.
+- The bridge resolves exactly one named safe `proto modemmanager` section from
+  the modem's internal Device value. Missing, anonymous, unsafe, and ambiguous
+  matches fail closed; neither section nor device is accepted from the browser.
+- Only `allowedmode` and `preferredmode` are set, in one commit followed by
+  readback. APN, PIN, username, password, routes, DNS, and every other option
+  remain untouched and are excluded from responses.
+- Activation uses an asynchronous exact `network.reload` invocation. rpcd ACLs
+  grant no browser UCI or generic network-object access.
 
 ### Ownership and concurrency
 
@@ -135,7 +154,7 @@ length, bad name termination, duplicate fields, and malformed session data.
 
 ### Frontend and ACL
 
-- LuCI requires schema 2 and complete typed success objects. Unknown schema or
+- LuCI requires schema 3 and complete typed success objects. Unknown schema or
   malformed data disables every mutation.
 - Cell records are structurally validated again before rendering.
 - DOM nodes are built without `innerHTML`; private data is not written to

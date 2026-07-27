@@ -3,7 +3,7 @@
 
 include $(TOPDIR)/rules.mk
 
-PKG_VERSION:=0.3.0
+PKG_VERSION:=0.4.0
 PKG_RELEASE:=1
 
 LUCI_TITLE:=LuCI companion for Fibocom modems managed by ModemManager

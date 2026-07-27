@@ -5,8 +5,8 @@ SPDX-License-Identifier: Apache-2.0
 
 # luci-app-fibocom
 
-Version 0.3.0 is a small LuCI companion for Fibocom modems already managed by
-ModemManager and OpenWrt netifd. Its public API is schema 2 and its menu is
+Version 0.4.0 is a small LuCI companion for Fibocom modems already managed by
+ModemManager and OpenWrt netifd. Its public API is schema 3 and its menu is
 exactly:
 
 ```text
@@ -20,7 +20,9 @@ Modem
 ModemManager remains the only owner of modem objects, ports, SIMs, SMS, radio,
 and bearers. netifd remains the owner of connection intent, APN, routes, and
 DNS. The companion neither dials nor creates bearers, scans sysfs, opens modem
-device nodes, executes external programs, or changes UCI.
+device nodes, or executes external programs. Its sole UCI write path changes
+only `allowedmode` and `preferredmode` on the uniquely resolved
+`proto modemmanager` interface; browser input never selects a UCI section.
 
 ## Product scope
 
@@ -28,12 +30,18 @@ Overview returns a compact, sanitized snapshot: manufacturer/model/revision,
 modem state and power, SIM presence and lock, registration/operator/roaming,
 access technology, signal quality and available RSRP/RSRQ/SINR, bearer state
 and data interface, current bands, and capability summaries. Serving
-EARFCN/PCI is omitted unless a validated source exists. It never returns raw
+EARFCN/PCI is cached only from validated standard CellInfo, an explicit expert
+scan, or a verified PCI postcondition. Overview never launches an automatic
+XMCI scan. It never returns raw
 D-Bus or sysfs paths, port tables, subscriber identifiers, IP configuration,
 credentials, or diagnostic dumps.
 
 Lock contains:
 
+- Persistent allowed/preferred mode selection (`3g`, `4g`, or `3g|4g`) owned
+  and activated by netifd. The bridge resolves the exact bound interface
+  internally, commits only the two mode options, verifies readback, and asks
+  the `network` ubus service to reload asynchronously.
 - Band Lock through asynchronous libmm-glib `SetCurrentBands`, including
   automatic `["any"]` selection, supported-band and allowed-family validation,
   exact L850-GL MBIM `2cb7:0007` attestation, confirmation, WAN warning,
@@ -64,13 +72,14 @@ post-dispatch send returns `outcome_unknown` and is never resent automatically.
 
 ## API and permissions
 
-The base object `fibocom.mm` exposes exactly seven schema-2 methods:
+The base object `fibocom.mm` exposes exactly eight schema-3 methods:
 
 ```text
 list_modems
 get_overview
 get_lock_status
 set_bands
+set_modes
 list_sms
 send_sms
 delete_sms
@@ -91,7 +100,7 @@ The five rpcd groups are `luci-app-fibocom-overview`,
 `luci-app-fibocom-lock-pci-expert`. They grant exact ubus methods only: no
 wildcards, filesystem access, shell execution, cgi-io, or UCI writes.
 
-LuCI treats malformed responses and every schema other than 2 as a
+LuCI treats malformed responses and every schema other than 3 as a
 compatibility failure. All mutations are disabled until a matching schema,
 opaque ID, modem generation, and (for SMS) messaging generation are present.
 
@@ -100,13 +109,14 @@ opaque ID, modem generation, and (for SMS) messaging generation are present.
 The active package set is:
 
 ```text
-fibocom-mm-bridge   0.3.0-r1 native libmm-glib/GDBus to ubus bridge
-luci-app-fibocom   0.3.0-r1 Overview, Lock, and SMS views
+fibocom-mm-bridge   0.4.0-r1 native libmm-glib/GDBus to ubus bridge
+luci-app-fibocom   0.4.0-r1 Overview, Lock, and SMS views
 ```
 
 The retired Status, old Advanced, Settings, radio toggle, generic reset,
-primary SIM-slot switch, and Fibocom eSIM addon are not part of 0.3.0. Network
-configuration remains in OpenWrt's existing Network / Interfaces UI.
+primary SIM-slot switch, and Fibocom eSIM addon are not part of 0.4.0. APN,
+route, DNS, credentials, and all connection settings remain in OpenWrt's
+existing Network / Interfaces UI.
 
 The normal build requires ModemManager with MBIM and netifd support and keeps
 generic AT-over-D-Bus disabled. `CONFIG_FIBOCOM_MM_BRIDGE_L850_EXPERT` is off
@@ -122,11 +132,13 @@ exact neighbor-cell lock, EARFCN-only lock, clear, `CFUN=15` removal/reprobe,
 registration, bearer recovery, NVM postconditions, and serving-cell changes.
 The router was returned to clear/automatic state with its bearer connected.
 The allowlist contains only that exact firmware. The installed 0.3.0-r1 expert
-packages were then validated through schema-2 local ubus and an authorized
+packages were validated through schema-2 local ubus and an authorized
 HTTP `/ubus` rpcd session: XMCI fallback, exact current-cell set, replacement identity,
 stale-identity rejection, clear, NVM/registration/serving-cell postconditions,
 and final connected-bearer recovery all passed. No live SMS send/delete was
-performed. See [hardware evidence](docs/hardware-evidence.md) and the
+performed. Version 0.4 schema-3 mode persistence, serving-cell cache, and
+installed-package evidence are recorded separately and are not retroactively
+claimed by that 0.3 run. See [hardware evidence](docs/hardware-evidence.md) and the
 [live record](docs/live-router-validation.md).
 
 ## Development

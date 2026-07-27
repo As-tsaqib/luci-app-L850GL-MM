@@ -118,7 +118,28 @@ serving EARFCN/PCI postcondition. The local 2026-07-27 matrix supplied that
 missing proof independently; public posts are retained as provenance, not as
 the allowlist authority.
 
-## Current 0.3.0 evidence status
+## Current 0.4.0 evidence status
+
+Implemented in source and covered by static/host contracts:
+
+- exact eight-method schema-3 base table and unchanged four-method expert gate;
+- persistent `set_modes` grammar, unique internal netifd binding resolution,
+  two-option UCI commit/readback, credential preservation, shared lock,
+  asynchronous network reload, and activation uncertainty reporting;
+- LTE-only Band Lock UI with non-LTE allowed-family preservation;
+- generation-bound serving-cell cache populated only by validated standard
+  CellInfo, explicit expert scan, or PCI postcondition, with freshness/backoff;
+- schema-3 frontend fail-closed validation and responsive mode controls.
+
+A read-only pre-install probe on 2026-07-28 reconfirmed that this exact L850
+returns `Core.Unsupported` for standard CellInfo and that an explicitly invoked
+expert scan succeeds through `l850-xmci`. Therefore Overview does not claim
+automatic serving-cell availability: it never starts vendor scan itself, and
+its cache becomes available only after an explicit validated expert result or
+verified PCI postcondition. Schema-3 SDK/install/mode-activation evidence is
+recorded below only after the matching 0.4 artifacts are built and installed.
+
+## Version 0.3.0 evidence status
 
 Implemented and covered by source/host/static tests:
 

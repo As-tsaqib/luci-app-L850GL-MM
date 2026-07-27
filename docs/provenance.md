@@ -80,12 +80,12 @@ Commit IDs are evidence anchors, not source-import points.
 - MBIM is the supported production composition. L850 NCM bearer support is not
   established in ModemManager and is not a companion feature.
 - ModemManager provides typed asynchronous bands, Messaging/Sms, and
-  GetCellInfo APIs used by 0.3.
+  GetCellInfo APIs used by 0.4.
 - The XMCI LTE field schema and community lock-command family were candidate
   evidence only. The 2026-07-27 local target-firmware matrix independently
   proved logical band encoding, PCI wildcard `65535`, clear tuple, NVM state,
   `CFUN=15`, reprobe/registration, and serving-cell postconditions.
-- Stock OpenWrt keeps generic AT-over-D-Bus disabled. The base 0.3 build must
+- Stock OpenWrt keeps generic AT-over-D-Bus disabled. The base 0.4 build must
   keep it disabled and omit the expert object.
 - Firmware `18500.5001.00.05.27.30` is the sole PCI mutation allowlist entry,
   based on the dated local matrix rather than a public post.
@@ -149,6 +149,15 @@ new code.
   artifact was installed and schema-2 XMCI, exact set, replacement identity,
   stale-identity rejection, clear, NVM/registration/serving postconditions,
   least-privilege HTTP `/ubus`, and final connected-bearer recovery passed.
+- 2026-07-28: version 0.4.0 advances the base contract to schema 3 and eight
+  methods. `set_modes` persists only `allowedmode`/`preferredmode` on the
+  uniquely internally resolved netifd interface and activates through an
+  asynchronous network reload. Lock now exposes LTE band choices only while
+  retaining allowed non-LTE families. Overview gains a generation-bound,
+  freshness-limited serving-cell cache without automatic XMCI fallback.
+- 2026-07-28: one authorized pre-install expert scan on the target router
+  reconfirmed that standard CellInfo is unsupported and the installed schema-2
+  expert path selects `l850-xmci`; no mode, band, PCI, or SMS mutation was run.
 
 Historical v0.2 schema-1 results remain explicitly labeled and are not
 rewritten as schema-2 package evidence. Firmware command-level live evidence

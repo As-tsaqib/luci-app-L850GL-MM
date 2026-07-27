@@ -91,7 +91,7 @@ assert.deepStrictEqual(acl['luci-app-fibocom-sms-write'].write.ubus['fibocom.mm'
 ]);
 assert.strictEqual(acl['luci-app-fibocom-sms-write'].read, undefined);
 assert.deepStrictEqual(acl['luci-app-fibocom-lock-band'].write.ubus['fibocom.mm'], [
-	'set_bands'
+	'set_bands', 'set_modes'
 ]);
 assert.deepStrictEqual(
 	acl['luci-app-fibocom-lock-pci-expert'].read.ubus['fibocom.mm.l850'],
@@ -118,7 +118,7 @@ const rpc = {
 const baseclass = { extend: function(specification) { return specification; } };
 const api = evaluate('htdocs/luci-static/resources/fibocom/api.js', { baseclass, rpc });
 
-assert.strictEqual(api.SCHEMA_VERSION, 2);
+assert.strictEqual(api.SCHEMA_VERSION, 3);
 assert.deepStrictEqual(declarations.map(function(call) {
 	return `${call.object}.${call.method}`;
 }), [
@@ -126,6 +126,7 @@ assert.deepStrictEqual(declarations.map(function(call) {
 	'fibocom.mm.get_overview',
 	'fibocom.mm.get_lock_status',
 	'fibocom.mm.set_bands',
+	'fibocom.mm.set_modes',
 	'fibocom.mm.list_sms',
 	'fibocom.mm.send_sms',
 	'fibocom.mm.delete_sms',
@@ -142,24 +143,28 @@ assert.deepStrictEqual(declarations[2].params, [ 'modem_id' ]);
 assert.deepStrictEqual(declarations[3].params,
 	[ 'modem_id', 'generation', 'bands', 'confirm' ]);
 assert.deepStrictEqual(declarations[4].params,
+	[ 'modem_id', 'generation', 'allowed', 'preferred', 'confirm' ]);
+assert.deepStrictEqual(declarations[5].params,
 	[ 'modem_id', 'folder', 'limit', 'cursor' ]);
-assert.deepStrictEqual(declarations[5].params, [
+assert.deepStrictEqual(declarations[6].params, [
 	'modem_id', 'generation', 'messaging_generation', 'recipient', 'text', 'client_token'
 ]);
-assert.deepStrictEqual(declarations[6].params, [
+assert.deepStrictEqual(declarations[7].params, [
 	'modem_id', 'generation', 'messaging_generation', 'sms_id', 'confirm'
 ]);
-assert.deepStrictEqual(declarations[7].params, [ 'modem_id', 'generation' ]);
 assert.deepStrictEqual(declarations[8].params, [ 'modem_id', 'generation' ]);
-assert.deepStrictEqual(declarations[9].params,
-	[ 'modem_id', 'generation', 'earfcn', 'pci', 'confirm' ]);
+assert.deepStrictEqual(declarations[9].params, [ 'modem_id', 'generation' ]);
 assert.deepStrictEqual(declarations[10].params,
+	[ 'modem_id', 'generation', 'earfcn', 'pci', 'confirm' ]);
+assert.deepStrictEqual(declarations[11].params,
 	[ 'modem_id', 'generation', 'confirm' ]);
 assert.deepStrictEqual(api.listModems().arguments, []);
 assert.deepStrictEqual(api.getOverview('fibocom-test').arguments, [ 'fibocom-test' ]);
 assert.deepStrictEqual(api.getLockStatus('fibocom-test').arguments, [ 'fibocom-test' ]);
 assert.deepStrictEqual(api.setBands('fibocom-test', 4, [ 'eutran-1' ], true).arguments,
 	[ 'fibocom-test', 4, [ 'eutran-1' ], true ]);
+assert.deepStrictEqual(api.setModes('fibocom-test', 4, '3g|4g', '4g', true).arguments,
+	[ 'fibocom-test', 4, '3g|4g', '4g', true ]);
 assert.deepStrictEqual(api.listSms('fibocom-test', 'inbox', 100, 'next').arguments,
 	[ 'fibocom-test', 'inbox', 100, 'next' ]);
 assert.deepStrictEqual(api.cellScan('fibocom-test', 4).arguments,
@@ -231,18 +236,18 @@ function findNodes(node, predicate) {
 }
 
 const widgets = evaluate('htdocs/luci-static/resources/fibocom/widgets.js', { baseclass });
-assert.strictEqual(widgets.isCompatible({ schema: 2, ok: true }), true);
+assert.strictEqual(widgets.isCompatible({ schema: 3, ok: true }), true);
 assert.strictEqual(widgets.isCompatible({ schema: 1, ok: true }), false);
-assert.strictEqual(widgets.isCompatible({ schema: 2, ok: 'yes' }), false);
-assert.deepStrictEqual(widgets.modems({ schema: 2, ok: true, modems: [] }), []);
+assert.strictEqual(widgets.isCompatible({ schema: 3, ok: 'yes' }), false);
+assert.deepStrictEqual(widgets.modems({ schema: 3, ok: true, modems: [] }), []);
 assert.deepStrictEqual(widgets.modems({ schema: 1, ok: true, modems: [] }), []);
 assert.match(widgets.responseError({ schema: 1, ok: true }), /schema/i);
-assert.match(widgets.responseError({ schema: 2, ok: true }), /malformed/i,
+assert.match(widgets.responseError({ schema: 3, ok: true }), /malformed/i,
 	'a partial success response must fail closed');
-assert.strictEqual(widgets.mutationAllowed({ schema: 2, generated_at: 1, ok: true }, {
+assert.strictEqual(widgets.mutationAllowed({ schema: 3, generated_at: 1, ok: true }, {
 	modem_id: 'fibocom-test', generation: 4
 }, 'fibocom-test', 4), true);
-assert.strictEqual(widgets.mutationAllowed({ schema: 3, generated_at: 1, ok: true }, {
+assert.strictEqual(widgets.mutationAllowed({ schema: 2, generated_at: 1, ok: true }, {
 	modem_id: 'fibocom-test', generation: 4
 }, 'fibocom-test', 4), false);
 
@@ -285,13 +290,13 @@ const summary = {
 	power: 'on'
 };
 const listResult = {
-	schema: 2,
+	schema: 3,
 	generated_at: 1,
 	ok: true,
 	modems: [ summary ]
 };
 const overviewResult = {
-	schema: 2,
+	schema: 3,
 	generated_at: 1,
 	ok: true,
 	modem_id: 'fibocom-test',
@@ -307,7 +312,10 @@ const overviewResult = {
 	signal: { quality: 72, recent: true, rsrp: -90, rsrq: -10, sinr: 14 },
 	bearer: { connected: true, interface: 'wwan0' },
 	current_bands: [ 'utran-1', 'eutran-1', 'eutran-3' ],
-	serving_cell: { state: 'unavailable', reason: 'not-validated' },
+	serving_cell: {
+		state: 'available', reason: 'standard-cell-info', earfcn: 1325,
+		pci: 0, band: 3, rsrp: -90, rsrq: -10
+	},
 	capabilities: {
 		sms: { state: 'available', mutable: true },
 		band_lock: { state: 'available', mutable: true },
@@ -316,7 +324,7 @@ const overviewResult = {
 	warnings: []
 };
 const lockResult = {
-	schema: 2,
+	schema: 3,
 	generated_at: 1,
 	ok: true,
 	modem_id: 'fibocom-test',
@@ -325,11 +333,15 @@ const lockResult = {
 	current_bands: [ 'utran-1', 'eutran-1', 'eutran-3' ],
 	band_selection: 'explicit',
 	current_modes: { known: true, allowed: [ '3g', '4g' ], preferred: '4g' },
+	mode_policy: {
+		state: 'available', mutable: true, reason: 'unique-netifd-binding',
+		configured: true, allowed: '3g|4g', preferred: '4g'
+	},
 	band_lock: { state: 'available', mutable: true, retry_after_ms: 0 },
 	pci_lock: { state: 'unsupported_build', mutable: false, reason: 'expert-object-absent' }
 };
 const smsResult = {
-	schema: 2,
+	schema: 3,
 	generated_at: 1,
 	ok: true,
 	modem_id: 'fibocom-test',
@@ -344,7 +356,7 @@ const smsResult = {
 	has_more: true
 };
 const expertResult = {
-	schema: 2,
+	schema: 3,
 	generated_at: 1,
 	ok: false,
 	modem_id: 'fibocom-test',
@@ -357,7 +369,7 @@ const expertResult = {
 	}
 };
 const availableExpertResult = {
-	schema: 2,
+	schema: 3,
 	generated_at: 1,
 	ok: true,
 	modem_id: 'fibocom-test',
@@ -381,6 +393,25 @@ const availableExpertResult = {
 		source: 'modemmanager'
 	}
 };
+
+assert.strictEqual(widgets.overviewError(overviewResult, summary), null);
+assert.match(widgets.overviewError(Object.assign({}, overviewResult, {
+	serving_cell: {
+		state: 'available', reason: 'standard-cell-info', earfcn: 1325,
+		pci: 504, band: 3
+	}
+}), summary), /malformed/i,
+'an out-of-range serving PCI must fail frontend validation');
+assert.strictEqual(widgets.overviewError(Object.assign({}, overviewResult, {
+	serving_cell: { state: 'unavailable', reason: 'refresh-pending' }
+}), summary), null, 'a typed unavailable Serving Cell state must remain renderable');
+assert.strictEqual(widgets.lockError(lockResult, summary), null);
+assert.match(widgets.lockError(Object.assign({}, lockResult, {
+	mode_policy: Object.assign({}, lockResult.mode_policy, {
+		allowed: '4g', preferred: '4g'
+	})
+}), summary), /malformed/i,
+'an inconsistent persistent mode policy must fail closed');
 
 const overviewView = evaluate(
 	'htdocs/luci-static/resources/view/fibocom/overview.js', viewDependencies);
@@ -448,6 +479,20 @@ const renderedLock = renderedText(lockNode);
 	assert.ok(!renderedLock.some(function(value) { return value.includes(internalPrefix); }),
 		`Lock must not expose the internal ${internalPrefix} band prefix`);
 });
+const renderedBandGroups = findNodes(lockNode, function(node) {
+	return node.attributes && typeof node.attributes.class === 'string' &&
+		node.attributes.class.split(/\s+/).includes('fibocom-band-group');
+});
+
+assert.strictEqual(renderedBandGroups.length, 1,
+	'only the LTE/4G band-lock group must be displayed');
+assert.ok(renderedText(renderedBandGroups[0]).includes('4G'));
+assert.ok(!renderedText(renderedBandGroups[0]).includes('3G'));
+for (const expected of [ 'Allowed mode', '3G / 4G', '3G only', '4G only',
+	'Preferred mode', 'No preference', 'Prefer 3G', 'Prefer 4G' ]) {
+	assert.ok(renderedLock.some(function(value) { return value.includes(expected); }),
+		`Lock must render the persistent mode control ${expected}`);
+}
 const automaticLockNode = lockView.render({
 	list: listResult,
 	entries: [ { summary: summary, lock: Object.assign({}, lockResult, {
@@ -462,8 +507,26 @@ const automaticCurrentBandRows = findNodes(automaticLockNode, function(node) {
 });
 
 assert.strictEqual(automaticCurrentBandRows.length, 1);
-assert.deepStrictEqual(renderedText(automaticCurrentBandRows[0]), [ 'Current bands', 'any' ],
+assert.deepStrictEqual(renderedText(automaticCurrentBandRows[0]),
+	[ 'Current bands', 'Any Supported bands' ],
 	'automatic band selection must not list every supported band');
+const explicitAllLockNode = lockView.render({
+	list: listResult,
+	entries: [ { summary: summary, lock: Object.assign({}, lockResult, {
+		band_selection: 'explicit',
+		current_bands: lockResult.supported_bands
+	}), expert: expertResult } ]
+});
+const explicitAllCurrentBandRows = findNodes(explicitAllLockNode, function(node) {
+	const values = renderedText(node);
+
+	return node.tag === 'tr' && values[0] === 'Current bands';
+});
+
+assert.strictEqual(explicitAllCurrentBandRows.length, 1);
+assert.deepStrictEqual(renderedText(explicitAllCurrentBandRows[0]),
+	[ 'Current bands', 'Any Supported bands' ],
+	'an explicit set containing every supported band must be presented as unlocked');
 const renderedAvailableLock = lockView.render({
 	list: listResult,
 	entries: [ { summary: summary, lock: Object.assign({}, lockResult, {
@@ -524,7 +587,7 @@ const interactiveApi = {
 		assert.strictEqual(modemId, summary.modem_id);
 		assert.strictEqual(generation, summary.generation);
 		const result = {
-			schema: 2,
+			schema: 3,
 			generated_at: 2,
 			ok: true,
 			modem_id: modemId,
@@ -554,6 +617,27 @@ const interactiveLock = interactiveLockView.render({
 			reason: 'live-validated-l850-command-state-machine' }
 	}), expert: availableExpertResult } ]
 });
+const mode4gOnly = findNodes(interactiveLock, function(node) {
+	return node.tag === 'input' && node.attributes.id ===
+		'fibocom-allowed-mode-0-2';
+})[0];
+
+assert.ok(mode4gOnly, 'persistent mode selection must render a 4G-only radio');
+mode4gOnly.attributes.change({ target: { checked: true, value: '4g' } });
+const preferredNone = findNodes(interactiveLock, function(node) {
+	return node.tag === 'input' && node.attributes.id ===
+		'fibocom-preferred-mode-0-0';
+})[0];
+const modeApplyButton = findNodes(interactiveLock, function(node) {
+	return node.tag === 'button' && renderedText(node).includes('Apply mode selection');
+})[0];
+
+assert.ok(preferredNone.attributes.checked != null,
+	'a single allowed mode must force the persistent preference to none');
+assert.ok(preferredNone.attributes.disabled != null,
+	'preferred-mode radios must be disabled for a single allowed mode');
+assert.strictEqual(modeApplyButton.attributes.disabled, null,
+	'changing a valid mode policy must enable its confirmation action');
 const initialBandCheckboxes = findNodes(interactiveLock, function(node) {
 	return node.tag === 'input' && /^fibocom-band-0-[0-9]+$/.test(node.attributes.id);
 });
@@ -564,7 +648,7 @@ const invertButton = findNodes(interactiveLock, function(node) {
 assert.ok(invertButton, 'Band Lock must render an Invert button');
 assert.strictEqual(initialBandCheckboxes.filter(function(node) {
 	return node.attributes.checked != null;
-}).length, 3);
+}).length, 2);
 invertButton.attributes.click();
 const invertedBandCheckboxes = findNodes(interactiveLock, function(node) {
 	return node.tag === 'input' && /^fibocom-band-0-[0-9]+$/.test(node.attributes.id);
@@ -574,8 +658,8 @@ const invertedCheckedBands = invertedBandCheckboxes.filter(function(node) {
 });
 
 assert.strictEqual(invertedCheckedBands.length, 1,
-	'Invert must flip every supported explicit band locally');
-assert.strictEqual(invertedCheckedBands[0].attributes.id, 'fibocom-band-0-3');
+	'Invert must flip every supported explicit LTE band locally');
+assert.strictEqual(invertedCheckedBands[0].attributes.id, 'fibocom-band-0-2');
 const scanButton = findNodes(interactiveLock, function(node) {
 	return node.tag === 'button' && renderedText(node).includes('Scan cells');
 })[0];
@@ -760,8 +844,10 @@ assert.ok(lockSource.includes('grid-template-columns:repeat(auto-fill'),
 assert.ok(lockSource.includes('fibocom-band-groups'));
 assert.ok(lockSource.includes('invertBandSelection'));
 assert.ok(lockSource.includes("_('Invert')"));
-assert.ok(lockSource.includes("current.indexOf('any') !== -1 ? 'any'"),
-	'automatic Current bands must render as any');
+assert.ok(lockSource.includes('sameBandSet(current, supported)'),
+	'automatic or fully unlocked Current bands must be summarized');
+assert.ok(lockSource.includes("return /^eutran-[0-9]+$/.test(band)"),
+	'only LTE/4G bands must be offered for explicit band lock');
 assert.ok(lockSource.includes('fibocom-cell-cards'));
 assert.ok(lockSource.includes('fibocom-cell-card'));
 assert.ok(lockSource.includes('fibocom-cell-card-field'));
@@ -839,7 +925,8 @@ for (const retired of [
 for (const text of [
 	'Overview', 'Lock', 'SMS', 'Band Lock', 'PCI/EARFCN Lock', 'Load more',
 	'Compose SMS', 'Delete SMS', '(active)', 'Tap line to use', 'Invert', 'Lock status',
-	'Locked', 'Unlocked', 'Modem Info', 'Modem Status',
+	'Locked', 'Unlocked', 'Any Supported bands', 'Supported LTE bands',
+	'Explicit LTE bands', 'Modem Info', 'Modem Status',
 	'Band and Cell Status', 'Signal Status'
 ]) {
 	assert.ok(pot.includes(`msgid "${text}"`),

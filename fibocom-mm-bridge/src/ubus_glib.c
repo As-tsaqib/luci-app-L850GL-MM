@@ -7,6 +7,7 @@
 
 #include "identity.h"
 #include "l850_cell.h"
+#include "network_binding.h"
 #include "radio_policy.h"
 #include "sms_dedupe_policy.h"
 #include "sms_policy.h"
@@ -41,6 +42,8 @@
 #define L850_REGISTRATION_POLL_MS 1000U
 #define L850_POST_MUTATION_COOLDOWN_SECONDS 60U
 #define MAX_RADIO_BANDS 256U
+#define SERVING_CELL_FRESH_SECONDS 90U
+#define SERVING_CELL_RETRY_SECONDS 30U
 
 G_STATIC_ASSERT(FIBOCOM_SMS_REQUEST_DIGEST_LEN ==
 		FIBOCOM_SMS_SHA256_DIGEST_LEN);
@@ -99,6 +102,7 @@ typedef struct {
 
 typedef enum {
 	ADVANCED_OPERATION_BANDS,
+	ADVANCED_OPERATION_MODES,
 } AdvancedOperationType;
 
 typedef struct {
@@ -112,11 +116,20 @@ typedef struct {
 	guint cooldown_seconds;
 	MMModemBand *bands;
 	guint n_bands;
+	struct ubus_request network_request;
+	const gchar *activation;
 	gboolean timed_out;
 	gboolean transport_lost;
 	gboolean dispatched;
 	gboolean deferred;
+	gboolean persisted;
+	gboolean network_request_pending;
 } AdvancedOperation;
+
+typedef struct {
+	FibocomModem *modem;
+	guint32 generation;
+} ServingCellQuery;
 
 #ifdef FIBOCOM_MM_L850_EXPERT
 typedef struct {
@@ -211,6 +224,8 @@ static gboolean l850_modem_has_active_mutation(FibocomUbus *ubus,
 
 static FibocomUbus *fibocom_ubus_ref_internal(FibocomUbus *ubus);
 static void fibocom_ubus_unref_internal(FibocomUbus *ubus);
+static void advanced_operation_free(AdvancedOperation *operation);
+static void advanced_operation_complete_success(AdvancedOperation *operation);
 
 static void
 cancel_sms_operations(FibocomUbus *ubus, gboolean transport_lost)
@@ -245,6 +260,16 @@ cancel_advanced_operations(FibocomUbus *ubus, gboolean transport_lost)
 
 		operation->deferred = FALSE;
 		operation->transport_lost = transport_lost;
+		if (operation->type == ADVANCED_OPERATION_MODES) {
+			if (operation->network_request_pending &&
+			    ubus->context_initialized) {
+				operation->network_request_pending = FALSE;
+				ubus_abort_request(&ubus->context,
+					&operation->network_request);
+			}
+			advanced_operation_free(operation);
+			continue;
+		}
 		g_cancellable_cancel(operation->cancellable);
 	}
 	g_list_free(operations);
@@ -390,6 +415,25 @@ static const struct blobmsg_policy set_bands_policy[__SET_BANDS_MAX] = {
 	[SET_BANDS_CONFIRM] = { .name = "confirm", .type = BLOBMSG_TYPE_BOOL },
 };
 
+enum {
+	SET_MODES_MODEM_ID,
+	SET_MODES_GENERATION,
+	SET_MODES_ALLOWED,
+	SET_MODES_PREFERRED,
+	SET_MODES_CONFIRM,
+	__SET_MODES_MAX,
+};
+
+static const struct blobmsg_policy set_modes_policy[__SET_MODES_MAX] = {
+	[SET_MODES_MODEM_ID] = { .name = "modem_id", .type = BLOBMSG_TYPE_STRING },
+	[SET_MODES_GENERATION] = {
+		.name = "generation", .type = BLOBMSG_TYPE_INT32 },
+	[SET_MODES_ALLOWED] = { .name = "allowed", .type = BLOBMSG_TYPE_STRING },
+	[SET_MODES_PREFERRED] = {
+		.name = "preferred", .type = BLOBMSG_TYPE_STRING },
+	[SET_MODES_CONFIRM] = { .name = "confirm", .type = BLOBMSG_TYPE_BOOL },
+};
+
 #ifdef FIBOCOM_MM_L850_EXPERT
 enum {
 	L850_MODEM_ID,
@@ -465,6 +509,10 @@ static int method_set_bands(struct ubus_context *context,
 			    struct ubus_object *object,
 			    struct ubus_request_data *request,
 			    const char *method, struct blob_attr *message);
+static int method_set_modes(struct ubus_context *context,
+			    struct ubus_object *object,
+			    struct ubus_request_data *request,
+			    const char *method, struct blob_attr *message);
 
 #ifdef FIBOCOM_MM_L850_EXPERT
 static int method_cell_scan(struct ubus_context *context,
@@ -491,6 +539,7 @@ static const struct ubus_method fibocom_methods[] = {
 	UBUS_METHOD("get_overview", method_get_overview, modem_policy),
 	UBUS_METHOD("get_lock_status", method_get_lock_status, modem_policy),
 	UBUS_METHOD("set_bands", method_set_bands, set_bands_policy),
+	UBUS_METHOD("set_modes", method_set_modes, set_modes_policy),
 	UBUS_METHOD("list_sms", method_list_sms, list_sms_policy),
 	UBUS_METHOD("send_sms", method_send_sms, send_sms_policy),
 	UBUS_METHOD("delete_sms", method_delete_sms, delete_sms_policy),
@@ -1367,6 +1416,8 @@ static guint add_band_array(struct blob_buf *buffer, const gchar *name,
 			    const MMModemBand *bands, guint n_bands);
 static void add_overview_capabilities(struct blob_buf *buffer,
 			      FibocomUbus *ubus, FibocomModem *modem);
+static void add_serving_cell_summary(struct blob_buf *buffer,
+			     FibocomModem *modem);
 
 static void
 add_signal_summary(struct blob_buf *buffer, FibocomModem *modem)
@@ -1486,7 +1537,6 @@ method_get_overview(struct ubus_context *context, struct ubus_object *object,
 	struct blob_buf buffer = {};
 	void *identity;
 	void *modem_state;
-	void *serving_cell;
 	void *warnings;
 
 	(void)method;
@@ -1516,10 +1566,7 @@ method_get_overview(struct ubus_context *context, struct ubus_object *object,
 	add_signal_summary(&buffer, modem);
 	add_bearer_summary(&buffer, modem);
 	add_current_bands_summary(&buffer, modem);
-	serving_cell = blobmsg_open_table(&buffer, "serving_cell");
-	blobmsg_add_string(&buffer, "state", "unavailable");
-	blobmsg_add_string(&buffer, "reason", "not-validated");
-	blobmsg_close_table(&buffer, serving_cell);
+	add_serving_cell_summary(&buffer, modem);
 	add_overview_capabilities(&buffer, ubus, modem);
 	warnings = blobmsg_open_array(&buffer, "warnings");
 	if (!g_str_equal(modem->sim_cache_state, "ready") &&
@@ -1763,6 +1810,237 @@ snapshot_supported_radio_bands(FibocomModem *modem,
 }
 
 static gboolean
+lte_band_is_supported(FibocomModem *modem, guint16 band)
+{
+	struct FibocomRadioBand choices[MAX_RADIO_BANDS];
+	const gchar *names[MAX_RADIO_BANDS];
+	guint count = 0U;
+	guint families = FIBOCOM_RADIO_FAMILY_NONE;
+	guint index;
+
+	if (!snapshot_supported_radio_bands(modem, choices, &count, &families))
+		return FALSE;
+	(void)families;
+	for (index = 0U; index < count; index++)
+		names[index] = choices[index].name;
+	return fibocom_l850_band_is_supported(band, names, count);
+}
+
+static gboolean
+parse_standard_lte_pci(const gchar *value, guint16 *pci)
+{
+	guint32 parsed = 0U;
+	gsize index;
+	gsize length;
+
+	if (value == NULL || pci == NULL)
+		return FALSE;
+	length = strlen(value);
+	if (length == 0U || length > 8U)
+		return FALSE;
+	for (index = 0U; index < length; index++) {
+		guint32 digit;
+		guchar character = (guchar)value[index];
+
+		if (character >= '0' && character <= '9')
+			digit = character - '0';
+		else if (character >= 'A' && character <= 'F')
+			digit = character - 'A' + 10U;
+		else if (character >= 'a' && character <= 'f')
+			digit = character - 'a' + 10U;
+		else
+			return FALSE;
+		if (parsed > (G_MAXUINT32 - digit) / 16U)
+			return FALSE;
+		parsed = parsed * 16U + digit;
+	}
+	if (parsed > 503U)
+		return FALSE;
+	*pci = (guint16)parsed;
+	return TRUE;
+}
+
+static gboolean
+serving_cell_cache_is_fresh(FibocomModem *modem, gint64 now)
+{
+	return modem->live && modem->serving_cell_valid &&
+		modem->serving_cell_generation == modem->generation &&
+		modem->serving_cell_updated_at > 0 &&
+		now - modem->serving_cell_updated_at <=
+			(gint64)SERVING_CELL_FRESH_SECONDS * G_USEC_PER_SEC;
+}
+
+static gboolean
+serving_cell_cache_store(FibocomModem *modem, guint32 earfcn, guint16 pci,
+			 guint16 band, gdouble rsrp, gboolean has_rsrp,
+			 gdouble rsrq, gboolean has_rsrq,
+			 const gchar *reason)
+{
+	guint16 mapped_band;
+
+	if (modem == NULL || !modem->live || pci > 503U ||
+	    !fibocom_l850_earfcn_to_band(earfcn, &mapped_band) ||
+	    mapped_band != band || !lte_band_is_supported(modem, band) ||
+	    (has_rsrp && !isfinite(rsrp)) ||
+	    (has_rsrq && !isfinite(rsrq)))
+		return FALSE;
+	modem->serving_cell_generation = modem->generation;
+	modem->serving_cell_earfcn = earfcn;
+	modem->serving_cell_pci = pci;
+	modem->serving_cell_band = band;
+	modem->serving_cell_rsrp = rsrp;
+	modem->serving_cell_rsrq = rsrq;
+	modem->serving_cell_has_rsrp = has_rsrp;
+	modem->serving_cell_has_rsrq = has_rsrq;
+	modem->serving_cell_updated_at = g_get_monotonic_time();
+	modem->serving_cell_reason = reason;
+	modem->serving_cell_valid = TRUE;
+	return TRUE;
+}
+
+static gboolean
+serving_cell_cache_store_standard(FibocomModem *modem, GList *items)
+{
+	guint32 earfcn = 0U;
+	guint16 pci = 0U;
+	guint16 band = 0U;
+	gdouble rsrp = 0.0;
+	gdouble rsrq = 0.0;
+	gboolean has_rsrp = FALSE;
+	gboolean has_rsrq = FALSE;
+	guint serving_count = 0U;
+	GList *cursor;
+
+	for (cursor = items; cursor != NULL; cursor = cursor->next) {
+		MMCellInfo *cell = cursor->data;
+		MMCellInfoLte *lte;
+		guint candidate_earfcn;
+		guint16 candidate_band;
+		guint16 candidate_pci;
+		gdouble candidate_rsrp;
+		gdouble candidate_rsrq;
+
+		if (!MM_IS_CELL_INFO(cell))
+			return FALSE;
+		if (mm_cell_info_get_cell_type(cell) != MM_CELL_TYPE_LTE)
+			continue;
+		if (!MM_IS_CELL_INFO_LTE(cell))
+			return FALSE;
+		lte = MM_CELL_INFO_LTE(cell);
+		candidate_earfcn = mm_cell_info_lte_get_earfcn(lte);
+		if (candidate_earfcn == G_MAXUINT ||
+		    !fibocom_l850_earfcn_to_band(candidate_earfcn,
+			&candidate_band) ||
+		    !lte_band_is_supported(modem, candidate_band) ||
+		    !parse_standard_lte_pci(
+			mm_cell_info_lte_get_physical_ci(lte), &candidate_pci))
+			return FALSE;
+		candidate_rsrp = mm_cell_info_lte_get_rsrp(lte);
+		candidate_rsrq = mm_cell_info_lte_get_rsrq(lte);
+		if ((candidate_rsrp != -G_MAXDOUBLE &&
+		     !isfinite(candidate_rsrp)) ||
+		    (candidate_rsrq != -G_MAXDOUBLE &&
+		     !isfinite(candidate_rsrq)))
+			return FALSE;
+		if (!mm_cell_info_get_serving(cell))
+			continue;
+		if (++serving_count != 1U)
+			return FALSE;
+		earfcn = candidate_earfcn;
+		pci = candidate_pci;
+		band = candidate_band;
+		rsrp = candidate_rsrp;
+		rsrq = candidate_rsrq;
+		has_rsrp = candidate_rsrp != -G_MAXDOUBLE;
+		has_rsrq = candidate_rsrq != -G_MAXDOUBLE;
+	}
+	return serving_count == 1U && serving_cell_cache_store(modem, earfcn,
+		pci, band, rsrp, has_rsrp, rsrq, has_rsrq,
+		"standard-cell-info");
+}
+
+static void
+serving_cell_query_ready(GObject *source, GAsyncResult *result,
+			 gpointer user_data)
+{
+	ServingCellQuery *query = user_data;
+	FibocomModem *modem = query->modem;
+	g_autoptr(GError) error = NULL;
+	GList *cells;
+	gboolean fresh;
+
+	cells = mm_modem_get_cell_info_finish(MM_MODEM(source), result, &error);
+	if (modem->live && modem->generation == query->generation &&
+	    source == G_OBJECT(modem->modem)) {
+		modem->serving_cell_refresh_pending = FALSE;
+		fresh = serving_cell_cache_is_fresh(modem,
+			g_get_monotonic_time());
+		if (error == NULL &&
+		    serving_cell_cache_store_standard(modem, cells)) {
+			/* The validated cache was updated by the helper. */
+		} else if (!fresh) {
+			modem->serving_cell_valid = FALSE;
+			modem->serving_cell_reason = error != NULL ?
+				"standard-cell-info-unavailable" :
+				"standard-cell-info-malformed";
+		}
+	}
+	g_list_free_full(cells, g_object_unref);
+	fibocom_modem_unref(modem);
+	g_free(query);
+}
+
+static void
+serving_cell_refresh(FibocomModem *modem)
+{
+	ServingCellQuery *query;
+	gint64 now = g_get_monotonic_time();
+
+	if (!modem->live || modem->serving_cell_refresh_pending ||
+	    serving_cell_cache_is_fresh(modem, now) ||
+	    (modem->serving_cell_last_attempt_at > 0 &&
+	     now - modem->serving_cell_last_attempt_at <
+		(gint64)SERVING_CELL_RETRY_SECONDS * G_USEC_PER_SEC))
+		return;
+	query = g_new0(ServingCellQuery, 1);
+	query->modem = fibocom_modem_ref(modem);
+	query->generation = modem->generation;
+	modem->serving_cell_refresh_pending = TRUE;
+	modem->serving_cell_last_attempt_at = now;
+	mm_modem_get_cell_info(modem->modem, modem->cancellable,
+		serving_cell_query_ready, query);
+}
+
+static void
+add_serving_cell_summary(struct blob_buf *buffer, FibocomModem *modem)
+{
+	gint64 now = g_get_monotonic_time();
+	gboolean fresh;
+	void *serving;
+
+	serving_cell_refresh(modem);
+	fresh = serving_cell_cache_is_fresh(modem, now);
+	serving = blobmsg_open_table(buffer, "serving_cell");
+	blobmsg_add_string(buffer, "state", fresh ? "available" : "unavailable");
+	blobmsg_add_string(buffer, "reason", fresh ?
+		modem->serving_cell_reason :
+		(modem->serving_cell_refresh_pending ? "refresh-pending" :
+		 (modem->serving_cell_valid ? "stale" :
+		  (modem->serving_cell_reason != NULL ?
+		   modem->serving_cell_reason : "standard-cell-info-unavailable"))));
+	if (fresh) {
+		blobmsg_add_u32(buffer, "earfcn", modem->serving_cell_earfcn);
+		blobmsg_add_u32(buffer, "pci", modem->serving_cell_pci);
+		blobmsg_add_u32(buffer, "band", modem->serving_cell_band);
+		if (modem->serving_cell_has_rsrp)
+			blobmsg_add_double(buffer, "rsrp", modem->serving_cell_rsrp);
+		if (modem->serving_cell_has_rsrq)
+			blobmsg_add_double(buffer, "rsrq", modem->serving_cell_rsrq);
+	}
+	blobmsg_close_table(buffer, serving);
+}
+
+static gboolean
 current_radio_families(FibocomModem *modem, guint supported_families,
 		       guint *allowed_families)
 {
@@ -1779,6 +2057,90 @@ current_radio_families(FibocomModem *modem, guint supported_families,
 		return FALSE;
 	*allowed_families = families;
 	return TRUE;
+}
+
+static void
+mode_policy_fallback(MMModemMode allowed, MMModemMode preferred,
+		     const gchar **allowed_name, const gchar **preferred_name)
+{
+	if (allowed == MM_MODEM_MODE_3G)
+		*allowed_name = "3g";
+	else if (allowed == MM_MODEM_MODE_4G)
+		*allowed_name = "4g";
+	else
+		*allowed_name = "3g|4g";
+	if (g_str_equal(*allowed_name, "3g|4g") &&
+	    preferred == MM_MODEM_MODE_3G)
+		*preferred_name = "3g";
+	else if (g_str_equal(*allowed_name, "3g|4g") &&
+		 preferred == MM_MODEM_MODE_4G)
+		*preferred_name = "4g";
+	else
+		*preferred_name = "none";
+}
+
+static void
+add_mode_policy(struct blob_buf *buffer, FibocomUbus *ubus,
+		FibocomModem *modem, MMModemMode current_allowed,
+		MMModemMode current_preferred)
+{
+	struct FibocomNetworkBinding binding;
+	enum FibocomNetworkBindingResult lookup_result;
+	const gchar *device = mm_modem_get_device(modem->modem);
+	const gchar *allowed_name;
+	const gchar *preferred_name;
+	const gchar *state = "unavailable";
+	const gchar *reason = "netifd-binding-unavailable";
+	gboolean configured = FALSE;
+	gboolean mutable = FALSE;
+	gboolean busy = FALSE;
+	guint32 retry_after = advanced_retry_after_ms(ubus, modem);
+	void *policy;
+
+	mode_policy_fallback(current_allowed, current_preferred,
+		&allowed_name, &preferred_name);
+	lookup_result = device != NULL ?
+		fibocom_network_binding_lookup(device, &binding) :
+		FIBOCOM_NETWORK_BINDING_ERROR;
+	if (lookup_result == FIBOCOM_NETWORK_BINDING_UNIQUE &&
+	    binding.has_allowedmode && binding.has_preferredmode &&
+	    fibocom_network_modes_are_valid(binding.allowedmode,
+		binding.preferredmode)) {
+		allowed_name = binding.allowedmode;
+		preferred_name = binding.preferredmode;
+		configured = TRUE;
+	}
+	if (lookup_result == FIBOCOM_NETWORK_BINDING_NONE)
+		reason = "netifd-binding-not-found";
+	else if (lookup_result == FIBOCOM_NETWORK_BINDING_AMBIGUOUS)
+		reason = "netifd-binding-ambiguous";
+	else if (lookup_result == FIBOCOM_NETWORK_BINDING_UNIQUE &&
+		 !fibocom_modem_attest_mutation_target(modem)) {
+		state = "unsupported";
+		reason = "exact-l850-mbim-hardware-not-attested";
+	} else if (lookup_result == FIBOCOM_NETWORK_BINDING_UNIQUE &&
+		   (modem->mutation_busy || retry_after > 0U)) {
+		state = "busy";
+		reason = modem->mutation_busy ?
+			"per-modem-mutation-in-progress" : "advanced-cooldown";
+		busy = TRUE;
+	} else if (lookup_result == FIBOCOM_NETWORK_BINDING_UNIQUE) {
+		state = "available";
+		reason = configured ? "unique-netifd-binding" :
+			"unique-netifd-binding-unconfigured";
+		mutable = TRUE;
+	}
+	policy = blobmsg_open_table(buffer, "mode_policy");
+	blobmsg_add_string(buffer, "state", state);
+	blobmsg_add_u8(buffer, "mutable", mutable);
+	blobmsg_add_string(buffer, "reason", reason);
+	blobmsg_add_u8(buffer, "configured", configured);
+	blobmsg_add_string(buffer, "allowed", allowed_name);
+	blobmsg_add_string(buffer, "preferred", preferred_name);
+	blobmsg_add_u8(buffer, "busy", busy);
+	if (retry_after > 0U)
+		blobmsg_add_u32(buffer, "retry_after_ms", retry_after);
+	blobmsg_close_table(buffer, policy);
 }
 
 static void
@@ -1905,6 +2267,9 @@ method_get_lock_status(struct ubus_context *context,
 	blobmsg_add_string(&buffer, "preferred", current_modes_known ?
 		preferred_mode_name(preferred) : "unknown");
 	blobmsg_close_table(&buffer, current_modes);
+	add_mode_policy(&buffer, ubus, modem,
+		current_modes_known ? allowed : MM_MODEM_MODE_NONE,
+		current_modes_known ? preferred : MM_MODEM_MODE_NONE);
 	add_standard_feature(&buffer, "band_lock", ubus, modem, attested,
 		bands_available, "unknown", "standard-set-current-bands",
 		"supported-bands-or-current-modes-not-advertised");
@@ -2562,6 +2927,12 @@ advanced_error_message(const gchar *code)
 		return "A required ModemManager or network configuration dependency is unavailable";
 	if (g_str_equal(code, "ambiguous_device"))
 		return "More than one matching network interface owns this modem";
+	if (g_str_equal(code, "netifd_binding_not_found"))
+		return "No uniquely bound netifd ModemManager interface was found";
+	if (g_str_equal(code, "netifd_binding_ambiguous"))
+		return "The modem has an ambiguous or unsafe netifd binding";
+	if (g_str_equal(code, "persistence_failed"))
+		return "The netifd radio-mode intent could not be committed and verified";
 	if (g_str_equal(code, "managed_by_netifd"))
 		return "The bound netifd interface owns radio state; change it in Network Interfaces";
 	if (g_str_equal(code, "invalid_argument"))
@@ -2671,6 +3042,7 @@ advanced_operation_name(AdvancedOperationType type)
 {
 	switch (type) {
 	case ADVANCED_OPERATION_BANDS: return "set_bands";
+	case ADVANCED_OPERATION_MODES: return "set_modes";
 	default: return "unknown";
 	}
 }
@@ -2704,6 +3076,17 @@ advanced_operation_timeout(gpointer user_data)
 
 	operation->timeout_source = 0;
 	operation->timed_out = TRUE;
+	if (operation->type == ADVANCED_OPERATION_MODES) {
+		if (operation->network_request_pending &&
+		    operation->ubus->context_initialized) {
+			operation->network_request_pending = FALSE;
+			ubus_abort_request(&operation->ubus->context,
+				&operation->network_request);
+		}
+		operation->activation = "outcome_unknown";
+		advanced_operation_complete_success(operation);
+		return G_SOURCE_REMOVE;
+	}
 	g_cancellable_cancel(operation->cancellable);
 	return G_SOURCE_REMOVE;
 }
@@ -2715,6 +3098,11 @@ advanced_operation_free(AdvancedOperation *operation)
 
 	if (operation->timeout_source != 0)
 		g_source_remove(operation->timeout_source);
+	if (operation->network_request_pending && ubus != NULL &&
+	    ubus->context_initialized) {
+		operation->network_request_pending = FALSE;
+		ubus_abort_request(&ubus->context, &operation->network_request);
+	}
 	advanced_operation_apply_cooldown(operation);
 	if (operation->modem->mutation_kind == FIBOCOM_MUTATION_ADVANCED &&
 	    operation->modem->mutation_cancellable == operation->cancellable) {
@@ -2881,7 +3269,25 @@ advanced_operation_complete_success(AdvancedOperation *operation)
 		advanced_operation_name(operation->type));
 	blobmsg_add_u32(&buffer, "cooldown_ms",
 		operation->cooldown_seconds * 1000U);
+	if (operation->type == ADVANCED_OPERATION_MODES) {
+		blobmsg_add_u8(&buffer, "persisted", operation->persisted);
+		blobmsg_add_string(&buffer, "activation",
+			operation->activation != NULL ? operation->activation :
+			"pending");
+	}
 	advanced_operation_complete_buffer(operation, &buffer);
+}
+
+static void
+advanced_network_reload_complete(struct ubus_request *request, int status)
+{
+	AdvancedOperation *operation = request->priv;
+
+	if (operation == NULL || !operation->network_request_pending)
+		return;
+	operation->network_request_pending = FALSE;
+	operation->activation = status == UBUS_STATUS_OK ? "reloaded" : "failed";
+	advanced_operation_complete_success(operation);
 }
 
 static void
@@ -2946,8 +3352,9 @@ advanced_operation_new(FibocomUbus *ubus, FibocomModem *modem,
 	modem->mutation_kind = FIBOCOM_MUTATION_ADVANCED;
 	modem->mutation_cancellable = g_object_ref(operation->cancellable);
 	advanced_operation_apply_cooldown(operation);
-	g_dbus_proxy_set_default_timeout(G_DBUS_PROXY(modem->modem),
-		ADVANCED_PROXY_TIMEOUT_MS);
+	if (type == ADVANCED_OPERATION_BANDS)
+		g_dbus_proxy_set_default_timeout(G_DBUS_PROXY(modem->modem),
+			ADVANCED_PROXY_TIMEOUT_MS);
 	return operation;
 }
 
@@ -2959,6 +3366,7 @@ method_set_bands(struct ubus_context *context, struct ubus_object *object,
 	FibocomUbus *ubus = from_object(object);
 	struct blob_attr *parsed[__SET_BANDS_MAX] = {};
 	const gchar *requested[FIBOCOM_RADIO_REQUEST_BANDS_MAX];
+	const gchar *effective[FIBOCOM_RADIO_REQUEST_BANDS_MAX];
 	struct FibocomRadioBand supported[MAX_RADIO_BANDS];
 	unsigned int resolved[FIBOCOM_RADIO_REQUEST_BANDS_MAX];
 	const gchar *modem_id;
@@ -2966,6 +3374,7 @@ method_set_bands(struct ubus_context *context, struct ubus_object *object,
 	guint32 retry_after;
 	guint32 generation;
 	guint requested_count;
+	size_t effective_count;
 	guint supported_count;
 	guint supported_families;
 	guint allowed_families;
@@ -2998,8 +3407,17 @@ method_set_bands(struct ubus_context *context, struct ubus_object *object,
 	    !current_radio_families(modem, supported_families,
 		&allowed_families))
 		return send_advanced_error(context, request, "not_ready", TRUE, 0U);
-	policy_result = fibocom_radio_resolve_bands(requested,
-		requested_count, supported, supported_count, TRUE,
+	policy_result = fibocom_radio_expand_lte_selection(requested,
+		requested_count, supported, supported_count, allowed_families,
+		effective, &effective_count);
+	if (policy_result != FIBOCOM_RADIO_POLICY_OK)
+		return send_advanced_error(context, request,
+			policy_result == FIBOCOM_RADIO_POLICY_FAMILY_MISMATCH ?
+			"not_ready" : "invalid_argument",
+			policy_result == FIBOCOM_RADIO_POLICY_FAMILY_MISMATCH,
+			0U);
+	policy_result = fibocom_radio_resolve_bands(effective,
+		effective_count, supported, supported_count, TRUE,
 		allowed_families, (guint)MM_MODEM_BAND_ANY, resolved);
 	if (policy_result != FIBOCOM_RADIO_POLICY_OK) {
 		const gchar *code =
@@ -3011,14 +3429,111 @@ method_set_bands(struct ubus_context *context, struct ubus_object *object,
 	}
 	operation = advanced_operation_new(ubus, modem,
 		ADVANCED_OPERATION_BANDS, context, request);
-	operation->bands = g_new(MMModemBand, requested_count);
-	operation->n_bands = requested_count;
-	for (index = 0; index < requested_count; index++)
+	operation->bands = g_new(MMModemBand, effective_count);
+	operation->n_bands = (guint)effective_count;
+	for (index = 0; index < effective_count; index++)
 		operation->bands[index] = (MMModemBand)resolved[index];
 	operation->dispatched = TRUE;
 	mm_modem_set_current_bands(operation->modem->modem, operation->bands,
 		operation->n_bands, operation->cancellable,
 		advanced_operation_ready, operation);
+	return UBUS_STATUS_OK;
+}
+
+static int
+method_set_modes(struct ubus_context *context, struct ubus_object *object,
+		 struct ubus_request_data *request, const char *method,
+		 struct blob_attr *message)
+{
+	FibocomUbus *ubus = from_object(object);
+	struct blob_attr *parsed[__SET_MODES_MAX] = {};
+	struct FibocomNetworkBinding binding;
+	struct blob_buf empty = {};
+	const gchar *modem_id;
+	const gchar *allowed;
+	const gchar *preferred;
+	const gchar *device;
+	const gchar *error_code;
+	guint32 generation;
+	guint32 retry_after;
+	uint32_t network_id;
+	int status;
+	FibocomModem *modem;
+	AdvancedOperation *operation;
+	enum FibocomNetworkModeUpdateResult update_result;
+
+	(void)method;
+	if (!parse_exact_fields(message, set_modes_policy, __SET_MODES_MAX,
+		(G_GUINT64_CONSTANT(1) << __SET_MODES_MAX) - 1U, parsed) ||
+	    !fibocom_identity_is_valid(
+		blobmsg_get_string(parsed[SET_MODES_MODEM_ID])) ||
+	    !blobmsg_get_bool(parsed[SET_MODES_CONFIRM]))
+		return send_advanced_error(context, request, "invalid_argument",
+			FALSE, 0U);
+	allowed = blobmsg_get_string(parsed[SET_MODES_ALLOWED]);
+	preferred = blobmsg_get_string(parsed[SET_MODES_PREFERRED]);
+	if (!fibocom_network_modes_are_valid(allowed, preferred))
+		return send_advanced_error(context, request, "invalid_argument",
+			FALSE, 0U);
+	modem_id = blobmsg_get_string(parsed[SET_MODES_MODEM_ID]);
+	generation = blobmsg_get_u32(parsed[SET_MODES_GENERATION]);
+	modem = advanced_mutation_modem(ubus, modem_id, generation,
+		&error_code, &retry_after);
+	if (modem == NULL)
+		return send_advanced_error(context, request, error_code,
+			g_str_equal(error_code, "busy") ||
+			g_str_equal(error_code, "dependency_unavailable"),
+			retry_after);
+	device = mm_modem_get_device(modem->modem);
+	if (device == NULL || device[0] == '\0')
+		return send_advanced_error(context, request,
+			"dependency_unavailable", TRUE, 0U);
+	operation = advanced_operation_new(ubus, modem,
+		ADVANCED_OPERATION_MODES, context, request);
+	update_result = fibocom_network_modes_update(device, allowed, preferred,
+		&binding);
+	if (update_result != FIBOCOM_NETWORK_MODE_UPDATE_OK) {
+		const gchar *code = "persistence_failed";
+		gboolean retryable = TRUE;
+
+		if (update_result == FIBOCOM_NETWORK_MODE_UPDATE_NONE)
+			code = "netifd_binding_not_found";
+		else if (update_result == FIBOCOM_NETWORK_MODE_UPDATE_AMBIGUOUS)
+			code = "netifd_binding_ambiguous";
+		else if (update_result == FIBOCOM_NETWORK_MODE_UPDATE_INVALID) {
+			code = "invalid_argument";
+			retryable = FALSE;
+		} else if (update_result ==
+			   FIBOCOM_NETWORK_MODE_UPDATE_VERIFY_FAILED) {
+			code = "outcome_unknown";
+			retryable = FALSE;
+		}
+		advanced_operation_complete_error(operation, code,
+			advanced_error_message(code), retryable);
+		return UBUS_STATUS_OK;
+	}
+	operation->persisted = TRUE;
+	operation->dispatched = TRUE;
+	operation->activation = "pending";
+	status = ubus_lookup_id(&ubus->context, "network", &network_id);
+	if (status != UBUS_STATUS_OK) {
+		advanced_operation_complete_success(operation);
+		return UBUS_STATUS_OK;
+	}
+	blob_buf_init(&empty, 0);
+	status = ubus_invoke_async(&ubus->context, network_id, "reload",
+		empty.head, &operation->network_request);
+	blob_buf_free(&empty);
+	if (status != UBUS_STATUS_OK) {
+		advanced_operation_complete_success(operation);
+		return UBUS_STATUS_OK;
+	}
+	operation->network_request.priv = operation;
+	operation->network_request.complete_cb =
+		advanced_network_reload_complete;
+	operation->network_request_pending = TRUE;
+	ubus_complete_request_async(&ubus->context,
+		&operation->network_request);
 	return UBUS_STATUS_OK;
 }
 
@@ -3432,52 +3947,13 @@ method_cell_lock_status(struct ubus_context *context,
 static gboolean
 l850_band_is_supported(FibocomModem *modem, guint16 band)
 {
-	struct FibocomRadioBand choices[MAX_RADIO_BANDS];
-	const gchar *names[MAX_RADIO_BANDS];
-	guint count = 0U;
-	guint families = FIBOCOM_RADIO_FAMILY_NONE;
-	guint index;
-
-	if (!snapshot_supported_radio_bands(modem, choices, &count, &families))
-		return FALSE;
-	(void)families;
-	for (index = 0U; index < count; index++)
-		names[index] = choices[index].name;
-	return fibocom_l850_band_is_supported(band, names, count);
+	return lte_band_is_supported(modem, band);
 }
 
 static gboolean
 l850_parse_standard_pci(const gchar *value, guint16 *pci)
 {
-	guint32 parsed = 0U;
-	gsize index;
-	gsize length;
-
-	if (value == NULL || pci == NULL)
-		return FALSE;
-	length = strlen(value);
-	if (length == 0U || length > 8U)
-		return FALSE;
-	for (index = 0U; index < length; index++) {
-		guint32 digit;
-		guchar character = (guchar)value[index];
-
-		if (character >= '0' && character <= '9')
-			digit = character - '0';
-		else if (character >= 'A' && character <= 'F')
-			digit = character - 'A' + 10U;
-		else if (character >= 'a' && character <= 'f')
-			digit = character - 'a' + 10U;
-		else
-			return FALSE;
-		if (parsed > (G_MAXUINT32 - digit) / 16U)
-			return FALSE;
-		parsed = parsed * 16U + digit;
-	}
-	if (parsed > 503U)
-		return FALSE;
-	*pci = (guint16)parsed;
-	return TRUE;
+	return parse_standard_lte_pci(value, pci);
 }
 
 static gboolean
@@ -3632,6 +4108,22 @@ l850_scan_complete_success(L850ScanOperation *operation,
 	struct blob_buf buffer = {};
 	void *array;
 	guint index;
+	guint serving_count = 0U;
+	const L850StandardCell *serving = NULL;
+
+	for (index = 0U; index < n_cells; index++) {
+		if (cells[index].serving) {
+			serving = &cells[index];
+			serving_count++;
+		}
+	}
+	if (serving_count == 1U)
+		(void)serving_cell_cache_store(operation->modem,
+			serving->earfcn, serving->pci, serving->band,
+			serving->rsrp, serving->has_rsrp,
+			serving->rsrq, serving->has_rsrq,
+			operation->vendor_fallback ? "expert-xmci-scan" :
+			"expert-standard-cell-scan");
 
 	blob_buf_init(&buffer, 0);
 	add_common(&buffer, TRUE);
@@ -4383,6 +4875,15 @@ l850_mutation_cell_ready(GObject *source, GAsyncResult *result,
 	}
 	if (serving == NULL || serving->earfcn != operation->earfcn ||
 	    (operation->has_pci && serving->pci != operation->pci)) {
+		l850_mutation_complete_failure(operation,
+			"verification_mismatch", "verification_mismatch", FALSE);
+		return;
+	}
+	if (!serving_cell_cache_store(operation->replacement,
+		serving->earfcn, serving->pci, serving->band,
+		(gdouble)serving->rsrp_dbm, TRUE,
+		(gdouble)serving->rsrq_tenths_db / 10.0, TRUE,
+		"expert-postcondition")) {
 		l850_mutation_complete_failure(operation,
 			"verification_mismatch", "verification_mismatch", FALSE);
 		return;

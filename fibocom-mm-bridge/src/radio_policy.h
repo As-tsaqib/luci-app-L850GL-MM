@@ -38,6 +38,17 @@ bool fibocom_radio_band_name_is_canonical(const char *name);
 unsigned int fibocom_radio_band_family(const char *name);
 
 /*
+ * Schema 3 exposes LTE band choices only. Preserve every advertised band from
+ * the other currently allowed families so the later full-family validator and
+ * XMM plugin still receive a complete request.
+ */
+enum FibocomRadioPolicyResult fibocom_radio_expand_lte_selection(
+	const char *const *requested, size_t requested_count,
+	const struct FibocomRadioBand *supported, size_t supported_count,
+	unsigned int allowed_families, const char **effective,
+	size_t *effective_count);
+
+/*
  * Resolve an RPC band selection only through the current supported set.
  * The sole special request "any" resolves to any_value and is intentionally
  * not required to appear in the advertised set: SetCurrentBands(ANY) is the

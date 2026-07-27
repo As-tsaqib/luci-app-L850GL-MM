@@ -169,6 +169,85 @@ test_real_libuci_fixture(const char *confdir)
 }
 
 static void
+test_mode_updates(const char *confdir, const char *network_path)
+{
+	struct FibocomNetworkBinding binding;
+	enum FibocomNetworkModeUpdateResult result;
+	char contents[8192];
+	char overlong[FIBOCOM_NETWORK_MODE_MAX + 2U];
+	int fd;
+	ssize_t length;
+
+	assert(fibocom_network_modes_are_valid("3g|4g", "none"));
+	assert(fibocom_network_modes_are_valid("3g|4g", "3g"));
+	assert(fibocom_network_modes_are_valid("3g|4g", "4g"));
+	assert(fibocom_network_modes_are_valid("3g", "none"));
+	assert(fibocom_network_modes_are_valid("4g", "none"));
+	assert(!fibocom_network_modes_are_valid("4g|3g", "4g"));
+	assert(!fibocom_network_modes_are_valid("3g", "3g"));
+	assert(!fibocom_network_modes_are_valid("4g", "4g"));
+	assert(!fibocom_network_modes_are_valid("any", "none"));
+	assert(!fibocom_network_modes_are_valid(NULL, "none"));
+
+	result = fibocom_network_modes_update_at(confdir,
+		"/sys/devices/l850-a", "3g|4g", "3g", &binding);
+	assert(result == FIBOCOM_NETWORK_MODE_UPDATE_OK);
+	assert(strcmp(binding.section, "mobile_a") == 0);
+	assert(binding.has_allowedmode);
+	assert(strcmp(binding.allowedmode, "3g|4g") == 0);
+	assert(binding.has_preferredmode);
+	assert(strcmp(binding.preferredmode, "3g") == 0);
+
+	result = fibocom_network_modes_update_at(confdir,
+		"/sys/devices/l850-a", "4g", "none", &binding);
+	assert(result == FIBOCOM_NETWORK_MODE_UPDATE_OK);
+	assert(strcmp(binding.allowedmode, "4g") == 0);
+	assert(strcmp(binding.preferredmode, "none") == 0);
+	assert(fibocom_network_binding_lookup_at(confdir,
+		"/sys/devices/l850-a", &binding) ==
+		FIBOCOM_NETWORK_BINDING_UNIQUE);
+	assert(strcmp(binding.allowedmode, "4g") == 0);
+	assert(strcmp(binding.preferredmode, "none") == 0);
+
+	fd = open(network_path, O_RDONLY | O_CLOEXEC);
+	assert(fd >= 0);
+	length = read(fd, contents, sizeof(contents));
+	assert(length > 0);
+	assert(close(fd) == 0);
+	assert(memory_contains(contents, (size_t)length, "secret-apn"));
+	assert(memory_contains(contents, (size_t)length, "1234"));
+	assert(memory_contains(contents, (size_t)length, "secret-user"));
+	assert(memory_contains(contents, (size_t)length, "secret-password"));
+	assert(memory_contains(contents, (size_t)length,
+			       "option allowedmode '4g'"));
+	assert(memory_contains(contents, (size_t)length,
+			       "option preferredmode 'none'"));
+
+	assert(fibocom_network_modes_update_at(confdir,
+		"/sys/devices/l850-b", "3g|4g", "4g", &binding) ==
+		FIBOCOM_NETWORK_MODE_UPDATE_AMBIGUOUS);
+	assert_cleared(&binding);
+	assert(fibocom_network_modes_update_at(confdir,
+		"/sys/devices/l850-c", "3g|4g", "4g", &binding) ==
+		FIBOCOM_NETWORK_MODE_UPDATE_AMBIGUOUS);
+	assert_cleared(&binding);
+	assert(fibocom_network_modes_update_at(confdir,
+		"/sys/devices/missing", "3g|4g", "4g", &binding) ==
+		FIBOCOM_NETWORK_MODE_UPDATE_NONE);
+	assert_cleared(&binding);
+	assert(fibocom_network_modes_update_at(confdir,
+		"/sys/devices/l850-a", "3g", "3g", &binding) ==
+		FIBOCOM_NETWORK_MODE_UPDATE_INVALID);
+	assert_cleared(&binding);
+	memset(overlong, 'x', sizeof(overlong));
+	overlong[sizeof(overlong) - 1U] = '\0';
+	assert(fibocom_network_modes_update_at(confdir,
+		"/sys/devices/l850-a", overlong, "none", &binding) ==
+		FIBOCOM_NETWORK_MODE_UPDATE_INVALID);
+	assert_cleared(&binding);
+}
+
+static void
 test_scan_safety_rules(void)
 {
 	static const struct FibocomNetworkBindingTestSection unsafe[] = {
@@ -274,6 +353,7 @@ main(void)
 
 	test_real_libuci_fixture(confdir);
 	test_scan_safety_rules();
+	test_mode_updates(confdir, network_path);
 
 	assert(unlink(network_path) == 0);
 	assert(rmdir(confdir) == 0);

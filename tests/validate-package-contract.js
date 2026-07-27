@@ -35,11 +35,11 @@ for (const retired of [
 	'luci-app-fibocom-esim'
 ]) {
 	assert.deepStrictEqual(filesUnder(retired), [],
-		`${retired} must remain retired from the 0.3 product tree`);
+		`${retired} must remain retired from the 0.4 product tree`);
 }
 
 const bridgeMakefile = read('fibocom-mm-bridge/Makefile');
-assert.match(bridgeMakefile, /^PKG_VERSION:=0\.3\.0$/m);
+assert.match(bridgeMakefile, /^PKG_VERSION:=0\.4\.0$/m);
 assert.match(bridgeMakefile, /^PKG_RELEASE:=1$/m);
 assert.match(bridgeMakefile, /PKG_BUILD_DEPENDS:=modemmanager\b/);
 assert.match(bridgeMakefile, /PKG_LICENSE:=GPL-2\.0-or-later/);
@@ -61,6 +61,9 @@ const sourceFiles = filesUnder('fibocom-mm-bridge/src').filter(function(file) {
 	return /\.[ch]$/.test(file);
 });
 const bridgeSource = sourceFiles.map(read).join('\n');
+const sourceWithoutNetworkBinding = sourceFiles.filter(function(file) {
+	return path.basename(file) !== 'network_binding.c';
+}).map(read).join('\n');
 const l850CellSource = read('fibocom-mm-bridge/src/l850_cell.c');
 const sourceWithoutL850Grammar = sourceFiles.filter(function(file) {
 	return path.basename(file) !== 'l850_cell.c';
@@ -74,27 +77,27 @@ const dedupeSource = read('fibocom-mm-bridge/src/sms_dedupe_policy.c');
 const dedupeHeader = read('fibocom-mm-bridge/src/sms_dedupe_policy.h');
 const sourceMakefile = read('fibocom-mm-bridge/src/Makefile');
 
-assert.match(bridgeHeader, /#define FIBOCOM_MM_API_SCHEMA 2U/);
-assert.match(bridgeHeader, /#define FIBOCOM_MM_BRIDGE_VERSION "0\.3\.0"/);
+assert.match(bridgeHeader, /#define FIBOCOM_MM_API_SCHEMA 3U/);
+assert.match(bridgeHeader, /#define FIBOCOM_MM_BRIDGE_VERSION "0\.4\.0"/);
 assert.match(sourceMakefile, /FIBOCOM_MM_L850_EXPERT/);
 
 const baseTable = ubusSource.match(
 	/static const struct ubus_method fibocom_methods\[\][\s\S]*?\n\};/);
 assert.ok(baseTable, 'the base fibocom.mm method table must exist');
 for (const method of [
-	'list_modems', 'get_overview', 'get_lock_status', 'set_bands',
+	'list_modems', 'get_overview', 'get_lock_status', 'set_bands', 'set_modes',
 	'list_sms', 'send_sms', 'delete_sms'
 ]) {
 	assert.match(baseTable[0], new RegExp(`UBUS_METHOD(?:_NOARG)?\\("${method}"`));
 }
-assert.strictEqual((baseTable[0].match(/UBUS_METHOD(?:_NOARG)?\(/g) || []).length, 7,
-	'fibocom.mm must expose exactly the seven schema-2 base methods');
+assert.strictEqual((baseTable[0].match(/UBUS_METHOD(?:_NOARG)?\(/g) || []).length, 8,
+	'fibocom.mm must expose exactly the eight schema-3 base methods');
 for (const retired of [
 	'get_status', 'get_capabilities', 'set_radio', 'reset', 'set_primary_sim_slot'
 ]) {
 	assert.doesNotMatch(ubusSource,
 		new RegExp(`UBUS_METHOD(?:_NOARG)?\\("${retired}"`),
-		`${retired} must not remain public in schema 2`);
+		`${retired} must not remain public in schema 3`);
 }
 
 const expertTable = ubusSource.match(
@@ -113,6 +116,18 @@ assert.match(ubusSource,
 assert.match(ubusSource,
 	/#ifdef FIBOCOM_MM_L850_EXPERT[\s\S]*?\.name\s*=\s*"fibocom\.mm\.l850"/,
 	'the expert object name must only exist inside the explicit build gate');
+const overviewMethod = ubusSource.match(
+	/static int\s+method_get_overview\([^;]*?\)\s*\{[\s\S]*?\n\}/);
+assert.ok(overviewMethod, 'the compact Overview method must exist');
+assert.doesNotMatch(overviewMethod[0], /"not-validated"/,
+	'Overview serving-cell status must not remain hard-coded unavailable');
+assert.doesNotMatch(overviewMethod[0], /mm_modem_command|l850-xmci|l850_scan_command/,
+	'Overview must never start the vendor/XMCI scan path');
+assert.match(ubusSource, /mm_modem_get_cell_info\s*\(/,
+	'Serving Cell must use asynchronous standard ModemManager CellInfo');
+assert.match(ubusSource, /SERVING_CELL_FRESH_SECONDS/);
+assert.match(ubusSource, /serving_cell_generation/);
+assert.match(ubusSource, /serving_cell_cache_store[\s\S]*pci\s*>\s*503U/);
 
 for (const forbidden of [
 	/mm_modem_simple_connect\s*\(/,
@@ -121,13 +136,24 @@ for (const forbidden of [
 	/mm_modem_delete_bearer\s*\(/,
 	/mm_modem_set_current_modes\s*\(/,
 	/mm_manager_(?:scan_devices|report_kernel_event|inhibit_device)\s*\(/,
-	/\buci_(?:add|commit|delete|rename|reorder|save|set)\s*\(/,
 	/\b(?:system|popen|fork|execv|execl)\s*\(/,
 	/['"]\/dev\//
 ]) {
 	assert.doesNotMatch(bridgeSource, forbidden,
 		`forbidden bridge operation found: ${forbidden}`);
 }
+assert.doesNotMatch(sourceWithoutNetworkBinding,
+	/\buci_(?:add|commit|delete|rename|reorder|save|set)\s*\(/,
+	'only the internally resolved netifd mode-policy writer may mutate UCI');
+const networkBindingSource = read('fibocom-mm-bridge/src/network_binding.c');
+assert.match(networkBindingSource, /"allowedmode"/);
+assert.match(networkBindingSource, /"preferredmode"/);
+assert.match(networkBindingSource, /uci_commit\s*\(/);
+assert.match(networkBindingSource, /fibocom_network_modes_are_valid/);
+assert.match(networkBindingSource, /find_exact_section/);
+assert.doesNotMatch(networkBindingSource,
+	/["'](?:apn|pincode|username|password)["']\s*,\s*[^)]*uci_set/,
+	'the mode-policy writer must not write connection credentials');
 assert.doesNotMatch(sourceWithoutL850Grammar, /['"](?:AT|at)[+@]/,
 	'fixed vendor command literals must stay isolated in the reviewed L850 grammar');
 for (const exactCommand of [
@@ -268,7 +294,7 @@ assert.match(init, /^START=75$/m);
 assert.match(init, /command "\$PROG" --foreground/);
 
 const luciMakefile = read('luci-app-fibocom/Makefile');
-assert.match(luciMakefile, /^PKG_VERSION:=0\.3\.0$/m);
+assert.match(luciMakefile, /^PKG_VERSION:=0\.4\.0$/m);
 assert.match(luciMakefile, /^PKG_RELEASE:=1$/m);
 assert.match(luciMakefile, /^LUCI_URL:=https:\/\/github\.com\/As-tsaqib\/luci-app-fibocom$/m);
 assert.match(luciMakefile, /^LUCI_MAINTAINER:=As Tsaqib <[^>]+>$/m);
@@ -307,7 +333,7 @@ assert.deepStrictEqual(acl['luci-app-fibocom-sms-write'].write.ubus['fibocom.mm'
 	'send_sms', 'delete_sms'
 ]);
 assert.deepStrictEqual(acl['luci-app-fibocom-lock-band'].write.ubus['fibocom.mm'], [
-	'set_bands'
+	'set_bands', 'set_modes'
 ]);
 assert.deepStrictEqual(
 	acl['luci-app-fibocom-lock-pci-expert'].read.ubus['fibocom.mm.l850'],
@@ -324,6 +350,7 @@ const staticWorkflow = read('.github/workflows/static.yml');
 assert.match(staticWorkflow, /run-host-ubus-blob\.sh/);
 assert.match(staticWorkflow, /run-host-sms-dedupe\.sh/);
 assert.match(staticWorkflow, /run-host-cell-parser\.sh/);
+assert.match(staticWorkflow, /make check/);
 const sdkWorkflow = read('.github/workflows/openwrt-sdk.yml');
 assert.ok(sdkWorkflow.includes("grep -Fq -- '-Dbuiltin_plugins=true'"));
 assert.ok(sdkWorkflow.includes('CONFIG_FIBOCOM_MM_BRIDGE_L850_EXPERT=y'),

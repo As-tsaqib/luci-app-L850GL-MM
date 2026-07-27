@@ -12,7 +12,7 @@ The migration establishes one modem owner and one connection owner:
 ```text
 ModemManager: modem, ports, SIM, SMS, radio, bearer
 netifd:       APN, connection intent, route, DNS
-Fibocom 0.3: Overview, Band Lock, gated PCI UI, SMS
+Fibocom 0.4: Overview, persistent Mode/Band Lock, gated PCI UI, SMS
 ```
 
 Do not run XModem/QModem polling, direct-AT helpers, custom dialers, SMS tools,
@@ -42,9 +42,9 @@ identifiers, phone numbers, SMS, credentials, or activation codes.
 4. Replug once and verify that ModemManager creates the object and netifd
    reconnects without a saved ModemManager index or runtime device path.
 
-## Install 0.3.0
+## Install 0.4.0
 
-Install matching 0.3.0-r1 packages:
+Install matching 0.4.0-r1 packages:
 
 ```text
 fibocom-mm-bridge
@@ -60,11 +60,12 @@ the expert bridge rather than mixing the bridge with the stock package.
 
 After installation:
 
-1. Verify `fibocom-mm-bridge --version` reports 0.3.0.
-2. Verify `fibocom.mm` exposes exactly the seven schema-2 methods.
+1. Verify `fibocom-mm-bridge --version` reports 0.4.0.
+2. Verify `fibocom.mm` exposes exactly the eight schema-3 methods, including
+   `set_modes`.
 3. On a base build, verify `fibocom.mm.l850` is absent.
 4. Open LuCI and verify the menu is exactly Overview, Lock, and SMS.
-5. Confirm Overview returns schema 2 without paths, identifiers, IP data, or
+5. Confirm Overview returns schema 3 without paths, identifiers, IP data, or
    credentials.
 6. Confirm Network / Interfaces remains the only connection settings UI.
 7. Exercise read-only SMS listing and pagination before enabling write ACLs.
@@ -77,6 +78,9 @@ Writes are separate maintenance actions, not migration prerequisites.
   state and may expose private content.
 - Band Lock requires confirmation, alternate access, and one reviewed change
   at a time because an invalid subset can remove WAN.
+- Allowed/preferred mode changes are persistent netifd mutations and reload the
+  network. Verify the unique ModemManager interface binding and alternate
+  management path before applying one reviewed change at a time.
 - Do not run live cell scan, PCI lock, clear, or reset without explicit user
   permission. The expert path is mutable only on the exact live-validated
   L850-GL hardware/firmware tuple; all other revisions remain
@@ -87,9 +91,9 @@ and do not retry until its state makes a new request safe.
 
 ## Settings that are intentionally not imported
 
-Version 0.3 does not import or reproduce:
+Version 0.4 does not import or reproduce:
 
-- custom APN/auth/PIN, allowed/preferred mode, route, DNS, or firewall settings;
+- custom APN/auth/PIN, route, DNS, or firewall settings;
 - raw AT macros, port paths, ModemManager indexes, sysfs paths, or USB
   controller reset paths;
 - radio-enable intent, generic reset ladders, or SIM-slot policy;
@@ -99,8 +103,10 @@ Version 0.3 does not import or reproduce:
   sequences.
 
 Persistent network settings must be recreated or retained in the existing
-netifd section. SMS inventory is read from ModemManager/SIM storage, not
-migrated from an application database.
+netifd section. Version 0.4 may update only that section's `allowedmode` and
+`preferredmode` after resolving it internally; it does not import XModem mode
+state or expose a section selector. SMS inventory is read from ModemManager/SIM
+storage, not migrated from an application database.
 
 ## NCM warning
 
@@ -110,7 +116,7 @@ develop and validate NCM bearer support in ModemManager as a separate project.
 
 ## Rollback
 
-If the read-only 0.3 deployment fails, stop/remove the two companion packages
+If the read-only 0.4 deployment fails, stop/remove the two companion packages
 and restore the previously backed-up configuration. Do not disable or replace
 the working ModemManager/netifd owner merely to restore an old LuCI page.
 

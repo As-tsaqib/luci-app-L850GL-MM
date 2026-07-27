@@ -4,7 +4,7 @@
 'use strict';
 'require baseclass';
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 function isObject(value) {
 	return value != null && typeof value === 'object' && !Array.isArray(value);
@@ -60,14 +60,14 @@ function isCompatible(result) {
 
 function envelopeError(result) {
 	if (!isCompatible(result))
-		return _('Incompatible API schema. This interface requires schema 2.');
+		return _('Incompatible API schema. This interface requires schema 3.');
 	if (!isUnsigned(result.generated_at))
-		return _('Malformed schema 2 response from the Fibocom bridge.');
+		return _('Malformed schema 3 response from the Fibocom bridge.');
 	if (result.ok === false) {
 		if (!isObject(result.error) || !isString(result.error.code, 64) ||
 		    !isString(result.error.message, 256) ||
 		    typeof result.error.retryable !== 'boolean')
-			return _('Malformed schema 2 error response from the Fibocom bridge.');
+			return _('Malformed schema 3 error response from the Fibocom bridge.');
 		return result.error.message ? '%s (%s)'.format(
 			result.error.message, result.error.code) : result.error.code;
 	}
@@ -100,7 +100,7 @@ function listError(result) {
 		return error;
 	if (!Array.isArray(result.modems) || result.modems.length > 64 ||
 	    !result.modems.every(modemSummaryIsValid))
-		return _('Malformed modem inventory in the schema 2 response.');
+		return _('Malformed modem inventory in the schema 3 response.');
 	return null;
 }
 
@@ -141,21 +141,28 @@ function overviewError(result, summary) {
 		    return signal[name] == null || isFiniteNumber(signal[name]);
 	    }) || typeof bearer.connected !== 'boolean' ||
 	    !isString(bearer.interface, 64) || !isStringArray(result.current_bands, 256) ||
-	    !isString(serving.state, 64) ||
+	    !isString(serving.state, 64) || !isString(serving.reason, 160) ||
 	    (serving.state === 'available' &&
 		(!isUnsigned(serving.earfcn) || !isUnsigned(serving.pci) ||
-		 serving.pci > 503)) ||
+		 serving.pci > 503 || !isUnsigned(serving.band) ||
+		 serving.band < 1 || serving.band > 85 ||
+		 ![ 'rsrp', 'rsrq' ].every(function(name) {
+			 return serving[name] == null || isFiniteNumber(serving[name]);
+		 }))) ||
 	    !capabilityIsValid(capabilities.sms) ||
 	    !capabilityIsValid(capabilities.band_lock) ||
 	    !capabilityIsValid(capabilities.pci_lock) ||
 	    !isStringArray(result.warnings, 32))
-		return _('Malformed Overview data in the schema 2 response.');
+		return _('Malformed Overview data in the schema 3 response.');
 	return null;
 }
 
 function lockError(result, summary) {
 	const error = responseError(result);
 	const modes = object(result && result.current_modes);
+	const policy = object(result && result.mode_policy);
+	const policyAllowed = [ '3g', '4g', '3g|4g' ];
+	const policyPreferred = [ 'none', '3g', '4g' ];
 
 	if (error)
 		return error;
@@ -164,8 +171,12 @@ function lockError(result, summary) {
 	    !isStringArray(result.current_bands, 256) ||
 	    !isString(result.band_selection, 32) || typeof modes.known !== 'boolean' ||
 	    !isStringArray(modes.allowed, 8) || !isString(modes.preferred, 32) ||
+	    !capabilityIsValid(policy) || typeof policy.configured !== 'boolean' ||
+	    policyAllowed.indexOf(policy.allowed) === -1 ||
+	    policyPreferred.indexOf(policy.preferred) === -1 ||
+	    (policy.allowed !== '3g|4g' && policy.preferred !== 'none') ||
 	    !capabilityIsValid(result.band_lock) || !capabilityIsValid(result.pci_lock))
-		return _('Malformed Lock data in the schema 2 response.');
+		return _('Malformed Lock data in the schema 3 response.');
 	return null;
 }
 
@@ -203,7 +214,7 @@ function smsError(result, summary, maximumMessages) {
 	    !result.messages.every(smsMessageIsValid) ||
 	    typeof result.has_more !== 'boolean' || !isString(result.next_cursor, 80) ||
 	    (result.has_more && result.next_cursor === ''))
-		return _('Malformed SMS data in the schema 2 response.');
+		return _('Malformed SMS data in the schema 3 response.');
 	return null;
 }
 

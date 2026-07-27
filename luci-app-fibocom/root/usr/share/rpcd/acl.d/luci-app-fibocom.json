@@ -1,6 +1,6 @@
 {
 	"luci-app-fibocom-overview": {
-		"description": "Grant read-only access to the Fibocom schema 2 overview and lock snapshots",
+		"description": "Grant read-only access to the Fibocom schema 3 overview and lock snapshots",
 		"read": {
 			"ubus": {
 				"fibocom.mm": [
@@ -31,7 +31,7 @@
 		"description": "Grant access to capability-gated standard band lock",
 		"write": {
 			"ubus": {
-				"fibocom.mm": [ "set_bands" ]
+				"fibocom.mm": [ "set_bands", "set_modes" ]
 			}
 		}
 	},

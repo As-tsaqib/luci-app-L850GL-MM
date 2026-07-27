@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Current verdict
 
-Version 0.3.0 implements the expert contract, build/ACL gates, standard
+Version 0.4.0 retains the expert contract, build/ACL gates, standard
 GetCellInfo-first scan path, bounded XMCI and NVM parsers, typed command
 builders, rate limiting, cancellation, timeout, shared mutation locking, and
 the reset/reprobe/registration/postcondition state machine.
@@ -20,8 +20,9 @@ queue. Every other firmware, non-L850 model, non-MBIM composition, plugin
 mismatch, or failed `2cb7:0007` attestation remains fail-closed.
 
 Status is therefore: implemented and live-verified for that one
-hardware/firmware tuple, both at command level and through the installed
-schema-2 expert package. Exact set and clear returned replacement opaque
+hardware/firmware tuple at command level and through the prior installed
+schema-2 expert package. The schema-3 package keeps the same fixed grammar and
+hardware gate; its installation evidence is recorded separately. Exact set and clear returned replacement opaque
 identities and verified postconditions; an authorized HTTP `/ubus` session also
 returned the typed expert status. Interactive browser rendering remains a
 separate UI observation, not a blocker on the verified backend state machine.

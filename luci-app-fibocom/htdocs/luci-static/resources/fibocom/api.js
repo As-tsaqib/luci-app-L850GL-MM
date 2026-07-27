@@ -24,6 +24,9 @@ const callGetLockStatus = declare('fibocom.mm', 'get_lock_status', [ 'modem_id' 
 const callSetBands = declare('fibocom.mm', 'set_bands', [
 	'modem_id', 'generation', 'bands', 'confirm'
 ]);
+const callSetModes = declare('fibocom.mm', 'set_modes', [
+	'modem_id', 'generation', 'allowed', 'preferred', 'confirm'
+]);
 const callListSms = declare('fibocom.mm', 'list_sms', [
 	'modem_id', 'folder', 'limit', 'cursor'
 ]);
@@ -48,7 +51,7 @@ const callClearCellLock = declare('fibocom.mm.l850', 'clear_cell_lock', [
 ]);
 
 return baseclass.extend({
-	SCHEMA_VERSION: 2,
+	SCHEMA_VERSION: 3,
 
 	listModems: function() {
 		return callListModems();
@@ -64,6 +67,10 @@ return baseclass.extend({
 
 	setBands: function(modemId, generation, bands, confirm) {
 		return callSetBands(modemId, generation, bands, confirm);
+	},
+
+	setModes: function(modemId, generation, allowed, preferred, confirm) {
+		return callSetModes(modemId, generation, allowed, preferred, confirm);
 	},
 
 	listSms: function(modemId, folder, limit, cursor) {

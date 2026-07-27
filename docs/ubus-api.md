@@ -3,9 +3,9 @@ SPDX-FileCopyrightText: 2026 As Tsaqib
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Ubus API 0.3.0
+# Ubus API 0.4.0
 
-The public contract is schema 2. `fibocom.mm` has exactly seven methods. The
+The public contract is schema 3. `fibocom.mm` has exactly eight methods. The
 optional `fibocom.mm.l850` object has four expert methods and is absent from a
 base build.
 
@@ -15,7 +15,7 @@ Every reply contains:
 
 ```json
 {
-  "schema": 2,
+  "schema": 3,
   "generated_at": 1780000000,
   "ok": true
 }
@@ -34,7 +34,7 @@ Every reply contains:
 }
 ```
 
-Consumers must reject a missing/mistyped envelope, any schema other than 2,
+Consumers must reject a missing/mistyped envelope, any schema other than 3,
 and incomplete success objects. LuCI disables mutations on compatibility or
 structural errors.
 
@@ -57,7 +57,7 @@ No product arguments. Returns `modems`, newest live inventory only:
 
 ```json
 {
-  "schema": 2,
+  "schema": 3,
   "generated_at": 1780000000,
   "ok": true,
   "modems": [{
@@ -83,7 +83,8 @@ Returns a compact snapshot with these top-level objects:
 - `signal`: quality/recent and available `rsrp`, `rsrq`, `sinr` numbers;
 - `bearer`: boolean `connected` and sanitized `interface`;
 - `current_bands`: canonical ModemManager band names;
-- `serving_cell`: `state` and `reason`, with EARFCN/PCI only after validation;
+- `serving_cell`: `state` and `reason`; an `available` object also has validated
+  `earfcn`, `pci`, `band`, and optional finite `rsrp`/`rsrq`;
 - `capabilities`: `sms`, `band_lock`, and `pci_lock` feature objects;
 - `warnings`: bounded machine-readable dependency/capability warnings.
 
@@ -99,6 +100,8 @@ supported_bands[]
 current_bands[]
 band_selection = automatic | explicit | unknown
 current_modes = { known, allowed[], preferred }
+mode_policy = { state, mutable, reason, configured, allowed, preferred, busy,
+                optional retry_after_ms }
 band_lock = { state, mutable, reason, busy, optional retry_after_ms }
 pci_lock = { state, mutable, reason }
 ```
@@ -111,9 +114,11 @@ cooldown, and `unsupported_firmware` for every other revision.
 ### `set_bands(modem_id, generation, bands, confirm)`
 
 `confirm` must be true. `bands` is either exactly `["any"]`, or a non-empty
-array of unique canonical explicit bands. `any` cannot be mixed with explicit
-values. Every explicit band must be in live SupportedBands and in a family
-allowed by the modem's current mode mask.
+array of unique canonical LTE bands. `any` cannot be mixed with explicit
+values. Every explicit band must be in live SupportedBands and the current mode
+mask must allow 4G. For an explicit request, the backend retains every live
+supported band from other currently allowed families before enforcing the
+complete-family invariant and calling ModemManager.
 
 After exact hardware attestation and shared-lock admission, the bridge calls
 asynchronous `SetCurrentBands`. Success contains:
@@ -128,6 +133,35 @@ asynchronous `SetCurrentBands`. Success contains:
 
 A timeout, removal, or transport failure after dispatch can be
 `outcome_unknown`; the caller must refresh and must not retry blindly.
+
+### `set_modes(modem_id, generation, allowed, preferred, confirm)`
+
+`confirm` must be true. `allowed` is exactly `3g`, `4g`, or canonical `3g|4g`.
+`preferred` is `none`, `3g`, or `4g`; a single allowed mode requires `none`.
+The bridge uses the modem's internal Device value to resolve exactly one named,
+safe `config interface` with `proto modemmanager`. The request never accepts or
+returns the section name or device path.
+
+After hardware/generation/shared-lock admission, the bridge writes only
+`allowedmode` and `preferredmode`, commits once, and verifies both values by
+readback. It then invokes `network.reload` asynchronously. Success contains:
+
+```json
+{
+  "accepted": true,
+  "operation": "set_modes",
+  "persisted": true,
+  "activation": "reloaded",
+  "cooldown_ms": 10000
+}
+```
+
+`activation` is `reloaded`, `pending`, `failed`, or `outcome_unknown`.
+Persistence is reported separately because a missing network object or lost
+reload response does not undo verified UCI intent. The UI must refresh rather
+than blindly repeat a saved request. Missing, anonymous, unsafe, or ambiguous
+bindings fail closed. No APN, PIN, username, password, route, DNS, or other UCI
+option is read into an API response or changed.
 
 ### `list_sms(modem_id, folder?, limit?, cursor?)`
 
@@ -302,13 +336,15 @@ coordinator can establish all postconditions.
 | `luci-app-fibocom-overview` | read `list_modems`, `get_overview`, `get_lock_status` |
 | `luci-app-fibocom-sms-read` | read `list_sms` |
 | `luci-app-fibocom-sms-write` | write `send_sms`, `delete_sms` |
-| `luci-app-fibocom-lock-band` | write `set_bands` |
+| `luci-app-fibocom-lock-band` | write `set_bands`, `set_modes` |
 | `luci-app-fibocom-lock-pci-expert` | read `cell_scan`, `cell_lock_status`; write `set_cell_lock`, `clear_cell_lock` |
 
 There are no wildcard, file, filesystem, shell, cgi-io, or UCI permissions.
 
 ## Deliberately absent API
 
-Schema 2 has no `get_status`, `get_capabilities`, `set_radio`, `reset`,
+Schema 3 has no `get_status`, `get_capabilities`, `set_radio`, `reset`,
 `set_primary_sim_slot`, dial/connect/disconnect/bearer methods, generic command,
-device/path input, UCI mutation, eSIM operation, rescan, or diagnostic dump.
+device/path input, arbitrary UCI mutation, eSIM operation, rescan, or diagnostic
+dump. The only persistent configuration mutation is the exact two-option
+`set_modes` contract above.

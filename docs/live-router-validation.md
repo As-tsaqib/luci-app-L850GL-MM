@@ -92,6 +92,16 @@ router-reboot persistence. At handoff the modem was clear/automatic,
 registered with a connected bearer, ModemManager was back at INFO, and all
 temporary debug files were removed.
 
+## Version 0.4 pre-install serving-cell probe, 2026-07-28
+
+With the installed schema-2 expert package still active, one explicitly
+authorized read-only `cell_scan` reconfirmed `method = l850-xmci`, exactly one
+validated type-4 serving LTE cell, and bounded type-5 neighbors. This proves
+that the live modem still lacks standard CellInfo and supplies the source
+evidence for the schema-3 serving cache. It does not validate the 0.4 package,
+does not authorize automatic XMCI polling, and made no band, mode, PCI, or SMS
+mutation.
+
 ## Installed schema-2 package validation, 2026-07-27
 
 Static run `30261750255` and OpenWrt SDK run `30261750513` passed for source

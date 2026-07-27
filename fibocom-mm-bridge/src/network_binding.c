@@ -153,6 +153,38 @@ preferredmode_is_safe(const char *value, size_t *length)
 	return false;
 }
 
+bool
+fibocom_network_modes_are_valid(const char *allowedmode,
+				const char *preferredmode)
+{
+	size_t allowed_length;
+	size_t preferred_length;
+	bool combined;
+
+	if (!bounded_length(allowedmode, FIBOCOM_NETWORK_MODE_MAX,
+			    &allowed_length) ||
+	    !bounded_length(preferredmode, FIBOCOM_NETWORK_MODE_MAX,
+			    &preferred_length))
+		return false;
+	combined = allowed_length == sizeof("3g|4g") - 1U &&
+		   memcmp(allowedmode, "3g|4g", sizeof("3g|4g") - 1U) == 0;
+	if (!combined &&
+	    !(allowed_length == sizeof("3g") - 1U &&
+	      memcmp(allowedmode, "3g", sizeof("3g") - 1U) == 0) &&
+	    !(allowed_length == sizeof("4g") - 1U &&
+	      memcmp(allowedmode, "4g", sizeof("4g") - 1U) == 0))
+		return false;
+	if (preferred_length == sizeof("none") - 1U &&
+	    memcmp(preferredmode, "none", sizeof("none") - 1U) == 0)
+		return true;
+	if (!combined)
+		return false;
+	return (preferred_length == sizeof("3g") - 1U &&
+		memcmp(preferredmode, "3g", sizeof("3g") - 1U) == 0) ||
+	       (preferred_length == sizeof("4g") - 1U &&
+		memcmp(preferredmode, "4g", sizeof("4g") - 1U) == 0);
+}
+
 static void
 copy_modes(struct FibocomNetworkBinding *binding, const char *allowedmode,
 	   const char *preferredmode)
@@ -297,6 +329,153 @@ fibocom_network_binding_lookup(const char *device,
 			       struct FibocomNetworkBinding *binding)
 {
 	return fibocom_network_binding_lookup_at(NULL, device, binding);
+}
+
+static struct uci_section *
+find_exact_section(struct uci_context *context, struct uci_package *package,
+		   const char *device, const char *section_name)
+{
+	struct uci_element *element;
+	struct uci_section *match = NULL;
+	unsigned int matches = 0U;
+
+	uci_foreach_element(&package->sections, element) {
+		struct uci_section *section = uci_to_section(element);
+		size_t section_length;
+
+		if (!bounded_equal(section->type, "interface",
+				   sizeof("interface") - 1U) ||
+		    !bounded_equal(uci_lookup_option_string(context, section,
+							"proto"),
+				   "modemmanager", sizeof("modemmanager") - 1U) ||
+		    !bounded_equal(uci_lookup_option_string(context, section,
+							"device"),
+				   device, FIBOCOM_NETWORK_DEVICE_MAX))
+			continue;
+		matches++;
+		if (section->anonymous ||
+		    !section_name_is_safe(section->e.name, &section_length) ||
+		    !bounded_equal(section->e.name, section_name,
+				   FIBOCOM_NETWORK_SECTION_MAX))
+			continue;
+		match = section;
+	}
+	return matches == 1U ? match : NULL;
+}
+
+enum FibocomNetworkModeUpdateResult
+fibocom_network_modes_update_at(const char *confdir, const char *device,
+				const char *allowedmode,
+				const char *preferredmode,
+				struct FibocomNetworkBinding *binding)
+{
+	struct BindingScan scan = { 0 };
+	struct uci_context *context;
+	struct uci_package *package = NULL;
+	struct uci_element *element;
+	struct uci_section *section;
+	struct uci_ptr pointer = { 0 };
+	char fixture_path[FIBOCOM_NETWORK_CONFDIR_MAX + sizeof("/network")];
+	const char *package_name = "network";
+	size_t confdir_length;
+	enum FibocomNetworkBindingResult lookup_result;
+	enum FibocomNetworkModeUpdateResult result =
+		FIBOCOM_NETWORK_MODE_UPDATE_ERROR;
+
+	if (!lookup_arguments_are_valid(device, binding) ||
+	    !fibocom_network_modes_are_valid(allowedmode, preferredmode))
+		return FIBOCOM_NETWORK_MODE_UPDATE_INVALID;
+	if (confdir != NULL) {
+		if (!bounded_length(confdir, FIBOCOM_NETWORK_CONFDIR_MAX,
+				    &confdir_length) ||
+		    confdir_length == 0U || confdir[0] != '/' ||
+		    confdir[confdir_length - 1U] == '/' ||
+		    snprintf(fixture_path, sizeof(fixture_path), "%s/network",
+			     confdir) < 0)
+			return FIBOCOM_NETWORK_MODE_UPDATE_INVALID;
+		package_name = fixture_path;
+	}
+	context = uci_alloc_context();
+	if (context == NULL)
+		return FIBOCOM_NETWORK_MODE_UPDATE_ERROR;
+	if (confdir != NULL &&
+	    (uci_set_confdir(context, confdir) != UCI_OK ||
+	     uci_set_conf2dir(context, NULL) != UCI_OK))
+		goto out;
+	if (uci_load(context, package_name, &package) != UCI_OK ||
+	    package == NULL)
+		goto out;
+	uci_foreach_element(&package->sections, element) {
+		struct uci_section *candidate = uci_to_section(element);
+
+		scan_consider(
+			&scan, candidate->e.name, candidate->type,
+			candidate->anonymous,
+			uci_lookup_option_string(context, candidate, "proto"),
+			uci_lookup_option_string(context, candidate, "device"),
+			uci_lookup_option_string(context, candidate, "allowedmode"),
+			uci_lookup_option_string(context, candidate, "preferredmode"),
+			uci_lookup_option_string(context, candidate, "disable_modem"),
+			device);
+	}
+	lookup_result = scan_finish(&scan, binding);
+	if (lookup_result == FIBOCOM_NETWORK_BINDING_NONE) {
+		result = FIBOCOM_NETWORK_MODE_UPDATE_NONE;
+		goto out;
+	}
+	if (lookup_result == FIBOCOM_NETWORK_BINDING_AMBIGUOUS) {
+		result = FIBOCOM_NETWORK_MODE_UPDATE_AMBIGUOUS;
+		goto out;
+	}
+	if (lookup_result != FIBOCOM_NETWORK_BINDING_UNIQUE)
+		goto out;
+	section = find_exact_section(context, package, device, binding->section);
+	if (section == NULL) {
+		result = FIBOCOM_NETWORK_MODE_UPDATE_AMBIGUOUS;
+		goto out;
+	}
+	pointer.p = package;
+	pointer.s = section;
+	pointer.option = "allowedmode";
+	pointer.value = (char *)allowedmode;
+	if (uci_set(context, &pointer) != UCI_OK)
+		goto out;
+	pointer.option = "preferredmode";
+	pointer.value = (char *)preferredmode;
+	if (uci_set(context, &pointer) != UCI_OK)
+		goto out;
+	if (uci_commit(context, &package, false) != UCI_OK) {
+		result = FIBOCOM_NETWORK_MODE_UPDATE_VERIFY_FAILED;
+		goto out;
+	}
+	section = find_exact_section(context, package, device, binding->section);
+	if (section == NULL ||
+	    !bounded_equal(uci_lookup_option_string(context, section,
+						      "allowedmode"),
+			   allowedmode, FIBOCOM_NETWORK_MODE_MAX) ||
+	    !bounded_equal(uci_lookup_option_string(context, section,
+						      "preferredmode"),
+			   preferredmode, FIBOCOM_NETWORK_MODE_MAX)) {
+		result = FIBOCOM_NETWORK_MODE_UPDATE_VERIFY_FAILED;
+		goto out;
+	}
+	copy_modes(binding, allowedmode, preferredmode);
+	result = FIBOCOM_NETWORK_MODE_UPDATE_OK;
+
+out:
+	if (result != FIBOCOM_NETWORK_MODE_UPDATE_OK)
+		binding_clear(binding);
+	uci_free_context(context);
+	return result;
+}
+
+enum FibocomNetworkModeUpdateResult
+fibocom_network_modes_update(const char *device, const char *allowedmode,
+			     const char *preferredmode,
+			     struct FibocomNetworkBinding *binding)
+{
+	return fibocom_network_modes_update_at(NULL, device, allowedmode,
+		preferredmode, binding);
 }
 
 #ifdef FIBOCOM_NETWORK_BINDING_TESTING

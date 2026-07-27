@@ -3,38 +3,50 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: luci-app-fibocom 0.3.0\n"
+"Project-Id-Version: luci-app-fibocom 0.4.0\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-07-27 00:00+0800\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: htdocs/luci-static/resources/fibocom/widgets.js:314
+#: htdocs/luci-static/resources/fibocom/widgets.js:325
 msgid "(active)"
 msgstr ""
 
-#: htdocs/luci-static/resources/fibocom/widgets.js:291
+#: htdocs/luci-static/resources/fibocom/widgets.js:302
 msgid "%d%% signal quality"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:234
+#: htdocs/luci-static/resources/view/fibocom/lock.js:260
 msgid "%s failed: %s"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:220
+#: htdocs/luci-static/resources/view/fibocom/lock.js:246
 msgid "%s may have completed, but its outcome is unknown. Refresh and do not retry until the live modem state confirms that a new request is safe."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/overview.js:250
+#: htdocs/luci-static/resources/view/fibocom/lock.js:382 htdocs/luci-static/resources/view/fibocom/lock.js:424
+msgid "3G / 4G"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/fibocom/lock.js:379 htdocs/luci-static/resources/view/fibocom/lock.js:425
+msgid "3G only"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/fibocom/lock.js:381 htdocs/luci-static/resources/view/fibocom/lock.js:426
+msgid "4G only"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/fibocom/overview.js:270
 msgid "A concise ModemManager snapshot. Network configuration and connection intent remain owned by netifd."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/overview.js:171
+#: htdocs/luci-static/resources/view/fibocom/overview.js:190
 msgid "Access technology"
 msgstr ""
 
-#: htdocs/luci-static/resources/fibocom/widgets.js:299
+#: htdocs/luci-static/resources/fibocom/widgets.js:310
 msgid "Action required"
 msgstr ""
 
@@ -42,71 +54,99 @@ msgstr ""
 msgid "All messages"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:435
+#: htdocs/luci-static/resources/view/fibocom/lock.js:434
+msgid "Allowed and preferred mode"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/fibocom/lock.js:437 htdocs/luci-static/resources/view/fibocom/lock.js:448
+msgid "Allowed mode"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/fibocom/lock.js:644
 msgid "Any supported band (automatic)"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:472 htdocs/luci-static/resources/view/fibocom/lock.js:478
+#: htdocs/luci-static/resources/view/fibocom/lock.js:546
+msgid "Any Supported bands"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/fibocom/lock.js:681 htdocs/luci-static/resources/view/fibocom/lock.js:687
 msgid "Apply band selection"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:474
+#: htdocs/luci-static/resources/view/fibocom/lock.js:683
 msgid "Apply bands"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:798 htdocs/luci-static/resources/view/fibocom/lock.js:806
+#: htdocs/luci-static/resources/view/fibocom/lock.js:1007 htdocs/luci-static/resources/view/fibocom/lock.js:1015
 msgid "Apply cell lock"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:796
+#: htdocs/luci-static/resources/view/fibocom/lock.js:479 htdocs/luci-static/resources/view/fibocom/lock.js:485
+msgid "Apply mode selection"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/fibocom/lock.js:481
+msgid "Apply modes"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/fibocom/lock.js:1005
 msgid "Apply PCI/EARFCN lock"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:797
+#: htdocs/luci-static/resources/view/fibocom/lock.js:1006
 msgid "Applying a cell lock is disruptive and can interrupt WAN service. Verification requires reset, reprobe, registration, and a matching serving cell."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:478
+#: htdocs/luci-static/resources/view/fibocom/lock.js:687
 msgid "Applying…"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:303 htdocs/luci-static/resources/view/fibocom/lock.js:335 htdocs/luci-static/resources/view/fibocom/overview.js:89 htdocs/luci-static/resources/view/fibocom/overview.js:94
+#: htdocs/luci-static/resources/view/fibocom/lock.js:485
+msgid "Applyingâ€¦"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/fibocom/lock.js:494 htdocs/luci-static/resources/view/fibocom/lock.js:526 htdocs/luci-static/resources/view/fibocom/overview.js:89 htdocs/luci-static/resources/view/fibocom/overview.js:94
 msgid "Automatic"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:656
+#: htdocs/luci-static/resources/view/fibocom/overview.js:130
+msgid "Available"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/fibocom/lock.js:865
 msgid "Band"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/overview.js:209
+#: htdocs/luci-static/resources/view/fibocom/overview.js:229
 msgid "Band and Cell Status"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:264
+#: htdocs/luci-static/resources/view/fibocom/lock.js:290
 msgid "Band change"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:267
+#: htdocs/luci-static/resources/view/fibocom/lock.js:293
 msgid "Band change accepted."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:254
+#: htdocs/luci-static/resources/view/fibocom/lock.js:280
 msgid "Band change in progress…"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:405 htdocs/luci-static/resources/view/fibocom/overview.js:54
+#: htdocs/luci-static/resources/view/fibocom/lock.js:614 htdocs/luci-static/resources/view/fibocom/overview.js:54
 msgid "Band Lock"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:898
+#: htdocs/luci-static/resources/view/fibocom/lock.js:1108
 msgid "Band Lock uses ModemManager SetCurrentBands. PCI/EARFCN Lock is an explicit expert build path; only an exact live-validated hardware and firmware tuple can use its fixed command state machine."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:419
+#: htdocs/luci-static/resources/view/fibocom/lock.js:628
 msgid "Band mutation is unavailable for this snapshot. The bridge will not use a vendor-command fallback."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/overview.js:172
+#: htdocs/luci-static/resources/view/fibocom/overview.js:191
 msgid "Bearer connected"
 msgstr ""
 
@@ -118,55 +158,59 @@ msgstr ""
 msgid "Binary SMS payload (not displayed)"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:288 htdocs/luci-static/resources/view/fibocom/sms.js:540
+#: htdocs/luci-static/resources/view/fibocom/lock.js:366 htdocs/luci-static/resources/view/fibocom/sms.js:540
 msgid "Cancel"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/overview.js:211
+#: htdocs/luci-static/resources/view/fibocom/overview.js:231
 msgid "Capabilities"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:407 htdocs/luci-static/resources/view/fibocom/lock.js:724
+#: htdocs/luci-static/resources/view/fibocom/lock.js:436 htdocs/luci-static/resources/view/fibocom/lock.js:616 htdocs/luci-static/resources/view/fibocom/lock.js:933
 msgid "Capability"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:800
+#: htdocs/luci-static/resources/view/fibocom/lock.js:1009
 msgid "Cell lock"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:691
+#: htdocs/luci-static/resources/view/fibocom/lock.js:900
 msgid "Cell scan"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:695
+#: htdocs/luci-static/resources/view/fibocom/lock.js:904
 msgid "Cell scan completed."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:704
+#: htdocs/luci-static/resources/view/fibocom/lock.js:913
 msgid "Cell scan failed: %s"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:681
+#: htdocs/luci-static/resources/view/fibocom/lock.js:890
 msgid "Cell scan in progress…"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:531
+#: htdocs/luci-static/resources/view/fibocom/lock.js:740
 msgid "Cell-lock reset, reprobe, registration, and verification are in progress…"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:473
+#: htdocs/luci-static/resources/view/fibocom/lock.js:480
+msgid "Changing allowed or preferred modes is persistent and reloads the netifd network configuration. Mobile WAN may disconnect while the modem re-registers. Keep an alternate management path available."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/fibocom/lock.js:682
 msgid "Changing bands can immediately detach the mobile network and interrupt this router’s WAN connection. Keep an alternate management path available."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:813 htdocs/luci-static/resources/view/fibocom/lock.js:815 htdocs/luci-static/resources/view/fibocom/lock.js:821
+#: htdocs/luci-static/resources/view/fibocom/lock.js:1022 htdocs/luci-static/resources/view/fibocom/lock.js:1024 htdocs/luci-static/resources/view/fibocom/lock.js:1030
 msgid "Clear cell lock"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:811
+#: htdocs/luci-static/resources/view/fibocom/lock.js:1020
 msgid "Clear PCI/EARFCN lock"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:812
+#: htdocs/luci-static/resources/view/fibocom/lock.js:1021
 msgid "Clearing a cell lock is disruptive and requires the same postcondition verification."
 msgstr ""
 
@@ -174,19 +218,19 @@ msgstr ""
 msgid "Compose SMS"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:412
+#: htdocs/luci-static/resources/view/fibocom/lock.js:621
 msgid "Current allowed mode families"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:410 htdocs/luci-static/resources/view/fibocom/overview.js:177
+#: htdocs/luci-static/resources/view/fibocom/lock.js:619 htdocs/luci-static/resources/view/fibocom/overview.js:196
 msgid "Current bands"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:413
+#: htdocs/luci-static/resources/view/fibocom/lock.js:622
 msgid "Current preferred mode"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/overview.js:173
+#: htdocs/luci-static/resources/view/fibocom/overview.js:192
 msgid "Data interface"
 msgstr ""
 
@@ -214,6 +258,10 @@ msgstr ""
 msgid "Delivery state"
 msgstr ""
 
+#: htdocs/luci-static/resources/view/fibocom/overview.js:141
+msgid "Device removed"
+msgstr ""
+
 #: htdocs/luci-static/resources/view/fibocom/sms.js:599
 msgid "Direction"
 msgstr ""
@@ -230,11 +278,11 @@ msgstr ""
 msgid "Drafts"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:580 htdocs/luci-static/resources/view/fibocom/lock.js:657 htdocs/luci-static/resources/view/fibocom/lock.js:762
+#: htdocs/luci-static/resources/view/fibocom/lock.js:789 htdocs/luci-static/resources/view/fibocom/lock.js:866 htdocs/luci-static/resources/view/fibocom/lock.js:971
 msgid "EARFCN"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:485
+#: htdocs/luci-static/resources/view/fibocom/lock.js:694
 msgid "EARFCN must be an unsigned LTE channel number."
 msgstr ""
 
@@ -254,11 +302,11 @@ msgstr ""
 msgid "Enter the SMS text."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:448
-msgid "Explicit supported bands"
+#: htdocs/luci-static/resources/view/fibocom/lock.js:657
+msgid "Explicit LTE bands"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/overview.js:144 htdocs/luci-static/resources/view/fibocom/sms.js:725
+#: htdocs/luci-static/resources/view/fibocom/overview.js:163 htdocs/luci-static/resources/view/fibocom/sms.js:725
 msgid "Fibocom modem"
 msgstr ""
 
@@ -279,10 +327,10 @@ msgid "Inbox"
 msgstr ""
 
 #: htdocs/luci-static/resources/fibocom/widgets.js:63
-msgid "Incompatible API schema. This interface requires schema 2."
+msgid "Incompatible API schema. This interface requires schema 3."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:464
+#: htdocs/luci-static/resources/view/fibocom/lock.js:673
 msgid "Invert"
 msgstr ""
 
@@ -302,28 +350,32 @@ msgstr ""
 msgid "Loading…"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:896 root/usr/share/luci/menu.d/luci-app-fibocom.json
+#: htdocs/luci-static/resources/view/fibocom/lock.js:1106 root/usr/share/luci/menu.d/luci-app-fibocom.json
 msgid "Lock"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:726
+#: htdocs/luci-static/resources/view/fibocom/lock.js:935
 msgid "Lock status"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:587
+#: htdocs/luci-static/resources/view/fibocom/lock.js:796
 msgid "Locked"
 msgstr ""
 
-#: htdocs/luci-static/resources/fibocom/widgets.js:168
-msgid "Malformed Lock data in the schema 2 response."
+#: htdocs/luci-static/resources/view/fibocom/overview.js:137
+msgid "Malformed CellInfo rejected"
+msgstr ""
+
+#: htdocs/luci-static/resources/fibocom/widgets.js:179
+msgid "Malformed Lock data in the schema 3 response."
 msgstr ""
 
 #: htdocs/luci-static/resources/fibocom/widgets.js:103
-msgid "Malformed modem inventory in the schema 2 response."
+msgid "Malformed modem inventory in the schema 3 response."
 msgstr ""
 
-#: htdocs/luci-static/resources/fibocom/widgets.js:152
-msgid "Malformed Overview data in the schema 2 response."
+#: htdocs/luci-static/resources/fibocom/widgets.js:156
+msgid "Malformed Overview data in the schema 3 response."
 msgstr ""
 
 #: htdocs/luci-static/resources/fibocom/widgets.js:83
@@ -331,18 +383,18 @@ msgid "Malformed response from the Fibocom bridge."
 msgstr ""
 
 #: htdocs/luci-static/resources/fibocom/widgets.js:70
-msgid "Malformed schema 2 error response from the Fibocom bridge."
+msgid "Malformed schema 3 error response from the Fibocom bridge."
 msgstr ""
 
 #: htdocs/luci-static/resources/fibocom/widgets.js:65
-msgid "Malformed schema 2 response from the Fibocom bridge."
+msgid "Malformed schema 3 response from the Fibocom bridge."
 msgstr ""
 
-#: htdocs/luci-static/resources/fibocom/widgets.js:206
-msgid "Malformed SMS data in the schema 2 response."
+#: htdocs/luci-static/resources/fibocom/widgets.js:217
+msgid "Malformed SMS data in the schema 3 response."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/overview.js:159
+#: htdocs/luci-static/resources/view/fibocom/overview.js:178
 msgid "Manufacturer"
 msgstr ""
 
@@ -370,7 +422,27 @@ msgstr ""
 msgid "Messaging cache"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/overview.js:160
+#: htdocs/luci-static/resources/view/fibocom/lock.js:337
+msgid "Mode policy change"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/fibocom/lock.js:323
+msgid "Mode policy change in progressâ€¦"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/fibocom/lock.js:341
+msgid "Mode policy saved and netifd reload completed."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/fibocom/lock.js:343
+msgid "Mode policy was saved, but netifd reload is pending."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/fibocom/lock.js:345
+msgid "Mode policy was saved, but the netifd activation result is not confirmed. Refresh before retrying."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/fibocom/overview.js:179
 msgid "Model"
 msgstr ""
 
@@ -378,15 +450,15 @@ msgstr ""
 msgid "Modem"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/overview.js:202
+#: htdocs/luci-static/resources/view/fibocom/overview.js:222
 msgid "Modem Info"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/overview.js:164
+#: htdocs/luci-static/resources/view/fibocom/overview.js:183
 msgid "Modem state"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/overview.js:203
+#: htdocs/luci-static/resources/view/fibocom/overview.js:223
 msgid "Modem Status"
 msgstr ""
 
@@ -398,12 +470,16 @@ msgstr ""
 msgid "No"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:853 htdocs/luci-static/resources/view/fibocom/overview.js:230 htdocs/luci-static/resources/view/fibocom/sms.js:798
+#: htdocs/luci-static/resources/view/fibocom/lock.js:1063 htdocs/luci-static/resources/view/fibocom/overview.js:250 htdocs/luci-static/resources/view/fibocom/sms.js:798
 msgid "No Fibocom modem is currently exported by ModemManager."
 msgstr ""
 
-#: htdocs/luci-static/resources/fibocom/widgets.js:261
+#: htdocs/luci-static/resources/fibocom/widgets.js:272
 msgid "No information is available."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/fibocom/lock.js:390 htdocs/luci-static/resources/view/fibocom/lock.js:429
+msgid "No preference"
 msgstr ""
 
 #: htdocs/luci-static/resources/fibocom/widgets.js:79
@@ -422,7 +498,7 @@ msgstr ""
 msgid "Older SMS messages loaded."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/overview.js:168
+#: htdocs/luci-static/resources/view/fibocom/overview.js:187
 msgid "Operator"
 msgstr ""
 
@@ -430,7 +506,7 @@ msgstr ""
 msgid "Optional +, followed by up to 20 digits"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:310 htdocs/luci-static/resources/view/fibocom/overview.js:84
+#: htdocs/luci-static/resources/view/fibocom/lock.js:501 htdocs/luci-static/resources/view/fibocom/overview.js:84
 msgid "Other bands"
 msgstr ""
 
@@ -438,27 +514,27 @@ msgstr ""
 msgid "Outbox"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/overview.js:248 root/usr/share/luci/menu.d/luci-app-fibocom.json
+#: htdocs/luci-static/resources/view/fibocom/overview.js:268 root/usr/share/luci/menu.d/luci-app-fibocom.json
 msgid "Overview"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:581 htdocs/luci-static/resources/view/fibocom/lock.js:658
+#: htdocs/luci-static/resources/view/fibocom/lock.js:790 htdocs/luci-static/resources/view/fibocom/lock.js:867
 msgid "PCI"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:774
+#: htdocs/luci-static/resources/view/fibocom/lock.js:983
 msgid "PCI (optional)"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:733
+#: htdocs/luci-static/resources/view/fibocom/lock.js:942
 msgid "PCI lock is absent from this base build. Install an explicitly reviewed expert build to expose the typed expert object."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:487 htdocs/luci-static/resources/view/fibocom/lock.js:489
+#: htdocs/luci-static/resources/view/fibocom/lock.js:696 htdocs/luci-static/resources/view/fibocom/lock.js:698
 msgid "PCI must be empty or an integer from 0 through 503."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:722 htdocs/luci-static/resources/view/fibocom/overview.js:55
+#: htdocs/luci-static/resources/view/fibocom/lock.js:931 htdocs/luci-static/resources/view/fibocom/overview.js:55
 msgid "PCI/EARFCN Lock"
 msgstr ""
 
@@ -466,15 +542,31 @@ msgstr ""
 msgid "PDU type"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/overview.js:165
+#: htdocs/luci-static/resources/view/fibocom/lock.js:444
+msgid "Persistent mode selection is unavailable: %s"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/fibocom/overview.js:184
 msgid "Power"
 msgstr ""
 
-#: htdocs/luci-static/resources/fibocom/widgets.js:279
+#: htdocs/luci-static/resources/view/fibocom/lock.js:387 htdocs/luci-static/resources/view/fibocom/lock.js:430
+msgid "Prefer 3G"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/fibocom/lock.js:389 htdocs/luci-static/resources/view/fibocom/lock.js:431
+msgid "Prefer 4G"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/fibocom/lock.js:438 htdocs/luci-static/resources/view/fibocom/lock.js:461
+msgid "Preferred mode"
+msgstr ""
+
+#: htdocs/luci-static/resources/fibocom/widgets.js:290
 msgid "Property"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:408 htdocs/luci-static/resources/view/fibocom/overview.js:67
+#: htdocs/luci-static/resources/view/fibocom/lock.js:617 htdocs/luci-static/resources/view/fibocom/overview.js:67
 msgid "Reason"
 msgstr ""
 
@@ -486,7 +578,11 @@ msgstr ""
 msgid "Recipient"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/overview.js:169
+#: htdocs/luci-static/resources/view/fibocom/overview.js:133
+msgid "Refresh pending"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/fibocom/overview.js:188
 msgid "Registration"
 msgstr ""
 
@@ -498,7 +594,7 @@ msgstr ""
 msgid "Request-token maximum age (seconds)"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:423
+#: htdocs/luci-static/resources/view/fibocom/lock.js:632
 msgid "Requested bands"
 msgstr ""
 
@@ -506,11 +602,11 @@ msgstr ""
 msgid "Retry SMS send"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/overview.js:161 htdocs/luci-static/resources/view/fibocom/sms.js:761
+#: htdocs/luci-static/resources/view/fibocom/overview.js:180 htdocs/luci-static/resources/view/fibocom/sms.js:761
 msgid "Revision"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/overview.js:170
+#: htdocs/luci-static/resources/view/fibocom/overview.js:189
 msgid "Roaming"
 msgstr ""
 
@@ -518,23 +614,23 @@ msgstr ""
 msgid "RPC transport failure"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:659 htdocs/luci-static/resources/view/fibocom/overview.js:182
+#: htdocs/luci-static/resources/view/fibocom/lock.js:868 htdocs/luci-static/resources/view/fibocom/overview.js:202
 msgid "RSRP"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:660 htdocs/luci-static/resources/view/fibocom/overview.js:183
+#: htdocs/luci-static/resources/view/fibocom/lock.js:869 htdocs/luci-static/resources/view/fibocom/overview.js:203
 msgid "RSRQ"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:725
+#: htdocs/luci-static/resources/view/fibocom/lock.js:934
 msgid "Scan capability"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:745
+#: htdocs/luci-static/resources/view/fibocom/lock.js:954
 msgid "Scan cells"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:745
+#: htdocs/luci-static/resources/view/fibocom/lock.js:954
 msgid "Scanning…"
 msgstr ""
 
@@ -542,11 +638,11 @@ msgstr ""
 msgid "Secure random generation is unavailable in this browser."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:609
+#: htdocs/luci-static/resources/view/fibocom/lock.js:818
 msgid "Selected cell (EARFCN %s, PCI %s). Review the values before applying the lock."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:409
+#: htdocs/luci-static/resources/view/fibocom/lock.js:618
 msgid "Selection reported by ModemManager"
 msgstr ""
 
@@ -566,35 +662,35 @@ msgstr ""
 msgid "Sent"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/overview.js:178
+#: htdocs/luci-static/resources/view/fibocom/overview.js:197
 msgid "Serving cell status"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/overview.js:188
+#: htdocs/luci-static/resources/view/fibocom/overview.js:208
 msgid "Serving EARFCN"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/overview.js:189
+#: htdocs/luci-static/resources/view/fibocom/overview.js:209
 msgid "Serving PCI"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/overview.js:181
+#: htdocs/luci-static/resources/view/fibocom/overview.js:201
 msgid "Signal quality"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/overview.js:210
+#: htdocs/luci-static/resources/view/fibocom/overview.js:230
 msgid "Signal Status"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/overview.js:167
+#: htdocs/luci-static/resources/view/fibocom/overview.js:186
 msgid "SIM lock"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/overview.js:166
+#: htdocs/luci-static/resources/view/fibocom/overview.js:185
 msgid "SIM present"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/overview.js:184
+#: htdocs/luci-static/resources/view/fibocom/overview.js:204
 msgid "SINR"
 msgstr ""
 
@@ -622,6 +718,14 @@ msgstr ""
 msgid "SMS text is limited to %d Unicode characters and %d UTF-8 bytes."
 msgstr ""
 
+#: htdocs/luci-static/resources/view/fibocom/overview.js:139
+msgid "Stale"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/fibocom/overview.js:135
+msgid "Standard CellInfo unavailable"
+msgstr ""
+
 #: htdocs/luci-static/resources/view/fibocom/sms.js:603
 msgid "State"
 msgstr ""
@@ -634,15 +738,15 @@ msgstr ""
 msgid "Storage"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:411
-msgid "Supported bands"
+#: htdocs/luci-static/resources/view/fibocom/lock.js:620
+msgid "Supported LTE bands"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:642 htdocs/luci-static/resources/view/fibocom/lock.js:749
+#: htdocs/luci-static/resources/view/fibocom/lock.js:851 htdocs/luci-static/resources/view/fibocom/lock.js:958
 msgid "Tap line to use"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:274
+#: htdocs/luci-static/resources/view/fibocom/lock.js:300
 msgid "The band-change outcome is unknown because RPC failed: %s. Refresh and do not retry until the live modem state confirms the result."
 msgstr ""
 
@@ -658,8 +762,12 @@ msgstr ""
 msgid "The bridge retains at most %d recent request tokens for up to %d seconds. Heavy request volume can evict an older token sooner; after eviction or a bridge restart, do not assume a retry is duplicate-safe."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:261
+#: htdocs/luci-static/resources/view/fibocom/lock.js:287
 msgid "The bridge returned an incomplete band mutation response."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/fibocom/lock.js:334
+msgid "The bridge returned an incomplete mode-policy mutation response."
 msgstr ""
 
 #: htdocs/luci-static/resources/view/fibocom/sms.js:504
@@ -670,15 +778,15 @@ msgstr ""
 msgid "The bridge returned an incomplete SMS send response."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:542
+#: htdocs/luci-static/resources/view/fibocom/lock.js:751
 msgid "The cell lock was applied and verified against post-reset NVM and serving-cell state."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:541
+#: htdocs/luci-static/resources/view/fibocom/lock.js:750
 msgid "The cell lock was cleared and its post-reset NVM state was verified."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:675
+#: htdocs/luci-static/resources/view/fibocom/lock.js:884
 msgid "The cell-scan capability or modem generation changed. Refresh before scanning."
 msgstr ""
 
@@ -686,16 +794,20 @@ msgstr ""
 msgid "The exact L850-GL 2cb7:0007 hardware could not be attested; mutations are disabled."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:502 htdocs/luci-static/resources/view/fibocom/lock.js:511
-msgid "The expert bridge returned an incomplete schema 2 response."
+#: htdocs/luci-static/resources/view/fibocom/lock.js:711 htdocs/luci-static/resources/view/fibocom/lock.js:720
+msgid "The expert bridge returned an incomplete schema 3 response."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:523
+#: htdocs/luci-static/resources/view/fibocom/lock.js:732
 msgid "The expert capability or modem generation is not current. Refresh before applying a cell lock."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:549
+#: htdocs/luci-static/resources/view/fibocom/lock.js:758
 msgid "The expert mutation outcome is unknown: %s. Refresh and do not retry until the live state is known."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/fibocom/lock.js:352
+msgid "The mode-policy response was interrupted during network reload: %s. Refresh before retrying because the persistent intent may already be saved."
 msgstr ""
 
 #: htdocs/luci-static/resources/view/fibocom/sms.js:481
@@ -706,11 +818,15 @@ msgstr ""
 msgid "The modem changed or its messaging generation is unavailable. Refresh before sending."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:248
+#: htdocs/luci-static/resources/view/fibocom/lock.js:274
 msgid "The modem generation or band capability changed. Refresh before applying bands."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:228
+#: htdocs/luci-static/resources/view/fibocom/lock.js:317
+msgid "The modem generation or mode-policy capability changed. Refresh before applying modes."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/fibocom/lock.js:254
 msgid "The modem identity or generation changed during %s. Review the refreshed modem before trying again."
 msgstr ""
 
@@ -726,15 +842,15 @@ msgstr ""
 msgid "The paginated SMS response exceeded the 1,024-message safety bound."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:215
+#: htdocs/luci-static/resources/view/fibocom/lock.js:241
 msgid "The request failed."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:285
+#: htdocs/luci-static/resources/view/fibocom/lock.js:363
 msgid "The request is bound to the currently displayed opaque modem identity and generation."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:600
+#: htdocs/luci-static/resources/view/fibocom/lock.js:809
 msgid "The selected scan result is malformed and was not copied."
 msgstr ""
 
@@ -758,7 +874,7 @@ msgstr ""
 msgid "The SMS text contains invalid Unicode."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:734
+#: htdocs/luci-static/resources/view/fibocom/lock.js:943
 msgid "This firmware is not in the live-validated mutation allowlist. Standard ModemManager cell scan may still be attempted when advertised, but no vendor fallback, lock tuple, or reset sequence will be guessed."
 msgstr ""
 
@@ -790,7 +906,7 @@ msgstr ""
 msgid "Unable to delete SMS: %s"
 msgstr ""
 
-#: htdocs/luci-static/resources/fibocom/widgets.js:308
+#: htdocs/luci-static/resources/fibocom/widgets.js:319
 msgid "Unable to load Fibocom modem information:"
 msgstr ""
 
@@ -802,7 +918,7 @@ msgstr ""
 msgid "Unable to send SMS: %s. Edit the recipient or text to start a new request, or retry unchanged with the same request token."
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:591
+#: htdocs/luci-static/resources/view/fibocom/lock.js:800 htdocs/luci-static/resources/view/fibocom/overview.js:143
 msgid "Unavailable"
 msgstr ""
 
@@ -810,19 +926,23 @@ msgstr ""
 msgid "Unknown"
 msgstr ""
 
-#: htdocs/luci-static/resources/fibocom/widgets.js:309
+#: htdocs/luci-static/resources/fibocom/widgets.js:320
 msgid "Unknown error"
 msgstr ""
 
-#: htdocs/luci-static/resources/fibocom/widgets.js:81 htdocs/luci-static/resources/fibocom/widgets.js:85 htdocs/luci-static/resources/view/fibocom/lock.js:275 htdocs/luci-static/resources/view/fibocom/lock.js:550 htdocs/luci-static/resources/view/fibocom/lock.js:705 htdocs/luci-static/resources/view/fibocom/sms.js:467 htdocs/luci-static/resources/view/fibocom/sms.js:523
+#: htdocs/luci-static/resources/view/fibocom/lock.js:445
+msgid "unknown reason"
+msgstr ""
+
+#: htdocs/luci-static/resources/fibocom/widgets.js:81 htdocs/luci-static/resources/fibocom/widgets.js:85 htdocs/luci-static/resources/view/fibocom/lock.js:301 htdocs/luci-static/resources/view/fibocom/lock.js:353 htdocs/luci-static/resources/view/fibocom/lock.js:759 htdocs/luci-static/resources/view/fibocom/lock.js:914 htdocs/luci-static/resources/view/fibocom/sms.js:467 htdocs/luci-static/resources/view/fibocom/sms.js:523
 msgid "Unknown transport error"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/fibocom/lock.js:576
+#: htdocs/luci-static/resources/view/fibocom/lock.js:785
 msgid "Unlocked"
 msgstr ""
 
-#: htdocs/luci-static/resources/fibocom/widgets.js:279
+#: htdocs/luci-static/resources/fibocom/widgets.js:290
 msgid "Value"
 msgstr ""
 

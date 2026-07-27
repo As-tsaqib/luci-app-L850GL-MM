@@ -125,6 +125,25 @@ function signalMetric(value, unit) {
 	return value == null ? null : '%s %s'.format(value, unit);
 }
 
+function servingCellLabel(serving) {
+	if (serving.state === 'available')
+		return _('Available');
+	switch (serving.reason) {
+	case 'refresh-pending':
+		return _('Refresh pending');
+	case 'standard-cell-info-unavailable':
+		return _('Standard CellInfo unavailable');
+	case 'standard-cell-info-malformed':
+		return _('Malformed CellInfo rejected');
+	case 'stale':
+		return _('Stale');
+	case 'device-gone':
+		return _('Device removed');
+	default:
+		return _('Unavailable');
+	}
+}
+
 function overviewGroup(title, rows, extra) {
 	return E('div', {
 		'class': 'cbi-section-node fibocom-overview-card',
@@ -175,7 +194,8 @@ function renderDevice(entry) {
 	];
 	const bandAndCellRows = [
 		[ _('Current bands'), friendlyCurrentBands(overview.current_bands) ],
-		[ _('Serving cell status'), widgets.badge(serving.state, serving.state) ]
+		[ _('Serving cell status'), widgets.badge(serving.state,
+			servingCellLabel(serving)) ]
 	];
 	const signalRows = [
 		[ _('Signal quality'), widgets.progress(signal.quality) ],

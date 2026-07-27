@@ -22,6 +22,9 @@ function stateFor(modemId) {
 	if (!Object.prototype.hasOwnProperty.call(deviceStates, modemId)) {
 		deviceStates[modemId] = {
 			generation: null,
+			modeAllowed: '3g|4g',
+			modePreferred: 'none',
+			modeDirty: false,
 			bandAutomatic: false,
 			selectedBands: Object.create(null),
 			bandDirty: false,
@@ -94,10 +97,21 @@ function synchronizeState(entry, state) {
 
 	if (generationChanged) {
 		state.generation = lock.generation;
+		state.modeDirty = false;
 		state.bandDirty = false;
 		state.busy = null;
 		state.scan = null;
 		state.result = null;
+	}
+	if (!state.modeDirty && !state.busy) {
+		const policy = widgets.object(lock.mode_policy);
+
+		state.modeAllowed = [ '3g', '4g', '3g|4g' ].indexOf(policy.allowed) !== -1 ?
+			policy.allowed : '3g|4g';
+		state.modePreferred = [ 'none', '3g', '4g' ].indexOf(policy.preferred) !== -1 ?
+			policy.preferred : 'none';
+		if (state.modeAllowed !== '3g|4g')
+			state.modePreferred = 'none';
 	}
 	if (!state.bandDirty && !state.busy) {
 		const supported = canonicalBands(lock.supported_bands, false);
@@ -113,6 +127,18 @@ function synchronizeState(entry, state) {
 				state.selectedBands[band] = true;
 		});
 	}
+}
+
+function modeMutationContext(entry) {
+	const summary = widgets.object(entry.summary);
+	const lock = widgets.object(entry.lock);
+	const capability = widgets.object(lock.mode_policy);
+
+	if (widgets.lockError(lock, summary) || capability.state !== 'available' ||
+	    capability.mutable !== true ||
+	    !widgets.mutationAllowed(lock, lock, summary.modem_id, summary.generation))
+		return null;
+	return { modemId: summary.modem_id, generation: summary.generation };
 }
 
 function statusPanel(result) {
@@ -278,6 +304,58 @@ function performBandMutation(controller, entry, state, bands) {
 	});
 }
 
+function performModeMutation(controller, entry, state) {
+	const displayed = modeMutationContext(entry);
+	const latest = currentEntry(controller, entry.summary.modem_id);
+	const context = latest && modeMutationContext(latest);
+
+	if (state.busy)
+		return Promise.resolve();
+	if (!displayed || !context || displayed.generation !== context.generation) {
+		state.result = {
+			kind: 'warning',
+			message: _('The modem generation or mode-policy capability changed. Refresh before applying modes.')
+		};
+		controller.redraw();
+		return controller.refresh(true);
+	}
+	state.busy = 'modes';
+	state.result = { kind: 'notice', message: _('Mode policy change in progressâ€¦') };
+	controller.redraw();
+	return api.setModes(context.modemId, context.generation,
+		state.modeAllowed, state.modePreferred, true).then(function(result) {
+		let error = widgets.responseError(result);
+
+		if (!error && (!widgets.mutationAllowed(result, result,
+			context.modemId, context.generation) || result.accepted !== true ||
+		    result.operation !== 'set_modes' || result.persisted !== true ||
+		    [ 'reloaded', 'pending', 'failed', 'outcome_unknown' ]
+			.indexOf(result.activation) === -1))
+			error = _('The bridge returned an incomplete mode-policy mutation response.');
+		state.busy = null;
+		if (error)
+			state.result = mutationFailureMessage(result, _('Mode policy change'));
+		else {
+			state.modeDirty = false;
+			if (result.activation === 'reloaded')
+				state.result = { kind: 'success', message: _('Mode policy saved and netifd reload completed.') };
+			else if (result.activation === 'pending')
+				state.result = { kind: 'warning', message: _('Mode policy was saved, but netifd reload is pending.') };
+			else
+				state.result = { kind: 'warning', message: _('Mode policy was saved, but the netifd activation result is not confirmed. Refresh before retrying.') };
+		}
+		return controller.refresh(true);
+	}).catch(function(error) {
+		state.busy = null;
+		state.result = {
+			kind: 'warning',
+			message: _('The mode-policy response was interrupted during network reload: %s. Refresh before retrying because the persistent intent may already be saved.')
+				.format(widgets.display(error && error.message, _('Unknown transport error')))
+		};
+		return controller.refresh(true);
+	});
+}
+
 function confirmMutation(title, warning, actionLabel, action) {
 	ui.showModal(title, [
 		E('div', { 'class': 'alert-message warning' }, [ warning ]),
@@ -294,6 +372,119 @@ function confirmMutation(title, warning, actionLabel, action) {
 			}, [ actionLabel ])
 		])
 	]);
+}
+
+function modeAllowedLabel(value) {
+	if (value === '3g')
+		return _('3G only');
+	if (value === '4g')
+		return _('4G only');
+	return _('3G / 4G');
+}
+
+function modePreferredLabel(value) {
+	if (value === '3g')
+		return _('Prefer 3G');
+	if (value === '4g')
+		return _('Prefer 4G');
+	return _('No preference');
+}
+
+function modeChoices(controller, state, index, name, choices, selected,
+	canMutate, onChange, additionallyDisabled) {
+	return E('div', {
+		'class': 'fibocom-mode-choices',
+		'style': 'display:grid;grid-template-columns:repeat(auto-fit,minmax(8rem,1fr));gap:.45em .75em;width:100%'
+	}, choices.map(function(choice, choiceIndex) {
+		const id = 'fibocom-' + name + '-' + index + '-' + choiceIndex;
+
+		return E('label', {
+			'for': id,
+			'style': 'display:flex;align-items:center;gap:.35em;white-space:nowrap'
+		}, [
+			E('input', {
+				'id': id, 'type': 'radio',
+				'name': 'fibocom-' + name + '-policy-' + index,
+				'value': choice.value,
+				'checked': selected === choice.value ? '' : null,
+				'disabled': !canMutate || state.busy || additionallyDisabled ? '' : null,
+				'change': function(event) {
+					if (event.target.checked)
+						onChange(event.target.value);
+				}
+			}), choice.label
+		]);
+	}));
+}
+
+function renderModePolicy(controller, entry, state, index) {
+	const policy = widgets.object(entry.lock.mode_policy);
+	const canMutate = modeMutationContext(entry) !== null;
+	const allowedChoices = [
+		{ value: '3g|4g', label: _('3G / 4G') },
+		{ value: '3g', label: _('3G only') },
+		{ value: '4g', label: _('4G only') }
+	];
+	const preferredChoices = [
+		{ value: 'none', label: _('No preference') },
+		{ value: '3g', label: _('Prefer 3G') },
+		{ value: '4g', label: _('Prefer 4G') }
+	];
+	const children = [
+		E('h4', {}, [ _('Allowed and preferred mode') ]),
+		widgets.keyValueTable([
+			[ _('Capability'), widgets.badge(policy.state, policy.state) ],
+			[ _('Allowed mode'), modeAllowedLabel(policy.allowed) ],
+			[ _('Preferred mode'), modePreferredLabel(policy.preferred) ]
+		])
+	];
+
+	if (!canMutate)
+		children.push(E('div', { 'class': 'alert-message notice' }, [
+			_('Persistent mode selection is unavailable: %s').format(
+				widgets.display(policy.reason, _('unknown reason')))
+		]));
+	children.push(E('div', { 'class': 'cbi-value' }, [
+		E('div', { 'class': 'cbi-value-title' }, [ _('Allowed mode') ]),
+		E('div', { 'class': 'cbi-value-field' }, [
+			modeChoices(controller, state, index, 'allowed-mode',
+				allowedChoices, state.modeAllowed, canMutate, function(value) {
+					state.modeAllowed = value;
+					if (value !== '3g|4g')
+						state.modePreferred = 'none';
+					state.modeDirty = true;
+					controller.redraw();
+				}, false)
+		])
+	]));
+	children.push(E('div', { 'class': 'cbi-value' }, [
+		E('div', { 'class': 'cbi-value-title' }, [ _('Preferred mode') ]),
+		E('div', { 'class': 'cbi-value-field' }, [
+			modeChoices(controller, state, index, 'preferred-mode',
+				preferredChoices, state.modePreferred, canMutate, function(value) {
+					state.modePreferred = value;
+					state.modeDirty = true;
+					controller.redraw();
+				}, state.modeAllowed !== '3g|4g')
+		])
+	]));
+	children.push(E('div', {
+		'class': 'cbi-page-actions fibocom-mode-actions',
+		'style': 'display:flex;justify-content:flex-end;clear:both'
+	}, [
+		E('button', {
+			'class': 'btn cbi-button cbi-button-action', 'type': 'button',
+			'disabled': !canMutate || state.busy || !state.modeDirty ? '' : null,
+			'click': function() {
+				confirmMutation(_('Apply mode selection'),
+					_('Changing allowed or preferred modes is persistent and reloads the netifd network configuration. Mobile WAN may disconnect while the modem re-registers. Keep an alternate management path available.'),
+					_('Apply modes'), function() {
+						return performModeMutation(controller, entry, state);
+					});
+			}
+		}, [ state.busy === 'modes' ? _('Applyingâ€¦') : _('Apply mode selection') ])
+	]));
+	return E('div', { 'class': 'cbi-section fibocom-mode-policy' }, children);
 }
 
 function bandLabel(band) {
@@ -338,6 +529,22 @@ function friendlyBandSummary(bands) {
 			return entry.label;
 		}).join(', '));
 	}).join(' | ');
+}
+
+function sameBandSet(left, right) {
+	if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length)
+		return false;
+	const expected = Object.create(null);
+
+	right.forEach(function(band) { expected[band] = true; });
+	return left.every(function(band) { return expected[band] === true; });
+}
+
+function currentBandSummary(lock, current, supported) {
+	if (lock.band_selection === 'automatic' || current.indexOf('any') !== -1 ||
+	    sameBandSet(current, supported))
+		return _('Any Supported bands');
+	return friendlyBandSummary(current);
 }
 
 function bandCheckboxGrid(controller, state, index, supported, canMutate) {
@@ -392,13 +599,15 @@ function renderBandLock(controller, entry, state, index) {
 	const lock = entry.lock;
 	const capability = lock.band_lock;
 	const supported = canonicalBands(lock.supported_bands, false);
+	const lockableBands = supported.filter(function(band) {
+		return /^eutran-[0-9]+$/.test(band);
+	});
 	const current = canonicalBands(lock.current_bands, true);
 	const selected = Object.keys(state.selectedBands).filter(function(band) {
-		return state.selectedBands[band] && supported.indexOf(band) !== -1;
+		return state.selectedBands[band] && lockableBands.indexOf(band) !== -1;
 	});
 	const canMutate = bandMutationContext(entry) !== null;
-	const currentSummary = lock.band_selection === 'automatic' ||
-		current.indexOf('any') !== -1 ? 'any' : friendlyBandSummary(current);
+	const currentSummary = currentBandSummary(lock, current, supported);
 	const automaticId = 'fibocom-band-any-' + index;
 	const explicitId = 'fibocom-band-explicit-' + index;
 	const children = [
@@ -408,7 +617,7 @@ function renderBandLock(controller, entry, state, index) {
 			[ _('Reason'), capability.reason ],
 			[ _('Selection reported by ModemManager'), lock.band_selection ],
 			[ _('Current bands'), currentSummary ],
-			[ _('Supported bands'), friendlyBandSummary(supported) ],
+			[ _('Supported LTE bands'), friendlyBandSummary(lockableBands) ],
 			[ _('Current allowed mode families'), lock.current_modes.allowed ],
 			[ _('Current preferred mode'), lock.current_modes.preferred ]
 		])
@@ -445,9 +654,9 @@ function renderBandLock(controller, entry, state, index) {
 						state.bandDirty = true;
 						controller.redraw();
 					}
-				}), ' ', _('Explicit supported bands')
+				}), ' ', _('Explicit LTE bands')
 			]),
-			bandCheckboxGrid(controller, state, index, supported, canMutate)
+			bandCheckboxGrid(controller, state, index, lockableBands, canMutate)
 		])
 	]));
 	children.push(E('div', {
@@ -457,9 +666,9 @@ function renderBandLock(controller, entry, state, index) {
 		E('button', {
 			'class': 'btn cbi-button cbi-button-neutral', 'type': 'button',
 			'disabled': !canMutate || state.busy || state.bandAutomatic ||
-				!supported.length ? '' : null,
+				!lockableBands.length ? '' : null,
 			'click': function() {
-				invertBandSelection(controller, state, supported);
+				invertBandSelection(controller, state, lockableBands);
 			}
 		}, [ _('Invert') ]),
 		E('button', {
@@ -499,7 +708,7 @@ function validateExpertResult(result, context, requireAccepted) {
 	if (!requireAccepted &&
 	    (!widgets.mutationAllowed(result, result, context.modemId, context.generation) ||
 	     typeof result.state !== 'string'))
-		return _('The expert bridge returned an incomplete schema 2 response.');
+		return _('The expert bridge returned an incomplete schema 3 response.');
 	if (requireAccepted && (!replacementIdentityIsValid(result) || result.accepted !== true ||
 	    [ 'applied_verified', 'cleared_verified' ].indexOf(result.state) === -1 ||
 	    verification.registration !== true || verification.nvm !== true ||
@@ -508,7 +717,7 @@ function validateExpertResult(result, context, requireAccepted) {
 	      !Number.isSafeInteger(verification.earfcn) || verification.earfcn < 0 ||
 	      !Number.isSafeInteger(verification.pci) || verification.pci < 0 ||
 	      verification.pci > 503))))
-		return _('The expert bridge returned an incomplete schema 2 response.');
+		return _('The expert bridge returned an incomplete schema 3 response.');
 	return null;
 }
 
@@ -837,6 +1046,7 @@ function renderDevice(controller, entry, index) {
 
 	if (panel)
 		children.push(panel);
+	children.push(renderModePolicy(controller, entry, state, index));
 	children.push(renderBandLock(controller, entry, state, index));
 	children.push(renderPciLock(controller, entry, state, index));
 	return E('div', { 'class': 'cbi-section' }, children);

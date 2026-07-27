@@ -9,8 +9,8 @@
 #include <glib.h>
 #include <libmm-glib.h>
 
-#define FIBOCOM_MM_API_SCHEMA 2U
-#define FIBOCOM_MM_BRIDGE_VERSION "0.3.0"
+#define FIBOCOM_MM_API_SCHEMA 3U
+#define FIBOCOM_MM_BRIDGE_VERSION "0.4.0"
 #define FIBOCOM_SMS_REQUEST_DIGEST_LEN 32U
 typedef struct _FibocomBridge FibocomBridge;
 typedef struct _FibocomModem FibocomModem;
@@ -72,6 +72,19 @@ struct _FibocomModem {
 	gboolean sms_query_pending;
 	gboolean sms_query_dirty;
 	gboolean sms_cache_truncated;
+	gboolean serving_cell_refresh_pending;
+	gboolean serving_cell_valid;
+	gboolean serving_cell_has_rsrp;
+	gboolean serving_cell_has_rsrq;
+	guint32 serving_cell_generation;
+	guint32 serving_cell_earfcn;
+	guint16 serving_cell_pci;
+	guint16 serving_cell_band;
+	gdouble serving_cell_rsrp;
+	gdouble serving_cell_rsrq;
+	gint64 serving_cell_updated_at;
+	gint64 serving_cell_last_attempt_at;
+	const gchar *serving_cell_reason;
 	gboolean mutation_busy;
 	FibocomMutationKind mutation_kind;
 	GCancellable *mutation_cancellable;

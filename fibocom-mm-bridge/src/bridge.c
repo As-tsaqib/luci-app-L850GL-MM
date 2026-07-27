@@ -192,6 +192,9 @@ static void
 modem_mark_removed(FibocomModem *modem)
 {
 	modem->live = FALSE;
+	modem->serving_cell_valid = FALSE;
+	modem->serving_cell_refresh_pending = FALSE;
+	modem->serving_cell_reason = "device-gone";
 	g_cancellable_cancel(modem->cancellable);
 	if (modem->mutation_cancellable != NULL)
 		g_cancellable_cancel(modem->mutation_cancellable);
@@ -1007,6 +1010,7 @@ reconcile_object(FibocomBridge *bridge, GDBusObject *object)
 	modem->sim_cache_state = "loading";
 	modem->bearer_cache_state = "loading";
 	modem->sms_cache_state = "absent";
+	modem->serving_cell_reason = "refresh-pending";
 	g_hash_table_insert(bridge->modems_by_path, g_strdup(path), modem);
 	query_sim(modem);
 	query_bearers(modem);

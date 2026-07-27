@@ -16,10 +16,10 @@ The browser must never submit raw AT, a D-Bus/sysfs/device path, or an arbitrary
 ubus method. Prefer typed asynchronous libmm-glib and fail closed when the
 standard capability is absent.
 
-## Keep the 0.3 surface small
+## Keep the 0.4 surface small
 
 The menu is exactly Overview, Lock, and SMS. The base `fibocom.mm` object is
-exactly seven schema-2 methods. Do not restore Status, Settings, old Advanced,
+exactly eight schema-3 methods. Do not restore Status, Settings, old Advanced,
 radio toggle, generic reset, SIM-slot switching, eSIM, rescan, diagnostic dump,
 or connection controls without a new product decision.
 
@@ -33,7 +33,7 @@ not permission to populate a firmware allowlist.
 - Require modem generation for every mutation and messaging generation for SMS.
 - Cancel on removal/transport loss and revalidate proxy/liveness/generation in
   every callback.
-- Keep one shared per-modem lock across SMS, band, and future PCI writes.
+- Keep one shared per-modem lock across SMS, persistent mode, band, and PCI writes.
 - Bound timeouts/cooldowns and distinguish pre-dispatch failure from
   post-dispatch `outcome_unknown`.
 - Never retarget a write to a replacement modem after reprobe.
@@ -49,7 +49,7 @@ not permission to populate a firmware allowlist.
   identifiers, credentials, addresses, binary SMS, raw PDU, or raw modem output.
 - Grant only the five exact ACL groups and exact ubus methods. Never add
   wildcard, filesystem, cgi-io, shell/file execution, or UCI-write access.
-- Keep LuCI fail-closed for every schema other than 2.
+- Keep LuCI fail-closed for every schema other than 3.
 
 ## SMS contract
 
@@ -61,6 +61,12 @@ its most recent stored state, with possible earlier capacity eviction and no
 restart persistence.
 
 ## Band and PCI changes
+
+Mode selection remains netifd-owned. `set_modes` may resolve the bound section
+only from the internal ModemManager Device value and may set only
+`allowedmode`/`preferredmode`, commit once, verify readback, and request exact
+`network.reload`. Never accept or return a section/device path, touch connection
+secrets, or grant browser UCI/network wildcard access.
 
 Band Lock must continue using asynchronous SetCurrentBands with automatic
 `["any"]`, exact supported-band/current-family validation, confirmation, WAN

@@ -7,12 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Ownership boundary
 
-Version 0.3.0 is a companion, not a modem connection stack.
+Version 0.4.0 is a companion, not a modem connection stack.
 
 ```text
 LuCI: Overview / Lock / SMS
               |
-              | typed ubus schema 2
+              | typed ubus schema 3
               v
       fibocom-mm-bridge
               |
@@ -50,8 +50,12 @@ ModemManager remains authoritative for:
 - standard `GetCellInfo` when the plugin supports it.
 
 netifd remains authoritative for persistent connection settings and runtime
-network orchestration. The 0.3 UI has no Settings page and does not expose APN,
-addresses, routes, gateways, DNS, or credentials.
+network orchestration. The 0.4 UI has no Settings page and does not expose APN,
+addresses, routes, gateways, DNS, or credentials. The narrow `set_modes` path
+resolves the unique bound `proto modemmanager` interface from the modem's
+internal Device value, writes only `allowedmode` and `preferredmode`, commits
+once, verifies readback, and requests an asynchronous `network reload`.
+Section names and device paths never cross the API boundary.
 
 ## Identity and generations
 
@@ -74,8 +78,14 @@ and generation.
 Overview reads only normalized properties already owned by ModemManager. SIM,
 bearer, and SMS inventories are obtained asynchronously and retain explicit
 cache states when incomplete. Unknown signal metrics are omitted rather than
-invented. Serving EARFCN/PCI is represented as unavailable until a validated
-source exists.
+invented. Overview starts only standard asynchronous `GetCellInfo`, with a
+30-second retry backoff. A serving cell is cached only when exactly one LTE
+serving record has PCI 0..503, EARFCN-to-supported-band mapping, finite optional
+metrics, the current generation, and bounded freshness. Explicit expert scans
+and verified PCI postconditions update the same cache. Overview never starts
+the XMCI fallback; on the tested L850 firmware, where standard CellInfo is
+unsupported, status stays honestly unavailable until an explicit expert result
+exists.
 
 SMS initialization uses `Messaging.List`. Added, Deleted, and Sms property
 signals update the cache, and a 30-second asynchronous reconciliation repairs
@@ -92,15 +102,23 @@ more than 64 LTE cells fail closed. Raw MCC/MNC/TAC/cell ID is discarded.
 
 ## Mutation flows
 
-SMS, Band Lock, and PCI Lock share one per-modem mutation lock. Mutations require an
+SMS, persistent Mode Lock, Band Lock, and PCI Lock share one per-modem mutation lock. Mutations require an
 opaque ID, current generation, exact L850-GL MBIM `2cb7:0007` hardware
 attestation, and operation-specific capability checks.
 
+Mode Lock accepts only `3g`, `4g`, or canonical `3g|4g`, with `none`, `3g`, or
+`4g` preference. A single allowed mode requires `none`. The UCI writer rejects
+missing, anonymous, unsafe, or ambiguous bindings and never touches connection
+secrets. Persistent readback is distinguished from netifd activation, so a
+lost activation response is not blindly retried.
+
 Band Lock validates the complete request before dispatching asynchronous
-`SetCurrentBands`. `["any"]` is the sole automatic request. Explicit bands must
-be canonical, unique, supported, and inside the currently allowed radio
-families. A timeout or transport loss after dispatch is `outcome_unknown`;
-there is no automatic retry. Completion applies a cooldown.
+`SetCurrentBands`. `["any"]` is the sole automatic request. Schema 3 explicit
+requests contain LTE bands only; the backend retains every live supported band
+from other currently allowed families before full family validation. Every
+selected LTE band remains canonical, unique, supported, and currently allowed.
+A timeout or transport loss after dispatch is `outcome_unknown`; there is no
+automatic retry. Completion applies a cooldown.
 
 SMS send binds a CSPRNG client token to a SHA-256 request digest, then calls
 Messaging.Create and Sms.Send. Delete resolves an opaque live SMS and calls
@@ -135,7 +153,7 @@ without retaining object paths or indexes as identity.
 
 ## Build boundary
 
-The base build publishes only `fibocom.mm` with seven methods and is built with
+The base build publishes only `fibocom.mm` with eight methods and is built with
 generic AT-over-D-Bus disabled. Preprocessing removes the expert object,
 method table, scan operations, and PCI runtime state.
 
@@ -155,7 +173,7 @@ transport and has no expert object.
 
 ## Retired architecture
 
-Version 0.3 has no Status or Settings page, old Advanced page, direct radio
+Version 0.4 has no Status or Settings page, old Advanced page, direct radio
 toggle, generic reset, SIM-slot switch, eSIM addon, diagnostic UI, shadow
 daemon, custom netifd protocol, or modem rescan action. The earlier shadow
 implementation remains recoverable through Git history/tag; it is not part of
