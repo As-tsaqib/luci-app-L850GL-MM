@@ -55,14 +55,84 @@ function capabilityRows(capabilities) {
 		[ _('PCI/EARFCN Lock'), capabilities.pci_lock ]
 	].map(function(entry) {
 		const capability = widgets.object(entry[1]);
+		const details = [
+			widgets.badge(capability.state, capability.state),
+			E('span', {}, [
+				_('Mutation available'), ': ', widgets.display(capability.mutable)
+			])
+		];
+
+		if (capability.reason) {
+			details.push(E('span', { 'style': 'overflow-wrap:anywhere' }, [
+				_('Reason'), ': ', capability.reason
+			]));
+		}
 
 		return [
 			entry[0],
-			widgets.badge(capability.state, capability.state),
-			capability.mutable,
-			capability.reason
+			E('div', {
+				'style': 'display:flex;flex-direction:column;align-items:flex-start;gap:.3em;min-width:0'
+			}, details)
 		];
 	});
+}
+
+function friendlyCurrentBands(bands) {
+	const groups = [
+		{ key: 'utran', title: '3G', entries: [] },
+		{ key: 'eutran', title: '4G', entries: [] },
+		{ key: 'other', title: _('Other bands'), entries: [] }
+	];
+	const seen = Object.create(null);
+
+	if (Array.isArray(bands) && bands.length === 1 && bands[0] === 'any')
+		return _('Automatic');
+
+	(bands || []).forEach(function(band) {
+		const match = /^(utran|eutran)-([0-9]+)$/.exec(band);
+		const label = match ? 'B' + String(Number(match[2])) :
+			(band === 'any' ? _('Automatic') : band);
+		const group = match ? groups[match[1] === 'utran' ? 0 : 1] : groups[2];
+		const identity = group.key + ':' + label;
+
+		if (seen[identity])
+			return;
+		seen[identity] = true;
+		group.entries.push({
+			label: label,
+			number: match ? Number(match[2]) : null
+		});
+	});
+	groups.forEach(function(group) {
+		group.entries.sort(function(left, right) {
+			if (left.number != null && right.number != null)
+				return left.number - right.number;
+			return left.label < right.label ? -1 : (left.label > right.label ? 1 : 0);
+		});
+	});
+	const summaries = groups.filter(function(group) {
+		return group.entries.length;
+	}).map(function(group) {
+		return '%s: %s'.format(group.title, group.entries.map(function(entry) {
+			return entry.label;
+		}).join(', '));
+	});
+
+	return summaries.length ? summaries.join(' | ') : [];
+}
+
+function signalMetric(value, unit) {
+	return value == null ? null : '%s %s'.format(value, unit);
+}
+
+function overviewGroup(title, rows, extra) {
+	return E('div', {
+		'class': 'cbi-section-node fibocom-overview-card',
+		'style': 'min-width:0;max-width:100%;padding:.75em;box-sizing:border-box;overflow-wrap:anywhere'
+	}, [
+		E('h4', {}, [ title ]),
+		widgets.keyValueTable(rows)
+	].concat(extra || []));
 }
 
 function renderDevice(entry) {
@@ -85,10 +155,12 @@ function renderDevice(entry) {
 	const bearer = overview.bearer;
 	const serving = overview.serving_cell;
 	const warning = widgets.warningList(overview.warnings.map(warningText));
-	const rows = [
+	const modemInfoRows = [
 		[ _('Manufacturer'), identity.manufacturer ],
 		[ _('Model'), identity.model ],
-		[ _('Revision'), identity.revision ],
+		[ _('Revision'), identity.revision ]
+	];
+	const modemStatusRows = [
 		[ _('Modem state'), widgets.badge(modem.state, modem.state) ],
 		[ _('Power'), widgets.badge(modem.power, modem.power) ],
 		[ _('SIM present'), sim.present ],
@@ -97,28 +169,50 @@ function renderDevice(entry) {
 		[ _('Registration'), widgets.badge(network.registration, network.registration) ],
 		[ _('Roaming'), network.roaming ],
 		[ _('Access technology'), network.access ],
-		[ _('Signal quality'), widgets.progress(signal.quality) ],
-		[ _('RSRP'), signal.rsrp ],
-		[ _('RSRQ'), signal.rsrq ],
-		[ _('SINR'), signal.sinr ],
 		[ _('Bearer connected'), bearer.connected ],
 		[ _('Data interface'), bearer.interface ?
-			E('code', {}, [ bearer.interface ]) : null ],
-		[ _('Current bands'), overview.current_bands ]
+			E('code', {}, [ bearer.interface ]) : null ]
+	];
+	const bandAndCellRows = [
+		[ _('Current bands'), friendlyCurrentBands(overview.current_bands) ],
+		[ _('Serving cell status'), widgets.badge(serving.state, serving.state) ]
+	];
+	const signalRows = [
+		[ _('Signal quality'), widgets.progress(signal.quality) ],
+		[ _('RSRP'), signalMetric(signal.rsrp, 'dBm') ],
+		[ _('RSRQ'), signalMetric(signal.rsrq, 'dB') ],
+		[ _('SINR'), signalMetric(signal.sinr, 'dB') ]
 	];
 
 	if (serving.state === 'available') {
-		rows.push([ _('Serving EARFCN'), serving.earfcn ]);
-		rows.push([ _('Serving PCI'), serving.pci ]);
+		bandAndCellRows.push([ _('Serving EARFCN'), serving.earfcn ]);
+		bandAndCellRows.push([ _('Serving PCI'), serving.pci ]);
 	}
 
 	const children = [
 		E('h3', {}, [ widgets.activeLabel(identity.model, true) ]),
-		widgets.keyValueTable(rows, _('No overview fields are available for this modem.')),
-		E('h4', {}, [ _('Capabilities') ]),
-		widgets.table([
-			_('Feature'), _('State'), _('Mutation available'), _('Reason')
-		], capabilityRows(overview.capabilities))
+		E('div', {
+			'class': 'fibocom-overview-grid',
+			'style': 'display:grid;grid-template-columns:repeat(auto-fit,minmax(16rem,1fr));gap:1em;align-items:start;width:100%'
+		}, [
+			E('div', {
+				'class': 'fibocom-overview-column',
+				'style': 'display:flex;flex-direction:column;gap:1em;min-width:0'
+			}, [
+				overviewGroup(_('Modem Info'), modemInfoRows),
+				overviewGroup(_('Modem Status'), modemStatusRows)
+			]),
+			E('div', {
+				'class': 'fibocom-overview-column',
+				'style': 'display:flex;flex-direction:column;gap:1em;min-width:0'
+			}, [
+				overviewGroup(_('Band and Cell Status'), bandAndCellRows),
+				overviewGroup(_('Signal Status'), signalRows, [
+					E('h5', {}, [ _('Capabilities') ]),
+					widgets.keyValueTable(capabilityRows(overview.capabilities))
+				])
+			])
+		])
 	];
 
 	if (warning)

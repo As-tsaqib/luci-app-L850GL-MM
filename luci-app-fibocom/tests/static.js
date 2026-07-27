@@ -212,6 +212,24 @@ function renderedText(node) {
 	return values;
 }
 
+function findNodes(node, predicate) {
+	const matches = [];
+
+	(function visit(value) {
+		if (Array.isArray(value)) {
+			value.forEach(visit);
+			return;
+		}
+		if (value == null || typeof value !== 'object')
+			return;
+		if (predicate(value))
+			matches.push(value);
+		if (Array.isArray(value.children))
+			value.children.forEach(visit);
+	})(node);
+	return matches;
+}
+
 const widgets = evaluate('htdocs/luci-static/resources/fibocom/widgets.js', { baseclass });
 assert.strictEqual(widgets.isCompatible({ schema: 2, ok: true }), true);
 assert.strictEqual(widgets.isCompatible({ schema: 1, ok: true }), false);
@@ -288,7 +306,7 @@ const overviewResult = {
 	},
 	signal: { quality: 72, recent: true, rsrp: -90, rsrq: -10, sinr: 14 },
 	bearer: { connected: true, interface: 'wwan0' },
-	current_bands: [ 'eutran-1', 'eutran-3' ],
+	current_bands: [ 'utran-1', 'eutran-1', 'eutran-3' ],
 	serving_cell: { state: 'unavailable', reason: 'not-validated' },
 	capabilities: {
 		sms: { state: 'available', mutable: true },
@@ -303,10 +321,10 @@ const lockResult = {
 	ok: true,
 	modem_id: 'fibocom-test',
 	generation: 4,
-	supported_bands: [ 'eutran-1', 'eutran-3', 'eutran-8' ],
-	current_bands: [ 'eutran-1', 'eutran-3' ],
+	supported_bands: [ 'utran-1', 'eutran-1', 'eutran-3', 'eutran-8' ],
+	current_bands: [ 'utran-1', 'eutran-1', 'eutran-3' ],
 	band_selection: 'explicit',
-	current_modes: { allowed: [ '4g' ], preferred: 'none' },
+	current_modes: { known: true, allowed: [ '3g', '4g' ], preferred: '4g' },
 	band_lock: { state: 'available', mutable: true, retry_after_ms: 0 },
 	pci_lock: { state: 'unsupported_build', mutable: false, reason: 'expert-object-absent' }
 };
@@ -371,14 +389,81 @@ const lockView = evaluate(
 const smsView = evaluate(
 	'htdocs/luci-static/resources/view/fibocom/sms.js', viewDependencies);
 
-assert.strictEqual(overviewView.render({
+const overviewNode = overviewView.render({
 	list: listResult,
 	entries: [ { summary: summary, overview: overviewResult } ]
-}).tag, 'div');
-assert.strictEqual(lockView.render({
+});
+assert.strictEqual(overviewNode.tag, 'div');
+const renderedOverview = renderedText(overviewNode);
+assert.strictEqual(findNodes(overviewNode, function(node) {
+	return node.attributes && typeof node.attributes.class === 'string' &&
+		node.attributes.class.split(/\s+/).includes('fibocom-overview-card');
+}).length, 4, 'Overview must render exactly four responsive information groups');
+const overviewColumns = findNodes(overviewNode, function(node) {
+	return node.attributes && typeof node.attributes.class === 'string' &&
+		node.attributes.class.split(/\s+/).includes('fibocom-overview-column');
+});
+
+assert.strictEqual(overviewColumns.length, 2,
+	'Overview must use two wide desktop columns instead of four narrow columns');
+const leftOverviewColumn = renderedText(overviewColumns[0]);
+const rightOverviewColumn = renderedText(overviewColumns[1]);
+const modemInfoIndex = leftOverviewColumn.indexOf('Modem Info');
+const modemStatusIndex = leftOverviewColumn.indexOf('Modem Status');
+const bandCellIndex = rightOverviewColumn.indexOf('Band and Cell Status');
+const signalStatusIndex = rightOverviewColumn.indexOf('Signal Status');
+const capabilitiesIndex = rightOverviewColumn.indexOf('Capabilities');
+
+assert.ok(modemInfoIndex !== -1 && modemStatusIndex !== -1 &&
+	modemInfoIndex < modemStatusIndex,
+	'Modem Status must be stacked below Modem Info');
+assert.ok(bandCellIndex !== -1 && signalStatusIndex !== -1 &&
+	bandCellIndex < signalStatusIndex,
+	'Signal Status must be stacked below Band and Cell Status');
+assert.strictEqual(leftOverviewColumn.includes('Capabilities'), false,
+	'Capabilities must not remain below Modem Status');
+assert.ok(capabilitiesIndex !== -1 && signalStatusIndex < capabilitiesIndex,
+	'Capabilities must be rendered below Signal Status');
+[ 'Modem Info', 'Modem Status', 'Band and Cell Status', 'Signal Status',
+	'3G: B1 | 4G: B1, B3' ]
+	.forEach(function(expected) {
+		assert.ok(renderedOverview.some(function(value) { return value.includes(expected); }),
+			`Overview must render the ${expected} group or friendly band label`);
+	});
+[ 'utran-', 'eutran-' ].forEach(function(internalPrefix) {
+	assert.ok(!renderedOverview.some(function(value) { return value.includes(internalPrefix); }),
+		`Overview must not expose the internal ${internalPrefix} band prefix`);
+});
+const lockNode = lockView.render({
 	list: listResult,
 	entries: [ { summary: summary, lock: lockResult, expert: expertResult } ]
-}).tag, 'div');
+});
+assert.strictEqual(lockNode.tag, 'div');
+const renderedLock = renderedText(lockNode);
+[ '3G: B1', '4G: B1, B3, B8' ].forEach(function(expected) {
+	assert.ok(renderedLock.some(function(value) { return value.includes(expected); }),
+		`Lock must render the friendly band summary ${expected}`);
+});
+[ 'utran-', 'eutran-' ].forEach(function(internalPrefix) {
+	assert.ok(!renderedLock.some(function(value) { return value.includes(internalPrefix); }),
+		`Lock must not expose the internal ${internalPrefix} band prefix`);
+});
+const automaticLockNode = lockView.render({
+	list: listResult,
+	entries: [ { summary: summary, lock: Object.assign({}, lockResult, {
+		band_selection: 'automatic',
+		current_bands: lockResult.supported_bands
+	}), expert: expertResult } ]
+});
+const automaticCurrentBandRows = findNodes(automaticLockNode, function(node) {
+	const values = renderedText(node);
+
+	return node.tag === 'tr' && values[0] === 'Current bands';
+});
+
+assert.strictEqual(automaticCurrentBandRows.length, 1);
+assert.deepStrictEqual(renderedText(automaticCurrentBandRows[0]), [ 'Current bands', 'any' ],
+	'automatic band selection must not list every supported band');
 const renderedAvailableLock = lockView.render({
 	list: listResult,
 	entries: [ { summary: summary, lock: Object.assign({}, lockResult, {
@@ -387,6 +472,201 @@ const renderedAvailableLock = lockView.render({
 	}), expert: availableExpertResult } ]
 });
 assert.strictEqual(renderedAvailableLock.tag, 'div');
+const lockStatusRows = findNodes(renderedAvailableLock, function(node) {
+	const values = renderedText(node);
+
+	return node.tag === 'tr' && values[0] === 'Lock status';
+});
+
+assert.strictEqual(lockStatusRows.length, 1);
+[ 'Locked', 'B3 · EARFCN 1325 · PCI 0' ].forEach(function(value) {
+	assert.ok(renderedText(lockStatusRows[0]).includes(value),
+		`PCI lock summary must include ${value}`);
+});
+[ 'Scan reason', 'NVM lock state', 'Configured EARFCN', 'Configured PCI',
+	'Configured LTE band' ].forEach(function(label) {
+	assert.ok(!renderedText(renderedAvailableLock).includes(label),
+		`PCI summary must omit verbose field ${label}`);
+});
+const clearExpertResult = Object.assign({}, availableExpertResult, {
+	lock: {
+		state: 'clear',
+		enabled: false,
+		postcondition_verified: false,
+		source: 'l850-nvm-via-modemmanager'
+	}
+});
+const renderedClearLock = lockView.render({
+	list: listResult,
+	entries: [ { summary: summary, lock: Object.assign({}, lockResult, {
+		pci_lock: { state: 'available', mutable: true,
+			reason: 'live-validated-l850-command-state-machine' }
+	}), expert: clearExpertResult } ]
+});
+const clearLockStatusRows = findNodes(renderedClearLock, function(node) {
+	const values = renderedText(node);
+
+	return node.tag === 'tr' && values[0] === 'Lock status';
+});
+
+assert.strictEqual(clearLockStatusRows.length, 1);
+assert.ok(renderedText(clearLockStatusRows[0]).includes('Unlocked'));
+
+const scanCells = [
+	{ type: 4, serving: true, earfcn: 1325, pci: 0, band: 3, rsrp: -90, rsrq: -10 },
+	{ type: 5, serving: false, earfcn: 1650, pci: 42, band: 3, rsrp: -97, rsrq: -13 }
+];
+const interactiveDom = {
+	content: function(node, replacement) { node.children = [ replacement ]; }
+};
+const interactiveApi = {
+	cellScan: function(modemId, generation) {
+		assert.strictEqual(modemId, summary.modem_id);
+		assert.strictEqual(generation, summary.generation);
+		const result = {
+			schema: 2,
+			generated_at: 2,
+			ok: true,
+			modem_id: modemId,
+			generation: generation,
+			state: 'scan_ready',
+			source: 'modemmanager',
+			cells: scanCells
+		};
+
+		return {
+			then: function(callback) {
+				callback(result);
+				return { catch: function() { return this; } };
+			}
+		};
+	}
+};
+const interactiveLockView = evaluate(
+	'htdocs/luci-static/resources/view/fibocom/lock.js', {
+		dom: interactiveDom, poll: inert, ui: inert, view: view,
+		api: interactiveApi, widgets: widgets
+	});
+const interactiveLock = interactiveLockView.render({
+	list: listResult,
+	entries: [ { summary: summary, lock: Object.assign({}, lockResult, {
+		pci_lock: { state: 'available', mutable: true,
+			reason: 'live-validated-l850-command-state-machine' }
+	}), expert: availableExpertResult } ]
+});
+const initialBandCheckboxes = findNodes(interactiveLock, function(node) {
+	return node.tag === 'input' && /^fibocom-band-0-[0-9]+$/.test(node.attributes.id);
+});
+const invertButton = findNodes(interactiveLock, function(node) {
+	return node.tag === 'button' && renderedText(node).includes('Invert');
+})[0];
+
+assert.ok(invertButton, 'Band Lock must render an Invert button');
+assert.strictEqual(initialBandCheckboxes.filter(function(node) {
+	return node.attributes.checked != null;
+}).length, 3);
+invertButton.attributes.click();
+const invertedBandCheckboxes = findNodes(interactiveLock, function(node) {
+	return node.tag === 'input' && /^fibocom-band-0-[0-9]+$/.test(node.attributes.id);
+});
+const invertedCheckedBands = invertedBandCheckboxes.filter(function(node) {
+	return node.attributes.checked != null;
+});
+
+assert.strictEqual(invertedCheckedBands.length, 1,
+	'Invert must flip every supported explicit band locally');
+assert.strictEqual(invertedCheckedBands[0].attributes.id, 'fibocom-band-0-3');
+const scanButton = findNodes(interactiveLock, function(node) {
+	return node.tag === 'button' && renderedText(node).includes('Scan cells');
+})[0];
+
+assert.ok(scanButton, 'The PCI section must render the cell scan button');
+scanButton.attributes.click();
+const useButtons = findNodes(interactiveLock, function(node) {
+	return node.tag === 'button' && renderedText(node).includes('Use');
+});
+const scanCards = findNodes(interactiveLock, function(node) {
+	return node.attributes && typeof node.attributes.class === 'string' &&
+		node.attributes.class.split(/\s+/).includes('fibocom-cell-card');
+});
+const scanResultList = findNodes(interactiveLock, function(node) {
+	return node.attributes && typeof node.attributes.class === 'string' &&
+		node.attributes.class.split(/\s+/).includes('fibocom-cell-cards');
+})[0];
+const compactScanText = renderedText(scanResultList);
+const scanCardFields = findNodes(scanResultList, function(node) {
+	return node.attributes && typeof node.attributes.class === 'string' &&
+		node.attributes.class.split(/\s+/).includes('fibocom-cell-card-field');
+});
+const scanHint = findNodes(interactiveLock, function(node) {
+	return node.attributes && typeof node.attributes.class === 'string' &&
+		node.attributes.class.split(/\s+/).includes('fibocom-scan-hint');
+})[0];
+
+assert.strictEqual(useButtons.length, 0,
+	'scan rows must not spend mobile space on Use buttons');
+assert.strictEqual(scanCards.length, scanCells.length,
+	'each validated scan result must render one tappable card');
+assert.strictEqual(scanCardFields.length, scanCells.length * 5,
+	'each scan card must retain exactly five compact information fields');
+assert.strictEqual(findNodes(scanResultList, function(node) {
+	return node.tag === 'table';
+}).length, 0, 'scan results must not use a table');
+assert.ok(scanCards.every(function(node) {
+	return node.attributes.style.includes('border-radius:.55em') &&
+		node.attributes.style.includes('box-shadow:');
+}), 'each scan result must have a distinct card boundary');
+[ 'Band', 'EARFCN', 'PCI', 'RSRP', 'RSRQ', 'B3', '1325', '0', '-90 dBm', '-10 dB' ]
+	.forEach(function(detail) {
+		assert.ok(compactScanText.includes(detail),
+			`compact scan rows must retain ${detail}`);
+	});
+assert.ok(compactScanText.indexOf('Band') < compactScanText.indexOf('EARFCN'),
+	'Band must be the leftmost scan-result field');
+assert.ok(!compactScanText.includes('Role'),
+	'compact scan results must not display the internal serving role');
+assert.ok(!compactScanText.includes('LTE type'),
+	'compact scan results must not display the parser LTE type');
+assert.ok(scanHint && renderedText(scanHint).includes('Tap line to use'));
+assert.ok(scanHint.attributes.style.includes('color:#1e90ff'),
+	'the scan-row instruction must be blue');
+assert.strictEqual(scanCards[0].attributes.role, 'button');
+assert.strictEqual(scanCards[0].attributes.tabindex, 0);
+scanCards[0].attributes.click();
+const selectedEarfcn = findNodes(interactiveLock, function(node) {
+	return node.tag === 'input' && node.attributes.id === 'fibocom-earfcn-0';
+})[0];
+const selectedPci = findNodes(interactiveLock, function(node) {
+	return node.tag === 'input' && node.attributes.id === 'fibocom-pci-0';
+})[0];
+const cellInputGrid = findNodes(interactiveLock, function(node) {
+	return node.attributes && typeof node.attributes.class === 'string' &&
+		node.attributes.class.split(/\s+/).includes('fibocom-cell-input-grid');
+})[0];
+const cellActions = findNodes(interactiveLock, function(node) {
+	return node.attributes && typeof node.attributes.class === 'string' &&
+		node.attributes.class.split(/\s+/).includes('fibocom-cell-actions');
+})[0];
+const selectedScanCards = findNodes(interactiveLock, function(node) {
+	return node.attributes && typeof node.attributes.class === 'string' &&
+		node.attributes.class.split(/\s+/).includes('fibocom-cell-card') &&
+		node.attributes['aria-pressed'] === 'true';
+});
+
+assert.strictEqual(selectedEarfcn.attributes.value, '1325');
+assert.strictEqual(selectedPci.attributes.value, '0',
+	'the row action must preserve PCI zero');
+assert.ok(cellInputGrid.attributes.style.includes('margin:.9em 0 1em') &&
+	cellInputGrid.attributes.style.includes('clear:both'),
+	'EARFCN and PCI inputs must be visually separated from the mutation actions');
+assert.ok(cellActions.attributes.style.includes('clear:both') &&
+	cellActions.attributes.style.includes('margin-top:.75em'),
+	'Apply and Clear actions must occupy their own row below the inputs');
+assert.strictEqual(selectedScanCards.length, 1,
+	'the selected scan card must receive a visible selected state');
+assert.ok(renderedText(interactiveLock).some(function(value) {
+	return value.includes('Selected cell (EARFCN 1325, PCI 0)');
+}), 'the row action must show which cell was copied');
 const renderedSms = smsView.render({
 	list: listResult,
 	entries: [ { summary: summary, messages: smsResult } ]
@@ -449,6 +729,9 @@ for (const forbidden of [
 		`Overview must not render diagnostic/private field ${forbidden}`);
 }
 assert.ok(!overviewSource.includes('rescan'));
+assert.ok(overviewSource.includes('fibocom-overview-grid'));
+assert.ok(overviewSource.includes('grid-template-columns:repeat(auto-fit,minmax(16rem,1fr))'),
+	'Overview groups must collapse responsively without dropping fields');
 
 const smsSource = read('htdocs/luci-static/resources/view/fibocom/sms.js');
 assert.ok(smsSource.includes('ui.showModal'));
@@ -472,6 +755,38 @@ assert.doesNotMatch(smsSource, /\.slice\s*\(\s*0\s*,/,
 const lockSource = read('htdocs/luci-static/resources/view/fibocom/lock.js');
 assert.ok(lockSource.includes('ui.showModal'));
 assert.ok(lockSource.includes("[ 'any' ]"));
+assert.ok(lockSource.includes('grid-template-columns:repeat(auto-fill'),
+	'Band checkboxes must fill each row horizontally before wrapping');
+assert.ok(lockSource.includes('fibocom-band-groups'));
+assert.ok(lockSource.includes('invertBandSelection'));
+assert.ok(lockSource.includes("_('Invert')"));
+assert.ok(lockSource.includes("current.indexOf('any') !== -1 ? 'any'"),
+	'automatic Current bands must render as any');
+assert.ok(lockSource.includes('fibocom-cell-cards'));
+assert.ok(lockSource.includes('fibocom-cell-card'));
+assert.ok(lockSource.includes('fibocom-cell-card-field'));
+assert.ok(!lockSource.includes('fibocom-cell-table'),
+	'scan results must use cards instead of a table');
+assert.ok(lockSource.includes('grid-template-columns:repeat(auto-fit,minmax(18rem,1fr))'),
+	'scan cards must form a responsive desktop and mobile grid');
+assert.ok(lockSource.includes("_('Tap line to use')"));
+assert.ok(!lockSource.includes("_('Use')"),
+	'scan selection must use the whole row instead of a separate button');
+assert.ok(lockSource.includes("'keydown': function(event)"),
+	'scan rows must support keyboard activation');
+assert.ok(lockSource.includes('grid-template-columns:repeat(2,minmax(0,1fr))'),
+	'EARFCN and PCI inputs must remain side by side on mobile');
+const pciRenderSource = lockSource.slice(
+	lockSource.indexOf('function renderPciLock'),
+	lockSource.indexOf('function renderDevice'));
+
+assert.ok(pciRenderSource.includes("_('Lock status')"));
+[ "_('Reason')", "_('Scan reason')", "_('NVM lock state')",
+	"_('Configured EARFCN')", "_('Configured PCI')", "_('Configured LTE band')" ]
+	.forEach(function(verboseField) {
+		assert.ok(!pciRenderSource.includes(verboseField),
+			`PCI summary must omit ${verboseField}`);
+	});
 assert.ok(lockSource.includes('api.setBands'));
 assert.ok(lockSource.includes('api.cellScan'));
 assert.ok(lockSource.includes('api.cellLockStatus'));
@@ -523,7 +838,9 @@ for (const retired of [
 }
 for (const text of [
 	'Overview', 'Lock', 'SMS', 'Band Lock', 'PCI/EARFCN Lock', 'Load more',
-	'Compose SMS', 'Delete SMS', '(active)'
+	'Compose SMS', 'Delete SMS', '(active)', 'Tap line to use', 'Invert', 'Lock status',
+	'Locked', 'Unlocked', 'Modem Info', 'Modem Status',
+	'Band and Cell Status', 'Signal Status'
 ]) {
 	assert.ok(pot.includes(`msgid "${text}"`),
 		`translation template must contain: ${text}`);
