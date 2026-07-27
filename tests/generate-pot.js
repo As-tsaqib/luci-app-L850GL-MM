@@ -62,8 +62,8 @@ function quote(value) {
 }
 
 const lines = [
-	'# SPDX-FileCopyrightText: 2026 As Tsaqib',
-	'# SPDX-License-Identifier: Apache-2.0',
+	'# SPDX-' + 'FileCopyrightText: 2026 As Tsaqib',
+	'# SPDX-' + 'License-Identifier: Apache-2.0',
 	'#',
 	'msgid ""',
 	'msgstr ""',
