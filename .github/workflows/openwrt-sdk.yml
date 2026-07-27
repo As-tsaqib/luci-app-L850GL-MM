@@ -202,10 +202,10 @@ jobs:
           # CONFIG_FIBOCOM_MM_BRIDGE_L850_EXPERT is not set
           EOF
           make defconfig 2>&1 | tee "${GITHUB_WORKSPACE}/logs/defconfig-base.log"
-          grep -q '^CONFIG_TARGET_ARCH_PACKAGES="arm_cortex-a7_neon-vfpv4"$' .config
-          grep -q '^# CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS is not set$' .config
-          grep -q '^# CONFIG_FIBOCOM_MM_BRIDGE_L850_EXPERT is not set$' .config
           cp .config "${GITHUB_WORKSPACE}/logs/config-base"
+          grep -q '^CONFIG_TARGET_ARCH_PACKAGES="arm_cortex-a7_neon-vfpv4"$' .config
+          ! grep -q '^CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS=y$' .config
+          ! grep -q '^CONFIG_FIBOCOM_MM_BRIDGE_L850_EXPERT=y$' .config
 
       - name: Build and verify base packages
         shell: bash

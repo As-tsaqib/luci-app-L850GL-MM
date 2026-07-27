@@ -442,15 +442,16 @@ function performExpertMutation(controller, entry, state, operation, invoke) {
 		return Promise.resolve();
 	}
 	state.busy = operation;
+	controller.result = {
+		kind: 'notice',
+		message: _('Cell-lock reset, reprobe, registration, and verification are in progress…')
+	};
 	controller.redraw();
 	return invoke(context).then(function(result) {
 		const error = validateExpertResult(result, context, true);
-		const targetState = replacementIdentityIsValid(result) ?
-			stateFor(result.modem_id) : state;
 
 		state.busy = null;
-		targetState.busy = null;
-		targetState.result = error ? mutationFailureMessage(result, operation) : {
+		controller.result = error ? mutationFailureMessage(result, operation) : {
 			kind: 'success',
 			message: result.state === 'cleared_verified' ?
 				_('The cell lock was cleared and its post-reset NVM state was verified.') :
@@ -459,7 +460,7 @@ function performExpertMutation(controller, entry, state, operation, invoke) {
 		return controller.refresh(true);
 	}).catch(function(error) {
 		state.busy = null;
-		state.result = {
+		controller.result = {
 			kind: 'warning',
 			message: _('The expert mutation outcome is unknown: %s. Refresh and do not retry until the live state is known.')
 				.format(widgets.display(error && error.message, _('Unknown transport error')))
@@ -648,16 +649,19 @@ function renderDevice(controller, entry, index) {
 
 function renderSnapshots(snapshot, controller) {
 	const error = widgets.listError(snapshot.list);
+	let content;
 
 	if (error)
-		return widgets.errorPanel(error);
-	if (!snapshot.entries.length)
-		return E('div', { 'class': 'alert-message notice' }, [
+		content = widgets.errorPanel(error);
+	else if (!snapshot.entries.length)
+		content = E('div', { 'class': 'alert-message notice' }, [
 			_('No Fibocom modem is currently exported by ModemManager.')
 		]);
-	return E('div', {}, snapshot.entries.map(function(entry, index) {
-		return renderDevice(controller, entry, index);
-	}));
+	else
+		content = E('div', {}, snapshot.entries.map(function(entry, index) {
+			return renderDevice(controller, entry, index);
+		}));
+	return controller.result ? E('div', {}, [ statusPanel(controller.result), content ]) : content;
 }
 
 return view.extend({
@@ -667,6 +671,7 @@ return view.extend({
 		const controller = {
 			snapshot: snapshot,
 			content: null,
+			result: null,
 			refreshEpoch: 0,
 			redraw: function() {
 				if (this.content)

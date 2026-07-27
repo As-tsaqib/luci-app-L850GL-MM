@@ -57,7 +57,7 @@ fibocom_ubus_rpc_session_is_valid(const struct blob_attr *attribute,
 	    blobmsg_type(attribute) != BLOBMSG_TYPE_STRING ||
 	    !fibocom_ubus_blob_string_is_canonical(attribute, remaining, true))
 		return false;
-	value = blobmsg_get_string(attribute);
+	value = blobmsg_data(attribute);
 	if (strlen(value) != RPC_SESSION_HEX_LENGTH)
 		return false;
 	for (index = 0; index < RPC_SESSION_HEX_LENGTH; index++) {
