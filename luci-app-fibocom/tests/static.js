@@ -1923,7 +1923,7 @@ assert.match(lockSource, /api\.clearCellLock\([\s\S]*?true\)/);
 assert.doesNotMatch(lockSource, /setRadio|setPrimarySimSlot|api\.reset/);
 assert.doesNotMatch(lockSource, /raw\s*at|\/dev\/|tty(?:USB|ACM)|cdc-wdm|dbus|sysfs/i);
 
-assert.ok(uiCss.includes('SPDX-License-Identifier: Apache-2.0'));
+assert.ok(uiCss.includes([ 'SPDX-License-Identifier', 'Apache-2.0' ].join(': ')));
 for (const selector of [
 	'.fibocom-page .fibocom-kv-row.cbi-value',
 	'.fibocom-page .fibocom-form-row.cbi-value',
