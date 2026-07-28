@@ -108,8 +108,11 @@ length, bad name termination, duplicate fields, and malformed session data.
   state.
 - SMS, band, and expert PCI mutations share one per-modem single-flight lock.
   The PCI coordinator preserves hardware-slot exclusion across reset/reprobe.
-- Cell scan is blocked while a per-modem mutation is active and is rate-limited
-  to one attempt per minute.
+- Cell scan is blocked while a per-modem mutation is active, and only one scan
+  may be active per modem. An overlapping request fails as `busy` without a
+  guessed retry duration. Every terminal scan completion starts a five-second
+  cooldown; cooldown rejection reports the ceil-rounded remaining
+  `retry_after_ms` without extending the deadline.
 - Band Lock uses only standard `SetCurrentBands`, exact supported/current-mode
   validation, confirmation, cooldown, and a prominent WAN interruption warning.
 

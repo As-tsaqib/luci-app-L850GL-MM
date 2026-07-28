@@ -199,11 +199,16 @@ main(int argc, char **argv)
 	assert(!fibocom_l850_state_transition_is_valid(
 		FIBOCOM_L850_STATE_AVAILABLE,
 		FIBOCOM_L850_STATE_APPLIED_VERIFIED));
+	assert(FIBOCOM_L850_CELL_SCAN_COOLDOWN_SECONDS == 5U);
 	assert(fibocom_l850_scan_retry_after_ms(1000000, 0) == 0U);
-	assert(fibocom_l850_scan_retry_after_ms(2000000, 1000000) == 59000U);
-	assert(fibocom_l850_scan_retry_after_ms(61000000, 1000000) == 0U);
+	assert(fibocom_l850_scan_retry_after_ms(1000000, 1000000) == 5000U);
+	assert(fibocom_l850_scan_retry_after_ms(1000001, 1000000) == 5000U);
+	assert(fibocom_l850_scan_retry_after_ms(1001000, 1000000) == 4999U);
+	assert(fibocom_l850_scan_retry_after_ms(5999999, 1000000) == 1U);
+	assert(fibocom_l850_scan_retry_after_ms(6000000, 1000000) == 0U);
+	assert(fibocom_l850_scan_retry_after_ms(999999, 1000000) == 5000U);
 	assert(fibocom_l850_scan_retry_after_ms(INT64_MAX,
-		INT64_MAX - INT64_C(1000)) == 59999U);
+		INT64_MAX - INT64_C(1000)) == 4999U);
 
 	puts("L850 cell parser tests passed");
 	return 0;

@@ -60,6 +60,12 @@ assert.deepStrictEqual(Object.keys(menu).filter(function(key) {
 }).sort(), expectedViews.map(function(name) {
 	return `admin/modem/fibocom/${name}`;
 }).sort(), 'the package must advertise exactly Overview, Lock, and SMS');
+assert.deepStrictEqual(listFiles(resources).filter(function(file) {
+	return file.endsWith('.css');
+}).map(function(file) {
+	return path.relative(resources, file).split(path.sep).join('/');
+}), [ 'fibocom/fibocom.css' ],
+'the package must install one shared stylesheet instead of desktop/mobile variants');
 for (const retired of [ 'status', 'advanced', 'settings', 'diagnostics' ]) {
 	assert.ok(!fs.existsSync(path.join(resources, 'view/fibocom', `${retired}.js`)),
 		`${retired}.js must be retired`);
@@ -187,7 +193,10 @@ global.E = function(tag, attributes, children) {
 		children: children || []
 	};
 };
-global.L = { url: function() { return Array.from(arguments).join('/'); } };
+global.L = {
+	url: function() { return Array.from(arguments).join('/'); },
+	resource: function(resource) { return '/luci-static/resources/' + resource; }
+};
 
 if (!String.prototype.format) {
 	Object.defineProperty(String.prototype, 'format', {
@@ -235,7 +244,92 @@ function findNodes(node, predicate) {
 	return matches;
 }
 
+function hasClass(node, className) {
+	return node != null && node.attributes != null &&
+		typeof node.attributes.class === 'string' &&
+		node.attributes.class.split(/\s+/).includes(className);
+}
+
+function findKeyValueRows(node, label) {
+	return findNodes(node, function(candidate) {
+		const values = renderedText(candidate);
+
+		return hasClass(candidate, 'fibocom-kv-row') && values[0] === label;
+	});
+}
+
+function normalizeDom(node) {
+	if (Array.isArray(node))
+		return node.map(normalizeDom);
+	if (node == null || typeof node !== 'object')
+		return node;
+	if (typeof node.tag !== 'string')
+		return null;
+
+	const attributes = {};
+	Object.keys(node.attributes || {}).sort().forEach(function(name) {
+		const value = node.attributes[name];
+
+		if (typeof value !== 'function')
+			attributes[name] = value;
+	});
+	return {
+		tag: node.tag,
+		attributes: attributes,
+		children: normalizeDom(node.children || [])
+	};
+}
+
+function assertPageStructure(node, pageClass) {
+	assert.ok(hasClass(node, 'cbi-map'), `${pageClass} must use the native LuCI map root`);
+	assert.ok(hasClass(node, 'fibocom-page'), `${pageClass} must load the shared layout scope`);
+	assert.ok(hasClass(node, pageClass), `${pageClass} must expose its scoped page class`);
+	const stylesheets = findNodes(node, function(candidate) {
+		return candidate.tag === 'link' && candidate.attributes.rel === 'stylesheet' &&
+			candidate.attributes.href === '/luci-static/resources/fibocom/fibocom.css';
+	});
+
+	assert.strictEqual(stylesheets.length, 1,
+		`${pageClass} must load exactly one shared responsive stylesheet`);
+}
+
+function assertLabelTargets(node, context) {
+	const controlIds = new Set(findNodes(node, function(candidate) {
+		return candidate.attributes && typeof candidate.attributes.id === 'string';
+	}).map(function(candidate) { return candidate.attributes.id; }));
+	const labels = findNodes(node, function(candidate) {
+		return candidate.tag === 'label' && candidate.attributes &&
+			typeof candidate.attributes.for === 'string';
+	});
+
+	assert.ok(labels.length > 0, `${context} must expose explicit control labels`);
+	assert.ok(labels.every(function(label) {
+		return controlIds.has(label.attributes.for);
+	}), `${context} labels must target controls in the same responsive markup`);
+}
+
 const widgets = evaluate('htdocs/luci-static/resources/fibocom/widgets.js', { baseclass });
+const sampleKeyValues = widgets.keyValueList([ [ 'Alpha', 'Beta' ] ]);
+const sampleKeyValueRows = findNodes(sampleKeyValues, function(node) {
+	return hasClass(node, 'fibocom-kv-row');
+});
+
+assert.strictEqual(sampleKeyValueRows.length, 1);
+assert.ok(hasClass(sampleKeyValueRows[0], 'cbi-value'));
+assert.deepStrictEqual(renderedText(sampleKeyValues), [ 'Alpha', 'Beta' ],
+	'key/value status lists must not add desktop-only Property/Value headings');
+const sampleTable = widgets.table([ 'First', 'Second' ], [ [ 'A', 'B' ] ]);
+const sampleCells = findNodes(sampleTable, function(node) { return node.tag === 'td'; });
+
+assert.deepStrictEqual(sampleCells.map(function(node) {
+	return node.attributes['data-title'];
+}), [ 'First', 'Second' ], 'generic LuCI tables must expose responsive cell headings');
+assert.ok(hasClass(widgets.badge('B1, B3', 'notice'), 'notice'),
+	'locked band summaries must use the native LuCI blue notice badge');
+assert.ok(hasClass(widgets.badge('Received', 'received'), 'success'),
+	'received SMS state must use the native LuCI green success badge');
+assert.ok(hasClass(widgets.badge('Sent', 'sent'), 'notice'),
+	'sent SMS state must use the native LuCI blue notice badge');
 assert.strictEqual(widgets.isCompatible({ schema: 3, ok: true }), true);
 assert.strictEqual(widgets.isCompatible({ schema: 1, ok: true }), false);
 assert.strictEqual(widgets.isCompatible({ schema: 3, ok: 'yes' }), false);
@@ -349,12 +443,28 @@ const smsResult = {
 	messaging_generation: 7,
 	revision: 1,
 	cache_state: 'fresh',
+	cache_truncated: false,
 	dedupe_capacity: 64,
 	dedupe_window_seconds: 300,
+	folder: 'all',
+	limit: 100,
 	messages: [],
 	next_cursor: 'sms-next',
 	has_more: true
 };
+assert.strictEqual(widgets.smsError(smsResult, summary), null);
+assert.match(widgets.smsError(Object.assign({}, smsResult, {
+	cache_truncated: 'false'
+}), summary), /malformed/i,
+'SMS cache truncation must be a typed boolean before any bulk mutation is enabled');
+assert.match(widgets.smsError(Object.assign({}, smsResult, {
+	folder: 'everything'
+}), summary), /malformed/i,
+'SMS folder echoes must match the typed contract');
+assert.match(widgets.smsError(Object.assign({}, smsResult, {
+	limit: 101
+}), summary), /malformed/i,
+'SMS page limits outside the backend bound must fail closed');
 const expertResult = {
 	schema: 3,
 	generated_at: 1,
@@ -425,6 +535,7 @@ const overviewNode = overviewView.render({
 	entries: [ { summary: summary, overview: overviewResult } ]
 });
 assert.strictEqual(overviewNode.tag, 'div');
+assertPageStructure(overviewNode, 'fibocom-overview-page');
 const renderedOverview = renderedText(overviewNode);
 assert.strictEqual(findNodes(overviewNode, function(node) {
 	return node.attributes && typeof node.attributes.class === 'string' &&
@@ -470,11 +581,8 @@ const lockNode = lockView.render({
 	entries: [ { summary: summary, lock: lockResult, expert: expertResult } ]
 });
 assert.strictEqual(lockNode.tag, 'div');
+assertPageStructure(lockNode, 'fibocom-lock-page');
 const renderedLock = renderedText(lockNode);
-[ '3G: B1', '4G: B1, B3, B8' ].forEach(function(expected) {
-	assert.ok(renderedLock.some(function(value) { return value.includes(expected); }),
-		`Lock must render the friendly band summary ${expected}`);
-});
 [ 'utran-', 'eutran-' ].forEach(function(internalPrefix) {
 	assert.ok(!renderedLock.some(function(value) { return value.includes(internalPrefix); }),
 		`Lock must not expose the internal ${internalPrefix} band prefix`);
@@ -493,6 +601,43 @@ for (const expected of [ 'Allowed mode', '3G / 4G', '3G only', '4G only',
 	assert.ok(renderedLock.some(function(value) { return value.includes(expected); }),
 		`Lock must render the persistent mode control ${expected}`);
 }
+assert.strictEqual(findKeyValueRows(lockNode, 'Allowed mode').length, 0,
+	'the selected allowed mode must not be duplicated above its controls');
+assert.strictEqual(findKeyValueRows(lockNode, 'Preferred mode').length, 0,
+	'the selected preferred mode must not be duplicated above its controls');
+assert.strictEqual(findKeyValueRows(lockNode, 'Reason').length, 0,
+	'Band Lock must omit the verbose capability reason row');
+assert.strictEqual(findKeyValueRows(lockNode, 'Selection reported by ModemManager').length, 0,
+	'Band Lock must omit the internal selection-report row');
+const modePolicyPanel = findNodes(lockNode, function(node) {
+	return hasClass(node, 'fibocom-mode-policy');
+})[0];
+const bandLockPanel = findNodes(lockNode, function(node) {
+	return hasClass(node, 'fibocom-band-lock');
+})[0];
+
+assert.ok(modePolicyPanel && bandLockPanel);
+assert.strictEqual(findKeyValueRows(modePolicyPanel, 'Current allowed mode').length, 0);
+assert.strictEqual(findKeyValueRows(modePolicyPanel, 'Current preferred mode').length, 0);
+assert.strictEqual(findKeyValueRows(bandLockPanel, 'Current allowed mode').length, 0);
+assert.strictEqual(findKeyValueRows(bandLockPanel, 'Current preferred mode').length, 0);
+assert.strictEqual(findKeyValueRows(bandLockPanel, 'Supported LTE bands').length, 0,
+	'supported LTE bands must be represented only by the checkbox grid');
+assert.strictEqual(findKeyValueRows(lockNode, 'Current allowed mode families').length, 0);
+const explicitCurrentBandRows = findKeyValueRows(bandLockPanel, 'Current bands');
+
+assert.strictEqual(explicitCurrentBandRows.length, 1);
+assert.deepStrictEqual(renderedText(explicitCurrentBandRows[0]),
+	[ 'Current bands', 'B1, B3' ]);
+assert.strictEqual(findNodes(explicitCurrentBandRows[0], function(node) {
+	return hasClass(node, 'label') && hasClass(node, 'notice');
+}).length, 1, 'an explicit band lock must use a blue LuCI notice badge');
+const lockDescription = findNodes(lockNode, function(node) {
+	return hasClass(node, 'cbi-map-descr');
+});
+
+assert.strictEqual(lockDescription.length, 1);
+assert.deepStrictEqual(renderedText(lockDescription[0]), [ 'Band Lock uses ModemManager' ]);
 const automaticLockNode = lockView.render({
 	list: listResult,
 	entries: [ { summary: summary, lock: Object.assign({}, lockResult, {
@@ -500,16 +645,15 @@ const automaticLockNode = lockView.render({
 		current_bands: lockResult.supported_bands
 	}), expert: expertResult } ]
 });
-const automaticCurrentBandRows = findNodes(automaticLockNode, function(node) {
-	const values = renderedText(node);
-
-	return node.tag === 'tr' && values[0] === 'Current bands';
-});
+const automaticCurrentBandRows = findKeyValueRows(automaticLockNode, 'Current bands');
 
 assert.strictEqual(automaticCurrentBandRows.length, 1);
 assert.deepStrictEqual(renderedText(automaticCurrentBandRows[0]),
 	[ 'Current bands', 'Any Supported bands' ],
 	'automatic band selection must not list every supported band');
+assert.strictEqual(findNodes(automaticCurrentBandRows[0], function(node) {
+	return hasClass(node, 'label') && hasClass(node, 'success');
+}).length, 1, 'automatic band selection must use a green LuCI success badge');
 const explicitAllLockNode = lockView.render({
 	list: listResult,
 	entries: [ { summary: summary, lock: Object.assign({}, lockResult, {
@@ -517,16 +661,15 @@ const explicitAllLockNode = lockView.render({
 		current_bands: lockResult.supported_bands
 	}), expert: expertResult } ]
 });
-const explicitAllCurrentBandRows = findNodes(explicitAllLockNode, function(node) {
-	const values = renderedText(node);
-
-	return node.tag === 'tr' && values[0] === 'Current bands';
-});
+const explicitAllCurrentBandRows = findKeyValueRows(explicitAllLockNode, 'Current bands');
 
 assert.strictEqual(explicitAllCurrentBandRows.length, 1);
 assert.deepStrictEqual(renderedText(explicitAllCurrentBandRows[0]),
 	[ 'Current bands', 'Any Supported bands' ],
 	'an explicit set containing every supported band must be presented as unlocked');
+assert.strictEqual(findNodes(explicitAllCurrentBandRows[0], function(node) {
+	return hasClass(node, 'label') && hasClass(node, 'success');
+}).length, 1, 'a fully unlocked explicit set must use a green LuCI success badge');
 const renderedAvailableLock = lockView.render({
 	list: listResult,
 	entries: [ { summary: summary, lock: Object.assign({}, lockResult, {
@@ -535,11 +678,7 @@ const renderedAvailableLock = lockView.render({
 	}), expert: availableExpertResult } ]
 });
 assert.strictEqual(renderedAvailableLock.tag, 'div');
-const lockStatusRows = findNodes(renderedAvailableLock, function(node) {
-	const values = renderedText(node);
-
-	return node.tag === 'tr' && values[0] === 'Lock status';
-});
+const lockStatusRows = findKeyValueRows(renderedAvailableLock, 'Lock status');
 
 assert.strictEqual(lockStatusRows.length, 1);
 [ 'Locked', 'B3 · EARFCN 1325 · PCI 0' ].forEach(function(value) {
@@ -566,11 +705,7 @@ const renderedClearLock = lockView.render({
 			reason: 'live-validated-l850-command-state-machine' }
 	}), expert: clearExpertResult } ]
 });
-const clearLockStatusRows = findNodes(renderedClearLock, function(node) {
-	const values = renderedText(node);
-
-	return node.tag === 'tr' && values[0] === 'Lock status';
-});
+const clearLockStatusRows = findKeyValueRows(renderedClearLock, 'Lock status');
 
 assert.strictEqual(clearLockStatusRows.length, 1);
 assert.ok(renderedText(clearLockStatusRows[0]).includes('Unlocked'));
@@ -623,6 +758,8 @@ const mode4gOnly = findNodes(interactiveLock, function(node) {
 })[0];
 
 assert.ok(mode4gOnly, 'persistent mode selection must render a 4G-only radio');
+assert.ok(hasClass(mode4gOnly, 'cbi-input-radio'),
+	'mode choices must use the native LuCI radio class');
 mode4gOnly.attributes.change({ target: { checked: true, value: '4g' } });
 const preferredNone = findNodes(interactiveLock, function(node) {
 	return node.tag === 'input' && node.attributes.id ===
@@ -646,6 +783,9 @@ const invertButton = findNodes(interactiveLock, function(node) {
 })[0];
 
 assert.ok(invertButton, 'Band Lock must render an Invert button');
+assert.ok(initialBandCheckboxes.every(function(node) {
+	return hasClass(node, 'cbi-input-checkbox');
+}), 'band choices must use the native LuCI checkbox class');
 assert.strictEqual(initialBandCheckboxes.filter(function(node) {
 	return node.attributes.checked != null;
 }).length, 2);
@@ -697,9 +837,16 @@ assert.strictEqual(findNodes(scanResultList, function(node) {
 	return node.tag === 'table';
 }).length, 0, 'scan results must not use a table');
 assert.ok(scanCards.every(function(node) {
-	return node.attributes.style.includes('border-radius:.55em') &&
-		node.attributes.style.includes('box-shadow:');
-}), 'each scan result must have a distinct card boundary');
+	return node.tag === 'button' && node.attributes.type === 'button' &&
+		hasClass(node, 'cbi-section-node') && node.attributes.style == null;
+}), 'each scan result must be a theme-neutral semantic LuCI card button');
+const lockActionButtons = findNodes(interactiveLock, function(node) {
+	return node.tag === 'button' && !hasClass(node, 'fibocom-cell-card');
+});
+
+assert.ok(lockActionButtons.every(function(node) {
+	return hasClass(node, 'btn') && hasClass(node, 'cbi-button');
+}), 'Lock actions must use native LuCI button classes');
 [ 'Band', 'EARFCN', 'PCI', 'RSRP', 'RSRQ', 'B3', '1325', '0', '-90 dBm', '-10 dB' ]
 	.forEach(function(detail) {
 		assert.ok(compactScanText.includes(detail),
@@ -712,10 +859,10 @@ assert.ok(!compactScanText.includes('Role'),
 assert.ok(!compactScanText.includes('LTE type'),
 	'compact scan results must not display the parser LTE type');
 assert.ok(scanHint && renderedText(scanHint).includes('Tap line to use'));
-assert.ok(scanHint.attributes.style.includes('color:#1e90ff'),
-	'the scan-row instruction must be blue');
-assert.strictEqual(scanCards[0].attributes.role, 'button');
-assert.strictEqual(scanCards[0].attributes.tabindex, 0);
+assert.strictEqual(scanHint.attributes.style, undefined,
+	'the scan-row instruction must inherit its theme-aware stylesheet');
+assert.strictEqual(scanCards[0].tag, 'button',
+	'native scan buttons must provide keyboard activation without custom key handlers');
 scanCards[0].attributes.click();
 const selectedEarfcn = findNodes(interactiveLock, function(node) {
 	return node.tag === 'input' && node.attributes.id === 'fibocom-earfcn-0';
@@ -740,23 +887,49 @@ const selectedScanCards = findNodes(interactiveLock, function(node) {
 assert.strictEqual(selectedEarfcn.attributes.value, '1325');
 assert.strictEqual(selectedPci.attributes.value, '0',
 	'the row action must preserve PCI zero');
-assert.ok(cellInputGrid.attributes.style.includes('margin:.9em 0 1em') &&
-	cellInputGrid.attributes.style.includes('clear:both'),
-	'EARFCN and PCI inputs must be visually separated from the mutation actions');
-assert.ok(cellActions.attributes.style.includes('clear:both') &&
-	cellActions.attributes.style.includes('margin-top:.75em'),
-	'Apply and Clear actions must occupy their own row below the inputs');
+assert.strictEqual(cellInputGrid.attributes.style, undefined,
+	'EARFCN and PCI layout must be owned by the shared responsive stylesheet');
+assert.ok(hasClass(cellActions, 'cbi-page-actions') && hasClass(cellActions, 'fibocom-actions'),
+	'Apply and Clear actions must use the shared LuCI action layout');
 assert.strictEqual(selectedScanCards.length, 1,
 	'the selected scan card must receive a visible selected state');
 assert.ok(renderedText(interactiveLock).some(function(value) {
 	return value.includes('Selected cell (EARFCN 1325, PCI 0)');
 }), 'the row action must show which cell was copied');
+assertLabelTargets(interactiveLock, 'Lock');
 const renderedSms = smsView.render({
 	list: listResult,
 	entries: [ { summary: summary, messages: smsResult } ]
 });
 assert.strictEqual(renderedSms.tag, 'div');
+assertPageStructure(renderedSms, 'fibocom-sms-page');
 assert.ok(renderedText(renderedSms).includes('Load more'));
+assert.strictEqual(findKeyValueRows(renderedSms, 'Revision').length, 0,
+	'the SMS summary must omit the technical cache revision');
+assert.strictEqual(findKeyValueRows(renderedSms, 'Request-token capacity').length, 0);
+assert.strictEqual(findKeyValueRows(renderedSms,
+	'Request-token maximum age (seconds)').length, 0);
+const collapsedComposer = findNodes(renderedSms, function(node) {
+	return node.tag === 'details' && hasClass(node, 'fibocom-compose');
+})[0];
+
+assert.ok(collapsedComposer, 'Write SMS must use a native collapsible details panel');
+assert.strictEqual(collapsedComposer.attributes.open, null,
+	'Write SMS must be collapsed by default');
+assert.ok(findNodes(collapsedComposer, function(node) {
+	return node.tag === 'summary' && renderedText(node).includes('Write SMS');
+}).length === 1, 'the collapsed composer banner must be named Write SMS');
+collapsedComposer.attributes.toggle({ target: { open: true } });
+const openComposerNode = smsView.render({
+	list: listResult,
+	entries: [ { summary: summary, messages: smsResult } ]
+});
+const openComposer = findNodes(openComposerNode, function(node) {
+	return node.tag === 'details' && hasClass(node, 'fibocom-compose');
+})[0];
+
+assert.strictEqual(openComposer.attributes.open, '',
+	'Write SMS open state must survive a polling redraw');
 const binarySms = Object.assign({}, smsResult, {
 	has_more: false,
 	next_cursor: '',
@@ -768,13 +941,831 @@ const binarySms = Object.assign({}, smsResult, {
 		message_reference: 1, storage: 'mt', has_binary_data: true
 	} ]
 });
-const binarySmsText = renderedText(smsView.render({
+const binarySmsNode = smsView.render({
 	list: listResult,
 	entries: [ { summary: summary, messages: binarySms } ]
-}));
+});
+const binarySmsText = renderedText(binarySmsNode);
 assert.ok(binarySmsText.includes('Binary SMS payload (not displayed)'));
 assert.ok(binarySmsText.includes(
 	'This SMS contains binary data. Its raw payload is intentionally not exposed or displayed.'));
+const receivedCard = findNodes(binarySmsNode, function(node) {
+	return hasClass(node, 'fibocom-sms-card');
+})[0];
+const receivedRows = findNodes(receivedCard, function(node) {
+	return hasClass(node, 'fibocom-kv-row');
+});
+
+assert.deepStrictEqual(receivedRows.map(function(node) {
+	return renderedText(node)[0];
+}), [ 'State', 'From', 'Timestamp' ],
+'received cards must show only the essential SMS fields');
+assert.strictEqual(findNodes(receivedCard, function(node) {
+	return hasClass(node, 'label') && hasClass(node, 'success');
+}).length, 1, 'received SMS state must be green');
+assert.strictEqual(findNodes(receivedCard, function(node) {
+	return hasClass(node, 'fibocom-sms-message');
+}).length, 1, 'the SMS body must use its dedicated readable marker');
+assert.strictEqual(findNodes(receivedCard, function(node) {
+	return hasClass(node, 'fibocom-sms-body-title') &&
+		renderedText(node).join('') === 'Message:';
+}).length, 1, 'the full-width SMS body must have a Message: heading above it');
+assert.strictEqual(findKeyValueRows(receivedCard, 'Message').length, 0,
+	'the SMS body must not remain constrained by the metadata columns');
+assert.ok(findNodes(binarySmsNode, function(node) {
+	return node.tag === 'button';
+}).every(function(node) {
+	return hasClass(node, 'btn') && hasClass(node, 'cbi-button');
+}), 'SMS actions must use native LuCI button classes');
+assertLabelTargets(binarySmsNode, 'SMS');
+const sentSms = Object.assign({}, binarySms, {
+	messages: [ Object.assign({}, binarySms.messages[0], {
+		sms_id: 'sms-sent', folder: 'outbox', direction: 'outgoing',
+		state: 'sent', number: '<redacted-destination>', text: 'Hello',
+		has_binary_data: false
+	}) ]
+});
+const sentSmsNode = smsView.render({
+	list: listResult,
+	entries: [ { summary: summary, messages: sentSms } ]
+});
+const sentCard = findNodes(sentSmsNode, function(node) {
+	return hasClass(node, 'fibocom-sms-card');
+})[0];
+const sentRows = findNodes(sentCard, function(node) {
+	return hasClass(node, 'fibocom-kv-row');
+});
+
+assert.deepStrictEqual(sentRows.map(function(node) {
+	return renderedText(node)[0];
+}), [ 'State', 'To', 'Timestamp' ],
+'sent cards must show only the essential SMS fields');
+assert.strictEqual(findNodes(sentCard, function(node) {
+	return hasClass(node, 'label') && hasClass(node, 'notice');
+}).length, 1, 'sent SMS state must be blue');
+const numericSms = Object.assign({}, binarySms, {
+	messages: [ Object.assign({}, binarySms.messages[0], {
+		sms_id: 'sms-numeric', text: 'OTP 123456, call +62817033 on 2026-07-28.',
+		has_binary_data: false
+	}) ]
+});
+const numericSmsNode = smsView.render({
+	list: listResult,
+	entries: [ { summary: summary, messages: numericSms } ]
+});
+const numberButtons = findNodes(numericSmsNode, function(node) {
+	return node.tag === 'button' && hasClass(node, 'fibocom-sms-number');
+});
+
+assert.deepStrictEqual(numberButtons.map(function(node) {
+	return renderedText(node).join('');
+}), [ '123456', '+62817033', '2026-07-28' ],
+'number-like tokens in an SMS must retain their exact copyable formatting');
+assert.ok(numberButtons.every(function(node) {
+	return node.attributes.type === 'button' && node.attributes.title === 'Copy number' &&
+		typeof node.attributes.click === 'function';
+}), 'every number-like token must expose a keyboard-accessible copy action');
+const inboundNumericSms = Object.assign({}, binarySms, {
+	messages: [ Object.assign({}, binarySms.messages[0], {
+		sms_id: 'sms-inbound-numeric', text: '123456', has_binary_data: false
+	}) ]
+});
+const inboundNumericNode = smsView.render({
+	list: listResult,
+	entries: [ { summary: summary, messages: inboundNumericSms } ]
+});
+const inboundNumericBody = findNodes(inboundNumericNode, function(node) {
+	return hasClass(node, 'fibocom-sms-message');
+})[0];
+const inboundNumericButton = findNodes(inboundNumericBody, function(node) {
+	return node.tag === 'button' && hasClass(node, 'fibocom-sms-number');
+})[0];
+
+assert.deepStrictEqual(renderedText(inboundNumericBody), [ '123456' ],
+	'an exact digits-only inbound SMS body must remain visible without added or lost text');
+assert.ok(inboundNumericButton && renderedText(inboundNumericButton).join('') === '123456',
+	'an exact digits-only inbound SMS must expose the whole body as one copy action');
+const outboundNumericSms = Object.assign({}, binarySms, {
+	messages: [ Object.assign({}, binarySms.messages[0], {
+		sms_id: 'sms-outbound-numeric', folder: 'outbox', direction: 'outgoing',
+		state: 'sent', text: '654321', has_binary_data: false
+	}) ]
+});
+const outboundNumericNode = smsView.render({
+	list: listResult,
+	entries: [ { summary: summary, messages: outboundNumericSms } ]
+});
+const outboundNumericCard = findNodes(outboundNumericNode, function(node) {
+	return hasClass(node, 'fibocom-sms-card');
+})[0];
+const outboundNumericButton = findNodes(outboundNumericCard, function(node) {
+	return node.tag === 'button' && hasClass(node, 'fibocom-sms-number');
+})[0];
+
+assert.ok(renderedText(findNodes(outboundNumericCard, function(node) {
+	return hasClass(node, 'fibocom-sms-message');
+})[0]).join('') === '654321',
+	'an exact digits-only outbound SMS card must keep its complete body visible');
+assert.ok(outboundNumericButton && renderedText(outboundNumericButton).join('') === '654321',
+	'an exact digits-only outbound SMS must expose the whole body as one copy action');
+const navigatorDescriptor = Object.getOwnPropertyDescriptor(global, 'navigator');
+let copiedNumber = null;
+
+Object.defineProperty(global, 'navigator', {
+	configurable: true,
+	value: {
+		clipboard: {
+			writeText: function(value) {
+				copiedNumber = value;
+				return Promise.resolve();
+			}
+		}
+	}
+});
+try {
+	assert.ok(inboundNumericButton.attributes.click() instanceof Promise);
+	assert.strictEqual(copiedNumber, '123456',
+		'the inbound number action must copy the exact digits-only SMS body');
+	assert.ok(outboundNumericButton.attributes.click() instanceof Promise);
+	assert.strictEqual(copiedNumber, '654321',
+		'the outbound number action must copy the exact digits-only SMS body');
+}
+finally {
+	if (navigatorDescriptor)
+		Object.defineProperty(global, 'navigator', navigatorDescriptor);
+	else
+		delete global.navigator;
+}
+
+function interactionSmsMessage(smsId, number, direction, text) {
+	const incoming = direction === 'incoming';
+
+	return {
+		sms_id: smsId,
+		folder: incoming ? 'inbox' : 'outbox',
+		direction: direction,
+		state: incoming ? 'received' : 'sent',
+		number: number,
+		text: text,
+		text_truncated: false,
+		timestamp: incoming ? '2026-07-28T15:00:00Z' : '2026-07-28T15:01:00Z',
+		discharge_timestamp: '',
+		pdu_type: incoming ? 'deliver' : 'submit',
+		delivery_state: 0,
+		message_reference: 1,
+		storage: 'mt',
+		has_binary_data: false
+	};
+}
+
+function interactionSmsEnvelope(messages, overrides) {
+	return Object.assign({}, smsResult, {
+		revision: 91,
+		cache_state: 'ready',
+		cache_truncated: false,
+		folder: 'all',
+		messages: messages,
+		next_cursor: '',
+		has_more: false
+	}, overrides || {});
+}
+
+function smsPlainTarget() {
+	return { closest: function() { return null; } };
+}
+
+function smsChildTarget() {
+	return { closest: function() { return {}; } };
+}
+
+function fakeSmsTimers() {
+	let nextId = 1;
+	const timers = new Map();
+
+	return {
+		window: {
+			setTimeout: function(callback, milliseconds) {
+				const id = nextId++;
+
+				timers.set(id, { callback: callback, milliseconds: milliseconds });
+				return id;
+			},
+			clearTimeout: function(id) { timers.delete(id); }
+		},
+		count: function() { return timers.size; },
+		runAll: function() {
+			const pending = Array.from(timers.values());
+
+			timers.clear();
+			pending.forEach(function(timer) { timer.callback(); });
+		}
+	};
+}
+
+function createSmsInteractionHarness(messages, options) {
+	const settings = options || {};
+	const initial = settings.initial || interactionSmsEnvelope(messages);
+	const modals = [];
+	const testDom = {
+		content: function(node, replacement) { node.children = [ replacement ]; }
+	};
+	const testUi = Object.assign({
+		showModal: function(title, body) { modals.push({ title: title, body: body }); },
+		hideModal: function() {},
+		addNotification: function() {}
+	}, settings.ui || {});
+	const testApi = Object.assign({
+		listModems: function() { return Promise.resolve(listResult); },
+		listSms: function() { return Promise.resolve(initial); },
+		sendSms: function() { throw new Error('unexpected sendSms call'); },
+		deleteSms: function() { throw new Error('unexpected deleteSms call'); }
+	}, settings.api || {});
+	const module = evaluate('htdocs/luci-static/resources/view/fibocom/sms.js', {
+		dom: testDom,
+		poll: inert,
+		ui: testUi,
+		view: view,
+		api: testApi,
+		widgets: widgets
+	});
+	const root = module.render({
+		list: listResult,
+		entries: [ { summary: summary, messages: initial } ]
+	});
+
+	return { root: root, modals: modals };
+}
+
+function smsCards(node) {
+	return findNodes(node, function(candidate) {
+		return hasClass(candidate, 'fibocom-sms-card');
+	});
+}
+
+function smsCardWithText(node, text) {
+	return smsCards(node).find(function(card) {
+		return renderedText(card).includes(text);
+	});
+}
+
+function smsBulkButton(node) {
+	return findNodes(node, function(candidate) {
+		return candidate.tag === 'button' && hasClass(candidate, 'fibocom-sms-bulk-delete');
+	})[0];
+}
+
+function successfulDeleteResult(smsId) {
+	return {
+		schema: 3,
+		generated_at: 2,
+		ok: true,
+		modem_id: summary.modem_id,
+		generation: summary.generation,
+		messaging_generation: 7,
+		sms_id: smsId,
+		deleted: true
+	};
+}
+
+async function testSmsInteractions() {
+	const previousWindow = global.window;
+
+	try {
+		const exactNumber = '+628111000';
+		const conversationMessages = [
+			interactionSmsMessage('sms-chat-in', exactNumber, 'incoming', 'Exact inbound'),
+			interactionSmsMessage('sms-chat-out', exactNumber, 'outgoing', 'Exact outbound'),
+			interactionSmsMessage('sms-chat-near', exactNumber + '9', 'incoming', 'Near number'),
+			interactionSmsMessage('sms-chat-local', '08111000', 'outgoing', 'Local alias')
+		];
+		let timers = fakeSmsTimers();
+
+		global.window = timers.window;
+		let harness = createSmsInteractionHarness(conversationMessages);
+		let card = smsCardWithText(harness.root, 'Exact inbound');
+		let prevented = 0;
+		const opened = card.attributes.click({
+			target: smsPlainTarget(),
+			preventDefault: function() { prevented++; }
+		});
+
+		assert.ok(opened instanceof Promise, 'a quick card tap must start in-tab navigation');
+		await opened;
+		const conversationHeader = findNodes(harness.root, function(node) {
+			return hasClass(node, 'fibocom-conversation-header');
+		});
+		const chatCards = smsCards(harness.root);
+
+		assert.strictEqual(conversationHeader.length, 1,
+			'a quick tap must open one in-tab conversation');
+		assert.ok(renderedText(conversationHeader[0]).includes(exactNumber),
+			'the conversation heading must preserve the exact reported number');
+		assert.strictEqual(chatCards.length, 2,
+			'conversation matching must include only literal number matches');
+		assert.ok(renderedText(harness.root).includes('Exact inbound'));
+		assert.ok(renderedText(harness.root).includes('Exact outbound'));
+		assert.ok(!renderedText(harness.root).includes('Near number'));
+		assert.ok(!renderedText(harness.root).includes('Local alias'));
+		assert.ok(chatCards.some(function(node) { return hasClass(node, 'fibocom-sms-chat-inbound'); }));
+		assert.ok(chatCards.some(function(node) { return hasClass(node, 'fibocom-sms-chat-outbound'); }));
+
+		timers = fakeSmsTimers();
+		global.window = timers.window;
+		harness = createSmsInteractionHarness([
+			interactionSmsMessage('sms-hold', exactNumber, 'incoming', 'Hold this message')
+		]);
+		card = smsCardWithText(harness.root, 'Hold this message');
+		assert.strictEqual(renderedText(smsBulkButton(harness.root)).join(''), 'Delete all');
+		card.attributes.pointerdown({
+			button: 0,
+			clientX: 10,
+			clientY: 10,
+			target: smsPlainTarget()
+		});
+		assert.strictEqual(timers.count(), 1, 'primary pointer hold must arm one timer');
+		timers.runAll();
+		let selectedCard = smsCardWithText(harness.root, 'Hold this message');
+
+		assert.ok(hasClass(selectedCard, 'fibocom-sms-card-selected'));
+		assert.ok(hasClass(selectedCard, 'is-selected'));
+		assert.strictEqual(selectedCard.attributes['aria-pressed'], 'true');
+		assert.strictEqual(selectedCard.attributes['aria-selected'], 'true');
+		assert.strictEqual(findNodes(selectedCard, function(node) {
+			return hasClass(node, 'fibocom-sms-selection-check');
+		}).length, 1, 'a selected message must expose a visible check marker');
+		assert.strictEqual(renderedText(smsBulkButton(harness.root)).join(''), 'Delete',
+			'Delete all must become Delete while selection mode is active');
+		prevented = 0;
+		card.attributes.click({
+			target: smsPlainTarget(),
+			preventDefault: function() { prevented++; }
+		});
+		assert.strictEqual(prevented, 1,
+			'the synthetic click following long-press must be consumed');
+		assert.strictEqual(findNodes(harness.root, function(node) {
+			return hasClass(node, 'fibocom-conversation-header');
+		}).length, 0, 'the long-press synthetic click must not open chat');
+		assert.ok(hasClass(smsCardWithText(harness.root, 'Hold this message'),
+			'fibocom-sms-card-selected'));
+
+		timers = fakeSmsTimers();
+		global.window = timers.window;
+		harness = createSmsInteractionHarness([
+			interactionSmsMessage('sms-move', exactNumber, 'incoming', 'Cancel on move')
+		]);
+		card = smsCardWithText(harness.root, 'Cancel on move');
+		card.attributes.pointerdown({
+			button: 0,
+			clientX: 4,
+			clientY: 4,
+			target: smsPlainTarget()
+		});
+		card.attributes.pointermove({ clientX: 15, clientY: 4 });
+		assert.strictEqual(timers.count(), 0,
+			'pointer movement beyond ten pixels must cancel long-press');
+		timers.runAll();
+		assert.strictEqual(findNodes(harness.root, function(node) {
+			return hasClass(node, 'fibocom-sms-card-selected');
+		}).length, 0);
+		assert.strictEqual(renderedText(smsBulkButton(harness.root)).join(''), 'Delete all');
+
+		timers = fakeSmsTimers();
+		global.window = timers.window;
+		harness = createSmsInteractionHarness([
+			interactionSmsMessage('sms-child', exactNumber, 'incoming', 'OTP 123456')
+		]);
+		card = smsCardWithText(harness.root, '123456');
+		card.attributes.pointerdown({ button: 0, target: smsChildTarget() });
+		assert.strictEqual(timers.count(), 0,
+			'pointerdown on an embedded control must not arm card selection');
+		card.attributes.click({ target: smsChildTarget() });
+		assert.strictEqual(findNodes(harness.root, function(node) {
+			return hasClass(node, 'fibocom-conversation-header');
+		}).length, 0, 'an embedded-control click must not open chat');
+		const copyButton = findNodes(card, function(node) {
+			return node.tag === 'button' && hasClass(node, 'fibocom-sms-number');
+		})[0];
+		const trashButton = findNodes(card, function(node) {
+			return node.tag === 'button' && hasClass(node, 'fibocom-sms-delete-icon');
+		})[0];
+		let stopped = 0;
+
+		await copyButton.attributes.click({
+			preventDefault: function() { prevented++; },
+			stopPropagation: function() { stopped++; }
+		});
+		assert.strictEqual(stopped, 1, 'copy action must stop card click propagation');
+		assert.strictEqual(trashButton.attributes.title, 'Delete SMS');
+		assert.strictEqual(trashButton.attributes['aria-label'], 'Delete SMS');
+		stopped = 0;
+		trashButton.attributes.pointerdown({ stopPropagation: function() { stopped++; } });
+		trashButton.attributes.click({
+			preventDefault: function() { prevented++; },
+			stopPropagation: function() { stopped++; }
+		});
+		assert.strictEqual(stopped, 2,
+			'trash pointer and click actions must stay isolated from the card');
+		assert.strictEqual(harness.modals.length, 1,
+			'trash icon must open the existing single-message confirmation');
+
+		timers = fakeSmsTimers();
+		global.window = timers.window;
+		harness = createSmsInteractionHarness([
+			interactionSmsMessage('sms-key', exactNumber, 'incoming', 'Keyboard message')
+		]);
+		card = smsCardWithText(harness.root, 'Keyboard message');
+		prevented = 0;
+		card.attributes.keydown({
+			key: ' ',
+			target: smsPlainTarget(),
+			preventDefault: function() { prevented++; }
+		});
+		assert.strictEqual(prevented, 1);
+		assert.ok(hasClass(smsCardWithText(harness.root, 'Keyboard message'),
+			'fibocom-sms-card-selected'), 'Space must select a focused message');
+		selectedCard = smsCardWithText(harness.root, 'Keyboard message');
+		selectedCard.attributes.keydown({
+			key: 'Escape',
+			target: smsPlainTarget(),
+			preventDefault: function() { prevented++; }
+		});
+		assert.strictEqual(renderedText(smsBulkButton(harness.root)).join(''), 'Delete all',
+			'Escape must leave selection mode');
+		card = smsCardWithText(harness.root, 'Keyboard message');
+		const keyboardOpen = card.attributes.keydown({
+			key: 'Enter',
+			target: smsPlainTarget(),
+			preventDefault: function() { prevented++; }
+		});
+		await keyboardOpen;
+		assert.strictEqual(findNodes(harness.root, function(node) {
+			return hasClass(node, 'fibocom-conversation-header');
+		}).length, 1, 'Enter must open the focused conversation');
+		const content = findNodes(harness.root, function(node) {
+			return node.attributes && node.attributes.id === 'fibocom-sms';
+		})[0];
+		await content.attributes.keydown({
+			key: 'Escape',
+			preventDefault: function() { prevented++; }
+		});
+		assert.strictEqual(findNodes(harness.root, function(node) {
+			return hasClass(node, 'fibocom-conversation-header');
+		}).length, 0, 'Escape must return from the conversation view');
+	}
+	finally {
+		if (previousWindow === undefined)
+			delete global.window;
+		else
+			global.window = previousWindow;
+	}
+}
+
+async function testSmsBulkDeletion() {
+	const previousWindow = global.window;
+	const timers = fakeSmsTimers();
+	const messages = [
+		interactionSmsMessage('sms-bulk-1', '+6281001', 'incoming', 'Bulk first'),
+		interactionSmsMessage('sms-bulk-2', '+6281002', 'incoming', 'Bulk second'),
+		interactionSmsMessage('sms-bulk-3', '+6281003', 'outgoing', 'Bulk third')
+	];
+	const deleteCalls = [];
+	const pendingDeletes = [];
+
+	global.window = timers.window;
+	try {
+		const harness = createSmsInteractionHarness(messages, {
+			api: {
+				deleteSms: function(modemId, generation, messagingGeneration, smsId, confirm) {
+					deleteCalls.push(smsId);
+					assert.strictEqual(modemId, summary.modem_id);
+					assert.strictEqual(generation, summary.generation);
+					assert.strictEqual(messagingGeneration, 7);
+					assert.strictEqual(confirm, true);
+					return new Promise(function(resolve) {
+						pendingDeletes.push({ smsId: smsId, resolve: resolve });
+					});
+				}
+			}
+		});
+		let card = smsCardWithText(harness.root, 'Bulk first');
+
+		card.attributes.keydown({
+			key: ' ', target: smsPlainTarget(), preventDefault: function() {}
+		});
+		card = smsCardWithText(harness.root, 'Bulk second');
+		card.attributes.click({ target: smsPlainTarget() });
+		card = smsCardWithText(harness.root, 'Bulk third');
+		card.attributes.click({ target: smsPlainTarget() });
+		const bulk = smsBulkButton(harness.root);
+
+		assert.strictEqual(renderedText(bulk).join(''), 'Delete');
+		bulk.attributes.click();
+		assert.strictEqual(harness.modals.length, 1);
+		const confirm = findNodes(harness.modals[0].body, function(node) {
+			return node.tag === 'button' && hasClass(node, 'cbi-button-negative') &&
+				renderedText(node).join('') === 'Delete';
+		})[0];
+		const operation = confirm.attributes.click();
+
+		assert.deepStrictEqual(deleteCalls, [ 'sms-bulk-1' ],
+			'bulk delete must dispatch only one mutation at a time');
+		pendingDeletes[0].resolve(successfulDeleteResult('sms-bulk-1'));
+		await Promise.resolve();
+		await Promise.resolve();
+		assert.deepStrictEqual(deleteCalls, [ 'sms-bulk-1', 'sms-bulk-2' ],
+			'the second delete must wait for confirmation of the first');
+		pendingDeletes[1].resolve({
+			schema: 3,
+			generated_at: 3,
+			ok: false,
+			error: { code: 'busy', message: 'Mock busy', retryable: true }
+		});
+		await operation;
+		assert.deepStrictEqual(deleteCalls, [ 'sms-bulk-1', 'sms-bulk-2' ],
+			'an unconfirmed bulk result must stop without retrying or dispatching later IDs');
+		assert.ok(renderedText(harness.root).some(function(value) {
+			return value.includes('Bulk deletion stopped: 1 deleted');
+		}), 'partial bulk deletion must report its exact stopping point');
+	}
+	finally {
+		if (previousWindow === undefined)
+			delete global.window;
+		else
+			global.window = previousWindow;
+	}
+}
+
+async function testSmsDeleteAllPreparation() {
+	const previousWindow = global.window;
+	const timers = fakeSmsTimers();
+	const first = interactionSmsMessage('sms-page-1', '+6282001', 'incoming', 'Page first');
+	const second = interactionSmsMessage('sms-page-2', '+6282002', 'incoming', 'Page second');
+	const third = interactionSmsMessage('sms-page-3', '+6282003', 'outgoing', 'Page third');
+	const firstPage = interactionSmsEnvelope([ first, second ], {
+		next_cursor: second.sms_id,
+		has_more: true
+	});
+	const secondPage = interactionSmsEnvelope([ third ]);
+	const cursors = [];
+
+	global.window = timers.window;
+	try {
+		let harness = createSmsInteractionHarness([ first, second ], {
+			initial: firstPage,
+			api: {
+				listSms: function(modemId, folder, limit, cursor) {
+					assert.strictEqual(modemId, summary.modem_id);
+					assert.strictEqual(folder, 'all');
+					assert.strictEqual(limit, 100);
+					cursors.push(cursor);
+					return Promise.resolve(cursor === '' ? firstPage : secondPage);
+				}
+			}
+		});
+		await smsBulkButton(harness.root).attributes.click();
+		assert.deepStrictEqual(cursors, [ '', second.sms_id ],
+			'Delete all must enumerate every cursor page before confirmation');
+		assert.strictEqual(harness.modals.length, 1);
+		assert.ok(renderedText(harness.modals[0].body).some(function(value) {
+			return value.includes('Delete all 3 SMS messages');
+		}), 'Delete all confirmation must cover the fully paginated snapshot');
+
+		const truncated = interactionSmsEnvelope([ first ], {
+			cache_state: 'ready-truncated',
+			cache_truncated: true
+		});
+
+		harness = createSmsInteractionHarness([ first ], {
+			initial: truncated,
+			api: {
+				listSms: function() { return Promise.resolve(truncated); }
+			}
+		});
+		await smsBulkButton(harness.root).attributes.click();
+		assert.strictEqual(harness.modals.length, 0,
+			'a truncated inventory must fail closed before delete confirmation');
+		assert.ok(renderedText(harness.root).some(function(value) {
+			return value.includes('Delete all is unavailable');
+		}), 'cache truncation must be explained without claiming every SMS is enumerable');
+	}
+	finally {
+		if (previousWindow === undefined)
+			delete global.window;
+		else
+			global.window = previousWindow;
+	}
+}
+
+function testFocusedFolderPolling() {
+	let pollCallback = null;
+	let redraws = 0;
+	const compose = {};
+	const folderSelect = {
+		tagName: 'SELECT',
+		closest: function() { return null; }
+	};
+	const composeInput = {
+		tagName: 'INPUT',
+		closest: function(selector) {
+			return selector === '.fibocom-compose' ? compose : null;
+		}
+	};
+	const documentDescriptor = Object.getOwnPropertyDescriptor(global, 'document');
+	const pollingApi = {
+		listModems: function() { return Promise.resolve(listResult); },
+		listSms: function() { return Promise.resolve(smsResult); }
+	};
+	const pollingDom = {
+		content: function(node, replacement) {
+			redraws++;
+			node.children = [ replacement ];
+		}
+	};
+	const polling = {
+		add: function(callback, seconds) {
+			assert.strictEqual(seconds, 10);
+			pollCallback = callback;
+		}
+	};
+	const pollingView = evaluate(
+		'htdocs/luci-static/resources/view/fibocom/sms.js', {
+			dom: pollingDom, poll: polling, ui: inert, view: view,
+			api: pollingApi, widgets: widgets
+		});
+	const pollingNode = pollingView.render({
+		list: listResult,
+		entries: [ { summary: summary, messages: smsResult } ]
+	});
+	const content = findNodes(pollingNode, function(node) {
+		return node.attributes.id === 'fibocom-sms';
+	})[0];
+
+	content.contains = function(node) {
+		return node === folderSelect || node === composeInput || node === compose;
+	};
+	Object.defineProperty(global, 'document', {
+		configurable: true,
+		value: { activeElement: folderSelect }
+	});
+
+	return pollCallback().then(function() {
+		assert.strictEqual(redraws, 1,
+			'a focused Folder select must not defer a ten-second SMS polling redraw');
+		global.document.activeElement = composeInput;
+		return pollCallback();
+	}).then(function() {
+		assert.strictEqual(redraws, 1,
+			'a focused Write SMS field must still protect the draft from polling redraws');
+	}).finally(function() {
+		if (documentDescriptor)
+			Object.defineProperty(global, 'document', documentDescriptor);
+		else
+			delete global.document;
+	});
+}
+const windowDescriptor = Object.getOwnPropertyDescriptor(global, 'window');
+let numericSendArguments = null;
+const numericSendApi = {
+	sendSms: function() {
+		numericSendArguments = Array.from(arguments);
+		return {
+			then: function(callback) {
+				callback({
+					schema: 3,
+					generated_at: 2,
+					ok: false,
+					error: {
+						code: 'not_ready',
+						message: 'Mock send stop after argument capture',
+						retryable: true
+					}
+				});
+				return { catch: function() { return this; } };
+			}
+		};
+	}
+};
+
+Object.defineProperty(global, 'window', {
+	configurable: true,
+	value: {
+		crypto: {
+			getRandomValues: function(bytes) {
+				for (let index = 0; index < bytes.length; index++)
+					bytes[index] = index + 1;
+				return bytes;
+			}
+		}
+	}
+});
+try {
+	const numericSendView = evaluate(
+		'htdocs/luci-static/resources/view/fibocom/sms.js', {
+			dom: interactiveDom, poll: inert, ui: inert, view: view,
+			api: numericSendApi, widgets: widgets
+		});
+	const numericSendNode = numericSendView.render({
+		list: listResult,
+		entries: [ { summary: summary, messages: smsResult } ]
+	});
+	const recipientInput = findNodes(numericSendNode, function(node) {
+		return node.tag === 'input' && node.attributes.type === 'tel';
+	})[0];
+	const messageInput = findNodes(numericSendNode, function(node) {
+		return node.tag === 'textarea';
+	})[0];
+	const composeForm = findNodes(numericSendNode, function(node) {
+		return node.tag === 'form' && hasClass(node, 'fibocom-compose-form');
+	})[0];
+
+	recipientInput.attributes.input({ target: { value: '+628123456789' } });
+	messageInput.attributes.input({ target: { value: '123456' } });
+	composeForm.attributes.submit({ preventDefault: function() {} });
+	assert.ok(numericSendArguments, 'numeric SMS submission must reach the shared RPC API');
+	assert.strictEqual(numericSendArguments[3], '+628123456789');
+	assert.strictEqual(numericSendArguments[4], '123456',
+		'a digits-only SMS body must reach send_sms unchanged');
+	assert.match(numericSendArguments[5], /^smsop-[0-9a-f]{32}$/,
+		'numeric SMS submission must retain its CSPRNG client token');
+}
+finally {
+	if (windowDescriptor)
+		Object.defineProperty(global, 'window', windowDescriptor);
+	else
+		delete global.window;
+}
+
+function withViewport(width, callback) {
+	const previousWindow = global.window;
+
+	global.window = { innerWidth: width };
+	try {
+		return callback();
+	}
+	finally {
+		if (previousWindow === undefined)
+			delete global.window;
+		else
+			global.window = previousWindow;
+	}
+}
+
+function renderFreshView(name, snapshot, width) {
+	return withViewport(width, function() {
+		const module = evaluate(`htdocs/luci-static/resources/view/fibocom/${name}.js`,
+			viewDependencies);
+
+		return normalizeDom(module.render(snapshot));
+	});
+}
+
+function renderFreshScannedLock(width) {
+	return withViewport(width, function() {
+		const module = evaluate('htdocs/luci-static/resources/view/fibocom/lock.js', {
+			dom: interactiveDom, poll: inert, ui: inert, view: view,
+			api: interactiveApi, widgets: widgets
+		});
+		const node = module.render({
+			list: listResult,
+			entries: [ { summary: summary, lock: Object.assign({}, lockResult, {
+				pci_lock: { state: 'available', mutable: true,
+					reason: 'live-validated-l850-command-state-machine' }
+			}), expert: availableExpertResult } ]
+		});
+		const button = findNodes(node, function(candidate) {
+			return candidate.tag === 'button' && renderedText(candidate).includes('Scan cells');
+		})[0];
+
+		button.attributes.click();
+		return normalizeDom(node);
+	});
+}
+
+const overviewParitySnapshot = {
+	list: listResult,
+	entries: [ { summary: summary, overview: overviewResult } ]
+};
+const smsParityResult = Object.assign({}, binarySms, {
+	has_more: true,
+	next_cursor: 'sms-next'
+});
+const smsParitySnapshot = {
+	list: listResult,
+	entries: [ { summary: summary, messages: smsParityResult } ]
+};
+
+assert.deepStrictEqual(
+	renderFreshView('overview', overviewParitySnapshot, 1440),
+	renderFreshView('overview', overviewParitySnapshot, 360),
+	'Overview desktop and phone must render the exact same information tree');
+assert.deepStrictEqual(
+	renderFreshScannedLock(1440),
+	renderFreshScannedLock(360),
+	'Lock desktop and phone must render the same controls and scanned-cell details');
+assert.deepStrictEqual(
+	renderFreshView('sms', smsParitySnapshot, 1440),
+	renderFreshView('sms', smsParitySnapshot, 360),
+	'SMS desktop and phone must render the same messages, metadata, and actions');
 const incompatibleOverview = renderedText(overviewView.render({
 	list: Object.assign({}, listResult, { schema: 1 }), entries: []
 }));
@@ -804,6 +1795,7 @@ frontendSources.forEach(function(file) {
 	assert.doesNotMatch(source, /\blocalStorage\b/);
 });
 
+const uiCss = read('htdocs/luci-static/resources/fibocom/fibocom.css');
 const overviewSource = read('htdocs/luci-static/resources/view/fibocom/overview.js');
 for (const forbidden of [
 	'ports', 'drivers', 'device_path', 'dbus_path', 'sysfs',
@@ -814,8 +1806,12 @@ for (const forbidden of [
 }
 assert.ok(!overviewSource.includes('rescan'));
 assert.ok(overviewSource.includes('fibocom-overview-grid'));
-assert.ok(overviewSource.includes('grid-template-columns:repeat(auto-fit,minmax(16rem,1fr))'),
-	'Overview groups must collapse responsively without dropping fields');
+assert.match(uiCss,
+	/\.fibocom-page \.fibocom-overview-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/,
+	'Overview must use two balanced desktop columns');
+assert.match(uiCss,
+	/@media screen and \(max-width: 850px\)[\s\S]*?\.fibocom-page \.fibocom-overview-grid\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)/,
+	'Overview groups must reflow to one column without dropping fields');
 
 const smsSource = read('htdocs/luci-static/resources/view/fibocom/sms.js');
 assert.ok(smsSource.includes('ui.showModal'));
@@ -829,6 +1825,24 @@ assert.ok(smsSource.includes('has_more'));
 assert.ok(smsSource.includes("_('Load more')"));
 assert.ok(smsSource.includes('dedupe_capacity'));
 assert.ok(smsSource.includes('dedupe_window_seconds'));
+assert.ok(smsSource.includes("E('details'"));
+assert.ok(smsSource.includes('composeOpen'));
+assert.ok(smsSource.includes("_('Write SMS')"));
+assert.ok(smsSource.includes(
+	"_('Messages are read, sent, and deleted through ModemManager.')"));
+assert.ok(smsSource.includes('navigator.clipboard.writeText'));
+assert.ok(smsSource.includes("document.execCommand('copy')"));
+assert.ok(smsSource.includes('copyableMessage(body)'));
+assert.ok(smsSource.includes('/\\+?[0-9]+(?:[.,:/-][0-9]+)*/g'));
+for (const removedUiText of [
+	"_('Compose SMS')", "_('Request-token capacity')",
+	"_('Request-token maximum age (seconds)')", "_('Revision')", "_('Direction')",
+	"_('Discharge timestamp')", "_('PDU type')", "_('Delivery state')",
+	"_('Message reference')", "_('Storage')", "_('Binary data present')"
+]) {
+	assert.ok(!smsSource.includes(removedUiText),
+		`SMS cards must remove nonessential UI field ${removedUiText}`);
+}
 assert.ok(smsSource.includes('const SMS_CACHE_MAX = 1024'));
 assert.ok(smsSource.includes('state.pageCount >= MAX_SMS_PAGES'));
 assert.ok(smsSource.includes('redrawPending'));
@@ -839,7 +1853,17 @@ assert.doesNotMatch(smsSource, /\.slice\s*\(\s*0\s*,/,
 const lockSource = read('htdocs/luci-static/resources/view/fibocom/lock.js');
 assert.ok(lockSource.includes('ui.showModal'));
 assert.ok(lockSource.includes("[ 'any' ]"));
-assert.ok(lockSource.includes('grid-template-columns:repeat(auto-fill'),
+assert.ok(lockSource.includes("_('Band Lock uses ModemManager')"));
+assert.ok(lockSource.includes('friendlyBandList(lte)'));
+assert.ok(lockSource.includes("currentAutomatic ? 'available' : 'notice'"));
+assert.ok(!lockSource.includes("_('Current allowed mode')"));
+assert.ok(!lockSource.includes("_('Current preferred mode')"));
+assert.ok(!lockSource.includes('Selection reported by ModemManager'));
+assert.ok(!lockSource.includes('Current allowed mode families'));
+assert.ok(!lockSource.includes("_('Supported LTE bands')"));
+assert.ok(!lockSource.includes('Band Lock uses ModemManager SetCurrentBands.'));
+assert.match(uiCss,
+	/\.fibocom-page \.fibocom-band-checkboxes\s*\{[\s\S]*?grid-template-columns:\s*repeat\(auto-fill/,
 	'Band checkboxes must fill each row horizontally before wrapping');
 assert.ok(lockSource.includes('fibocom-band-groups'));
 assert.ok(lockSource.includes('invertBandSelection'));
@@ -853,15 +1877,19 @@ assert.ok(lockSource.includes('fibocom-cell-card'));
 assert.ok(lockSource.includes('fibocom-cell-card-field'));
 assert.ok(!lockSource.includes('fibocom-cell-table'),
 	'scan results must use cards instead of a table');
-assert.ok(lockSource.includes('grid-template-columns:repeat(auto-fit,minmax(18rem,1fr))'),
+assert.match(uiCss,
+	/\.fibocom-page \.fibocom-cell-cards\s*\{[\s\S]*?grid-template-columns:\s*repeat\(auto-fit, minmax\(18rem, 1fr\)\)/,
 	'scan cards must form a responsive desktop and mobile grid');
 assert.ok(lockSource.includes("_('Tap line to use')"));
 assert.ok(!lockSource.includes("_('Use')"),
 	'scan selection must use the whole row instead of a separate button');
-assert.ok(lockSource.includes("'keydown': function(event)"),
-	'scan rows must support keyboard activation');
-assert.ok(lockSource.includes('grid-template-columns:repeat(2,minmax(0,1fr))'),
+assert.ok(lockSource.includes("return E('button'"),
+	'scan rows must use native keyboard-accessible buttons');
+assert.match(uiCss,
+	/\.fibocom-page \.fibocom-cell-input-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/,
 	'EARFCN and PCI inputs must remain side by side on mobile');
+assert.ok(lockSource.includes('redrawPending') && lockSource.includes("'focusout'"),
+	'Lock polling must preserve focused mobile editors');
 const pciRenderSource = lockSource.slice(
 	lockSource.indexOf('function renderPciLock'),
 	lockSource.indexOf('function renderDevice'));
@@ -895,6 +1923,71 @@ assert.match(lockSource, /api\.clearCellLock\([\s\S]*?true\)/);
 assert.doesNotMatch(lockSource, /setRadio|setPrimarySimSlot|api\.reset/);
 assert.doesNotMatch(lockSource, /raw\s*at|\/dev\/|tty(?:USB|ACM)|cdc-wdm|dbus|sysfs/i);
 
+assert.ok(uiCss.includes('SPDX-License-Identifier: Apache-2.0'));
+for (const selector of [
+	'.fibocom-page .fibocom-kv-row.cbi-value',
+	'.fibocom-page .fibocom-form-row.cbi-value',
+	'.fibocom-page .fibocom-actions.cbi-page-actions',
+	'.fibocom-page .fibocom-cell-card',
+	'.fibocom-page .fibocom-sms-card'
+]) {
+	assert.ok(uiCss.includes(selector), `shared responsive CSS must style ${selector}`);
+}
+assert.match(uiCss,
+	/\.fibocom-page \.fibocom-sms-message\s*\{[\s\S]*?border-left:\s*\.25rem solid/,
+	'SMS bodies must have a distinct readable visual marker');
+assert.match(uiCss,
+	/\.fibocom-page \.fibocom-sms-message\s*\{[\s\S]*?width:\s*100%/,
+	'SMS bodies must use the full card width below their heading');
+assert.match(uiCss,
+	/\.fibocom-page \.fibocom-sms-number\s*\{[\s\S]*?cursor:\s*copy/,
+	'number-like SMS tokens must have a distinct copy affordance');
+assert.match(uiCss,
+	/\.fibocom-copy-buffer\s*\{[\s\S]*?opacity:\s*0/,
+	'HTTP LuCI sessions must retain a non-disruptive clipboard fallback');
+assert.match(uiCss,
+	/\.fibocom-page \.fibocom-compose-summary\s*\{[\s\S]*?cursor:\s*pointer/,
+	'Write SMS must expose an obvious collapsible summary control');
+assert.match(uiCss,
+	/\.fibocom-page \.fibocom-sms-delete-icon\s*\{[\s\S]*?position:\s*absolute[\s\S]*?width:\s*2\.75rem[\s\S]*?height:\s*2\.75rem/,
+	'the top-right trash action must retain an accessible 44px touch target');
+assert.match(uiCss,
+	/\.fibocom-page \.fibocom-sms-card-selected\s*\{[\s\S]*?background:/,
+	'selected SMS cards must have a visible theme-aware state');
+assert.ok(uiCss.includes('.fibocom-page .fibocom-sms-trash-glyph::before') &&
+	uiCss.includes('.fibocom-page .fibocom-sms-trash-glyph::after'),
+	'the delete action must render a theme-aware trash glyph without an emoji asset');
+assert.match(uiCss,
+	/\.fibocom-page \.fibocom-sms-list-actions\.cbi-page-actions\s*\{[\s\S]*?justify-content:\s*flex-start/,
+	'Delete all must remain at the left edge of the message toolbar');
+assert.match(uiCss,
+	/\.fibocom-page \.fibocom-sms-chat-list \.fibocom-sms-card\s*\{[\s\S]*?width:\s*min\(88%, 46rem\)/,
+	'conversation cards must use a compact responsive chat width');
+assert.match(uiCss, /@media screen and \(max-width: 600px\)/,
+	'the shared stylesheet must include a phone breakpoint');
+assert.match(uiCss,
+	/\.fibocom-page \.fibocom-scan-actions\.cbi-page-actions\s*\{[\s\S]*?margin-top:\s*\.75rem/,
+	'the PCI scan controls must retain space below the lock-status rows');
+assert.match(uiCss,
+	/@media screen and \(max-width: 600px\)[\s\S]*?\.fibocom-page \.fibocom-mode-choices\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/,
+	'phone mode choices must keep all three options on one row');
+assert.doesNotMatch(uiCss, /display\s*:\s*none|visibility\s*:\s*hidden|text-overflow\s*:\s*ellipsis/i,
+	'responsive CSS must reflow instead of hiding or truncating information');
+assert.doesNotMatch(uiCss, /desktop-only|mobile-only/i,
+	'the package must not maintain separate desktop/mobile information trees');
+
+for (const source of [ overviewSource, lockSource, smsSource ]) {
+	assert.doesNotMatch(source, /['"]style['"]\s*:/,
+		'view markup must not override LuCI themes with inline styles');
+	assert.doesNotMatch(source,
+		/\b(?:matchMedia|innerWidth|outerWidth|screen\.width|userAgent|maxTouchPoints)\b/,
+		'views must render one markup tree independent of viewport or device sniffing');
+	assert.doesNotMatch(source, /#[0-9a-f]{3,8}\b|rgba?\s*\(/i,
+		'view JavaScript must not hard-code theme colours');
+}
+assert.doesNotMatch(lockSource, /â|Ã|Â/,
+	'Lock UI source must not contain mojibake');
+
 for (const file of frontendSources) {
 	const source = fs.readFileSync(file, 'utf8');
 	assert.ok(!source.includes("_(' (active)')"));
@@ -924,16 +2017,42 @@ for (const retired of [
 }
 for (const text of [
 	'Overview', 'Lock', 'SMS', 'Band Lock', 'PCI/EARFCN Lock', 'Load more',
-	'Compose SMS', 'Delete SMS', '(active)', 'Tap line to use', 'Invert', 'Lock status',
-	'Locked', 'Unlocked', 'Any Supported bands', 'Supported LTE bands',
+	'Write SMS', 'Delete SMS', '(active)', 'Tap line to use', 'Invert', 'Lock status',
+	'Locked', 'Unlocked', 'Any Supported bands',
 	'Explicit LTE bands', 'Modem Info', 'Modem Status',
-	'Band and Cell Status', 'Signal Status'
+	'Band and Cell Status', 'Signal Status', 'Band Lock uses ModemManager',
+	'Messages are read, sent, and deleted through ModemManager.',
+	'Copy number', 'Number copied.',
+	'Unable to copy the number. Select it manually instead.',
+	'Back', 'Conversation', 'Delete all', 'Delete selected SMS',
+	'Hold a message to select it.', 'Selected'
 ]) {
 	assert.ok(pot.includes(`msgid "${text}"`),
 		`translation template must contain: ${text}`);
+}
+for (const removedText of [
+	'Selection reported by ModemManager', 'Current allowed mode families',
+	'Supported LTE bands', 'Current allowed mode', 'Current preferred mode',
+	'Compose SMS', 'Request-token capacity', 'Request-token maximum age (seconds)',
+	'Direction', 'Discharge timestamp', 'PDU type', 'Delivery state',
+	'Message reference', 'Storage', 'Binary data present',
+	'Messages are read, sent, and deleted through ModemManager. Recipient numbers and message text remain only in this authorized view and are never written to application logs.',
+	'Band Lock uses ModemManager SetCurrentBands. PCI/EARFCN Lock is an explicit expert build path; only an exact live-validated hardware and firmware tuple can use its fixed command state machine.'
+]) {
+	assert.ok(!pot.includes(`msgid "${removedText}"`),
+		`translation template must remove obsolete UI text: ${removedText}`);
 }
 assert.strictEqual(listFiles(appRoot).filter(function(file) {
 	return file.endsWith('.lua');
 }).length, 0, 'legacy Lua controllers and models are forbidden');
 
-console.log('luci-app-fibocom static checks: OK');
+testSmsInteractions()
+	.then(testSmsBulkDeletion)
+	.then(testSmsDeleteAllPreparation)
+	.then(testFocusedFolderPolling)
+	.then(function() {
+	console.log('luci-app-fibocom static checks: OK');
+}).catch(function(error) {
+	console.error(error && error.stack ? error.stack : error);
+	process.exitCode = 1;
+});

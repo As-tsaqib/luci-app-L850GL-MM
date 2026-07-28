@@ -320,7 +320,7 @@ function performModeMutation(controller, entry, state) {
 		return controller.refresh(true);
 	}
 	state.busy = 'modes';
-	state.result = { kind: 'notice', message: _('Mode policy change in progressâ€¦') };
+	state.result = { kind: 'notice', message: _('Mode policy change in progress…') };
 	controller.redraw();
 	return api.setModes(context.modemId, context.generation,
 		state.modeAllowed, state.modePreferred, true).then(function(result) {
@@ -374,36 +374,17 @@ function confirmMutation(title, warning, actionLabel, action) {
 	]);
 }
 
-function modeAllowedLabel(value) {
-	if (value === '3g')
-		return _('3G only');
-	if (value === '4g')
-		return _('4G only');
-	return _('3G / 4G');
-}
-
-function modePreferredLabel(value) {
-	if (value === '3g')
-		return _('Prefer 3G');
-	if (value === '4g')
-		return _('Prefer 4G');
-	return _('No preference');
-}
-
 function modeChoices(controller, state, index, name, choices, selected,
 	canMutate, onChange, additionallyDisabled) {
-	return E('div', {
-		'class': 'fibocom-mode-choices',
-		'style': 'display:grid;grid-template-columns:repeat(auto-fit,minmax(8rem,1fr));gap:.45em .75em;width:100%'
-	}, choices.map(function(choice, choiceIndex) {
+	return E('div', { 'class': 'fibocom-mode-choices' }, choices.map(function(choice, choiceIndex) {
 		const id = 'fibocom-' + name + '-' + index + '-' + choiceIndex;
 
 		return E('label', {
 			'for': id,
-			'style': 'display:flex;align-items:center;gap:.35em;white-space:nowrap'
+			'class': 'fibocom-choice'
 		}, [
 			E('input', {
-				'id': id, 'type': 'radio',
+				'id': id, 'class': 'cbi-input-radio', 'type': 'radio',
 				'name': 'fibocom-' + name + '-policy-' + index,
 				'value': choice.value,
 				'checked': selected === choice.value ? '' : null,
@@ -420,6 +401,8 @@ function modeChoices(controller, state, index, name, choices, selected,
 function renderModePolicy(controller, entry, state, index) {
 	const policy = widgets.object(entry.lock.mode_policy);
 	const canMutate = modeMutationContext(entry) !== null;
+	const allowedTitleId = 'fibocom-allowed-mode-title-' + index;
+	const preferredTitleId = 'fibocom-preferred-mode-title-' + index;
 	const allowedChoices = [
 		{ value: '3g|4g', label: _('3G / 4G') },
 		{ value: '3g', label: _('3G only') },
@@ -431,11 +414,9 @@ function renderModePolicy(controller, entry, state, index) {
 		{ value: '4g', label: _('Prefer 4G') }
 	];
 	const children = [
-		E('h4', {}, [ _('Allowed and preferred mode') ]),
-		widgets.keyValueTable([
-			[ _('Capability'), widgets.badge(policy.state, policy.state) ],
-			[ _('Allowed mode'), modeAllowedLabel(policy.allowed) ],
-			[ _('Preferred mode'), modePreferredLabel(policy.preferred) ]
+		E('h4', { 'class': 'fibocom-panel-title' }, [ _('Allowed and preferred mode') ]),
+		widgets.keyValueList([
+			[ _('Capability'), widgets.badge(policy.state, policy.state) ]
 		])
 	];
 
@@ -444,9 +425,16 @@ function renderModePolicy(controller, entry, state, index) {
 			_('Persistent mode selection is unavailable: %s').format(
 				widgets.display(policy.reason, _('unknown reason')))
 		]));
-	children.push(E('div', { 'class': 'cbi-value' }, [
-		E('div', { 'class': 'cbi-value-title' }, [ _('Allowed mode') ]),
-		E('div', { 'class': 'cbi-value-field' }, [
+	children.push(E('div', { 'class': 'cbi-value fibocom-form-row' }, [
+		E('div', {
+			'id': allowedTitleId,
+			'class': 'cbi-value-title'
+		}, [ _('Allowed mode') ]),
+		E('div', {
+			'class': 'cbi-value-field',
+			'role': 'group',
+			'aria-labelledby': allowedTitleId
+		}, [
 			modeChoices(controller, state, index, 'allowed-mode',
 				allowedChoices, state.modeAllowed, canMutate, function(value) {
 					state.modeAllowed = value;
@@ -457,9 +445,16 @@ function renderModePolicy(controller, entry, state, index) {
 				}, false)
 		])
 	]));
-	children.push(E('div', { 'class': 'cbi-value' }, [
-		E('div', { 'class': 'cbi-value-title' }, [ _('Preferred mode') ]),
-		E('div', { 'class': 'cbi-value-field' }, [
+	children.push(E('div', { 'class': 'cbi-value fibocom-form-row' }, [
+		E('div', {
+			'id': preferredTitleId,
+			'class': 'cbi-value-title'
+		}, [ _('Preferred mode') ]),
+		E('div', {
+			'class': 'cbi-value-field',
+			'role': 'group',
+			'aria-labelledby': preferredTitleId
+		}, [
 			modeChoices(controller, state, index, 'preferred-mode',
 				preferredChoices, state.modePreferred, canMutate, function(value) {
 					state.modePreferred = value;
@@ -469,8 +464,7 @@ function renderModePolicy(controller, entry, state, index) {
 		])
 	]));
 	children.push(E('div', {
-		'class': 'cbi-page-actions fibocom-mode-actions',
-		'style': 'display:flex;justify-content:flex-end;clear:both'
+		'class': 'cbi-page-actions fibocom-actions fibocom-mode-actions'
 	}, [
 		E('button', {
 			'class': 'btn cbi-button cbi-button-action', 'type': 'button',
@@ -482,9 +476,11 @@ function renderModePolicy(controller, entry, state, index) {
 						return performModeMutation(controller, entry, state);
 					});
 			}
-		}, [ state.busy === 'modes' ? _('Applyingâ€¦') : _('Apply mode selection') ])
+		}, [ state.busy === 'modes' ? _('Applying…') : _('Apply mode selection') ])
 	]));
-	return E('div', { 'class': 'cbi-section fibocom-mode-policy' }, children);
+	return E('div', {
+		'class': 'cbi-section fibocom-panel fibocom-mode-policy'
+	}, children);
 }
 
 function bandLabel(band) {
@@ -531,6 +527,15 @@ function friendlyBandSummary(bands) {
 	}).join(' | ');
 }
 
+function friendlyBandList(bands) {
+	const labels = [];
+
+	groupedBands(bands).forEach(function(group) {
+		group.entries.forEach(function(entry) { labels.push(entry.label); });
+	});
+	return labels.join(', ');
+}
+
 function sameBandSet(left, right) {
 	if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length)
 		return false;
@@ -544,33 +549,33 @@ function currentBandSummary(lock, current, supported) {
 	if (lock.band_selection === 'automatic' || current.indexOf('any') !== -1 ||
 	    sameBandSet(current, supported))
 		return _('Any Supported bands');
-	return friendlyBandSummary(current);
+	const lte = current.filter(function(band) { return /^eutran-[0-9]+$/.test(band); });
+
+	return lte.length ? friendlyBandList(lte) : friendlyBandSummary(current);
+}
+
+function currentBandIsAutomatic(lock, current, supported) {
+	return lock.band_selection === 'automatic' || current.indexOf('any') !== -1 ||
+		sameBandSet(current, supported);
 }
 
 function bandCheckboxGrid(controller, state, index, supported, canMutate) {
-	return E('div', {
-		'class': 'fibocom-band-groups',
-		'style': 'display:grid;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr));gap:.75em;margin-top:.75em;width:100%'
-	}, groupedBands(supported).map(function(group) {
+	return E('div', { 'class': 'fibocom-band-groups' }, groupedBands(supported).map(function(group) {
 		return E('div', {
-			'class': 'fibocom-band-group',
-			'style': 'min-width:0;padding:.65em;box-sizing:border-box;border:1px solid rgba(128,128,128,.25);border-radius:.35em'
+			'class': 'cbi-section-node fibocom-band-group'
 		}, [
-			E('div', { 'style': 'font-weight:600;margin-bottom:.35em' }, [ group.title ]),
-			E('div', {
-				'class': 'fibocom-band-checkboxes',
-				'style': 'display:grid;grid-template-columns:repeat(auto-fill,minmax(4.5rem,1fr));gap:.45em .75em;width:100%'
-			}, group.entries.map(function(entry) {
+			E('div', { 'class': 'fibocom-band-group-title' }, [ group.title ]),
+			E('div', { 'class': 'fibocom-band-checkboxes' }, group.entries.map(function(entry) {
 				const band = entry.value;
 				const bandIndex = supported.indexOf(band);
 				const id = 'fibocom-band-' + index + '-' + bandIndex;
 
 				return E('label', {
 					'for': id,
-					'style': 'display:flex;align-items:center;gap:.35em;white-space:nowrap'
+					'class': 'fibocom-band-choice'
 				}, [
 					E('input', {
-						'id': id, 'type': 'checkbox',
+						'id': id, 'class': 'cbi-input-checkbox', 'type': 'checkbox',
 						'checked': state.selectedBands[band] ? '' : null,
 						'disabled': !canMutate || state.busy || state.bandAutomatic ? '' : null,
 						'change': function(event) {
@@ -608,18 +613,16 @@ function renderBandLock(controller, entry, state, index) {
 	});
 	const canMutate = bandMutationContext(entry) !== null;
 	const currentSummary = currentBandSummary(lock, current, supported);
+	const currentAutomatic = currentBandIsAutomatic(lock, current, supported);
 	const automaticId = 'fibocom-band-any-' + index;
 	const explicitId = 'fibocom-band-explicit-' + index;
+	const requestedTitleId = 'fibocom-requested-bands-title-' + index;
 	const children = [
-		E('h4', {}, [ _('Band Lock') ]),
-		widgets.keyValueTable([
+		E('h4', { 'class': 'fibocom-panel-title' }, [ _('Band Lock') ]),
+		widgets.keyValueList([
 			[ _('Capability'), widgets.badge(capability.state, capability.state) ],
-			[ _('Reason'), capability.reason ],
-			[ _('Selection reported by ModemManager'), lock.band_selection ],
-			[ _('Current bands'), currentSummary ],
-			[ _('Supported LTE bands'), friendlyBandSummary(lockableBands) ],
-			[ _('Current allowed mode families'), lock.current_modes.allowed ],
-			[ _('Current preferred mode'), lock.current_modes.preferred ]
+			[ _('Current bands'), widgets.badge(currentSummary,
+				currentAutomatic ? 'available' : 'notice') ]
 		])
 	];
 
@@ -628,40 +631,49 @@ function renderBandLock(controller, entry, state, index) {
 			_('Band mutation is unavailable for this snapshot. The bridge will not use a vendor-command fallback.')
 		]));
 	}
-	children.push(E('div', { 'class': 'cbi-value' }, [
-		E('div', { 'class': 'cbi-value-title' }, [ _('Requested bands') ]),
-		E('div', { 'class': 'cbi-value-field' }, [
-			E('label', { 'for': automaticId }, [
-				E('input', {
-					'id': automaticId, 'name': 'fibocom-band-policy-' + index,
-					'type': 'radio', 'checked': state.bandAutomatic ? '' : null,
-					'disabled': !canMutate || state.busy ? '' : null,
-					'change': function() {
-						state.bandAutomatic = true;
-						state.bandDirty = true;
-						controller.redraw();
-					}
-				}), ' ', _('Any supported band (automatic)')
-			]),
-			E('br'),
-			E('label', { 'for': explicitId }, [
-				E('input', {
-					'id': explicitId, 'name': 'fibocom-band-policy-' + index,
-					'type': 'radio', 'checked': !state.bandAutomatic ? '' : null,
-					'disabled': !canMutate || state.busy ? '' : null,
-					'change': function() {
-						state.bandAutomatic = false;
-						state.bandDirty = true;
-						controller.redraw();
-					}
-				}), ' ', _('Explicit LTE bands')
+	children.push(E('div', { 'class': 'cbi-value fibocom-form-row' }, [
+		E('div', {
+			'id': requestedTitleId,
+			'class': 'cbi-value-title'
+		}, [ _('Requested bands') ]),
+		E('div', {
+			'class': 'cbi-value-field',
+			'role': 'group',
+			'aria-labelledby': requestedTitleId
+		}, [
+			E('div', { 'class': 'fibocom-choice-list' }, [
+				E('label', { 'for': automaticId, 'class': 'fibocom-choice' }, [
+					E('input', {
+						'id': automaticId, 'name': 'fibocom-band-policy-' + index,
+						'class': 'cbi-input-radio', 'type': 'radio',
+						'checked': state.bandAutomatic ? '' : null,
+						'disabled': !canMutate || state.busy ? '' : null,
+						'change': function() {
+							state.bandAutomatic = true;
+							state.bandDirty = true;
+							controller.redraw();
+						}
+					}), ' ', _('Any supported band (automatic)')
+				]),
+				E('label', { 'for': explicitId, 'class': 'fibocom-choice' }, [
+					E('input', {
+						'id': explicitId, 'name': 'fibocom-band-policy-' + index,
+						'class': 'cbi-input-radio', 'type': 'radio',
+						'checked': !state.bandAutomatic ? '' : null,
+						'disabled': !canMutate || state.busy ? '' : null,
+						'change': function() {
+							state.bandAutomatic = false;
+							state.bandDirty = true;
+							controller.redraw();
+						}
+					}), ' ', _('Explicit LTE bands')
+				])
 			]),
 			bandCheckboxGrid(controller, state, index, lockableBands, canMutate)
 		])
 	]));
 	children.push(E('div', {
-		'class': 'cbi-page-actions fibocom-band-actions',
-		'style': 'display:flex;align-items:center;justify-content:flex-end;gap:.5em;flex-wrap:wrap'
+		'class': 'cbi-page-actions fibocom-actions fibocom-band-actions'
 	}, [
 		E('button', {
 			'class': 'btn cbi-button cbi-button-neutral', 'type': 'button',
@@ -686,7 +698,9 @@ function renderBandLock(controller, entry, state, index) {
 			}
 		}, [ state.busy === 'bands' ? _('Applying…') : _('Apply band selection') ])
 	]));
-	return E('div', { 'class': 'cbi-section' }, children);
+	return E('div', {
+		'class': 'cbi-section fibocom-panel fibocom-band-lock'
+	}, children);
 }
 
 function validateCellInput(state) {
@@ -791,10 +805,10 @@ function cellLockStatusValue(observed) {
 		];
 
 		return E('div', {
-			'style': 'display:flex;align-items:center;gap:.5em;flex-wrap:wrap;min-width:0'
+			'class': 'fibocom-lock-status'
 		}, [
 			widgets.badge(_('Locked'), 'warning'),
-			E('span', { 'style': 'overflow-wrap:anywhere' }, [ details.join(' · ') ])
+			E('span', { 'class': 'fibocom-lock-status-detail' }, [ details.join(' · ') ])
 		]);
 	}
 	return widgets.badge(_('Unavailable'), 'unavailable');
@@ -822,45 +836,24 @@ function selectScanCell(controller, state, cell) {
 }
 
 function scanCardField(label, value) {
-	return E('div', {
-		'class': 'fibocom-cell-card-field',
-		'style': 'min-width:0;text-align:center;padding:.2em .1em;overflow:hidden'
-	}, [
-		E('div', {
-			'style': 'font-size:.72em;line-height:1.2;opacity:.72;white-space:nowrap'
-		}, [ label ]),
-		E('div', {
-			'style': 'font-size:.88em;line-height:1.35;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'
-		}, [ widgets.display(value) ])
+	return E('span', { 'class': 'fibocom-cell-card-field' }, [
+		E('span', { 'class': 'fibocom-cell-card-label' }, [ label ]),
+		E('span', { 'class': 'fibocom-cell-card-value' }, [ widgets.display(value) ])
 	]);
 }
 
 function renderScanResults(controller, state, cells) {
-	return E('div', {
-		'class': 'fibocom-cell-cards',
-		'style': 'display:grid;grid-template-columns:repeat(auto-fit,minmax(18rem,1fr));gap:.65em;width:100%;margin:.75em 0'
-	}, cells.map(function(cell) {
+	return E('div', { 'class': 'fibocom-cell-cards' }, cells.map(function(cell) {
 		const selected = state.earfcn === String(cell.earfcn) &&
 			state.pci === String(cell.pci);
 
-		return E('div', {
-			'class': 'fibocom-cell-card',
-			'role': 'button',
-			'tabindex': state.busy ? null : 0,
+		return E('button', {
+			'class': 'cbi-section-node fibocom-cell-card',
+			'type': 'button',
 			'aria-pressed': selected ? 'true' : 'false',
 			'title': _('Tap line to use'),
-			'style': 'display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.25em;align-items:center;min-width:0;padding:.55em .45em;box-sizing:border-box;border:1px solid %s;border-radius:.55em;background-color:%s;box-shadow:%s;cursor:%s'.format(
-				selected ? '#1e90ff' : 'rgba(128,128,128,.3)',
-				selected ? 'rgba(30,144,255,.13)' : 'rgba(128,128,128,.045)',
-				selected ? '0 0 0 1px rgba(30,144,255,.22)' : '0 1px 3px rgba(0,0,0,.12)',
-				state.busy ? 'default' : 'pointer'),
-			'click': function() { selectScanCell(controller, state, cell); },
-			'keydown': function(event) {
-				if (event.key !== 'Enter' && event.key !== ' ')
-					return;
-				event.preventDefault();
-				selectScanCell(controller, state, cell);
-			}
+			'disabled': state.busy ? '' : null,
+			'click': function() { selectScanCell(controller, state, cell); }
 		}, [
 			scanCardField(_('Band'), lteBandLabel(cell.band)),
 			scanCardField(_('EARFCN'), cell.earfcn),
@@ -928,8 +921,8 @@ function renderPciLock(controller, entry, state, index) {
 	const earfcnId = 'fibocom-earfcn-' + index;
 	const pciId = 'fibocom-pci-' + index;
 	const children = [
-		E('h4', {}, [ _('PCI/EARFCN Lock') ]),
-		widgets.keyValueTable([
+		E('h4', { 'class': 'fibocom-panel-title' }, [ _('PCI/EARFCN Lock') ]),
+		widgets.keyValueList([
 			[ _('Capability'), widgets.badge(status.state, status.state) ],
 			[ _('Scan capability'), widgets.badge(scan.state, scan.state) ],
 			[ _('Lock status'), cellLockStatusValue(observed) ]
@@ -944,46 +937,33 @@ function renderPciLock(controller, entry, state, index) {
 		]));
 	}
 	children.push(E('div', {
-		'class': 'cbi-page-actions',
-		'style': 'display:flex;align-items:center;justify-content:flex-start;gap:.75em;flex-wrap:wrap'
+		'class': 'cbi-page-actions fibocom-actions fibocom-scan-actions'
 	}, [
 		E('button', {
 			'class': 'btn cbi-button cbi-button-neutral', 'type': 'button',
 			'disabled': !canScan || state.busy ? '' : null,
 			'click': function() { return performScan(controller, entry, state); }
 		}, [ state.busy === 'scan' ? _('Scanning…') : _('Scan cells') ]),
-		E('span', {
-			'class': 'fibocom-scan-hint',
-			'style': 'color:#1e90ff;font-weight:600'
-		}, [ _('Tap line to use') ])
+		E('span', { 'class': 'fibocom-scan-hint' }, [ _('Tap line to use') ])
 	]));
 	if (cells.length) {
 		children.push(renderScanResults(controller, state, cells));
 	}
 	children.push(E('div', {
-		'class': 'fibocom-cell-input-grid',
-		'style': 'display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5em .75em;width:100%;max-width:33rem;margin:.9em 0 1em;padding:.75em;box-sizing:border-box;border:1px solid rgba(128,128,128,.28);border-radius:.35em;clear:both'
+		'class': 'fibocom-cell-input-grid'
 	}, [
-		E('div', { 'class': 'fibocom-cell-input', 'style': 'min-width:0' }, [
-			E('label', {
-				'for': earfcnId,
-				'style': 'display:block;font-weight:600;margin-bottom:.25em'
-			}, [ _('EARFCN') ]),
+		E('div', { 'class': 'fibocom-cell-input' }, [
+			E('label', { 'for': earfcnId }, [ _('EARFCN') ]),
 			E('div', {}, [ E('input', {
 				'id': earfcnId, 'class': 'cbi-input-text', 'type': 'number', 'min': 0,
-				'style': 'width:100%;max-width:none;box-sizing:border-box',
 				'value': state.earfcn, 'disabled': !canMutate || state.busy ? '' : null,
 				'input': function(event) { state.earfcn = event.target.value; }
 			}) ])
 		]),
-		E('div', { 'class': 'fibocom-cell-input', 'style': 'min-width:0' }, [
-			E('label', {
-				'for': pciId,
-				'style': 'display:block;font-weight:600;margin-bottom:.25em'
-			}, [ _('PCI (optional)') ]),
+		E('div', { 'class': 'fibocom-cell-input' }, [
+			E('label', { 'for': pciId }, [ _('PCI (optional)') ]),
 			E('div', {}, [ E('input', {
 				'id': pciId, 'class': 'cbi-input-text', 'type': 'number', 'min': 0, 'max': 503,
-				'style': 'width:100%;max-width:none;box-sizing:border-box',
 				'value': state.pci, 'disabled': !canMutate || state.busy ? '' : null,
 				'input': function(event) { state.pci = event.target.value; }
 			}) ])
@@ -992,8 +972,7 @@ function renderPciLock(controller, entry, state, index) {
 	if (inputError && (state.earfcn !== '' || state.pci !== ''))
 		children.push(E('div', { 'class': 'alert-message warning' }, [ inputError ]));
 	children.push(E('div', {
-		'class': 'cbi-page-actions fibocom-cell-actions',
-		'style': 'display:flex;align-items:center;justify-content:flex-end;gap:.5em;flex-wrap:wrap;clear:both;margin-top:.75em'
+		'class': 'cbi-page-actions fibocom-actions fibocom-cell-actions'
 	}, [
 		E('button', {
 			'class': 'btn cbi-button cbi-button-action', 'type': 'button',
@@ -1029,17 +1008,19 @@ function renderPciLock(controller, entry, state, index) {
 			}
 		}, [ _('Clear cell lock') ])
 	]));
-	return E('div', { 'class': 'cbi-section' }, children);
+	return E('div', { 'class': 'cbi-section fibocom-panel' }, children);
 }
 
 function renderDevice(controller, entry, index) {
 	const error = widgets.lockError(entry.lock, entry.summary);
 	const state = stateFor(entry.summary.modem_id);
-	const children = [ E('h3', {}, [ widgets.activeLabel(entry.summary.model, true) ]) ];
+	const children = [ E('h3', { 'class': 'fibocom-device-title' }, [
+		widgets.activeLabel(entry.summary.model, true)
+	]) ];
 
 	if (error) {
 		children.push(widgets.errorPanel(error));
-		return E('div', { 'class': 'cbi-section' }, children);
+		return E('div', { 'class': 'cbi-section fibocom-device' }, children);
 	}
 	synchronizeState(entry, state);
 	const panel = statusPanel(state.result);
@@ -1049,7 +1030,7 @@ function renderDevice(controller, entry, index) {
 	children.push(renderModePolicy(controller, entry, state, index));
 	children.push(renderBandLock(controller, entry, state, index));
 	children.push(renderPciLock(controller, entry, state, index));
-	return E('div', { 'class': 'cbi-section' }, children);
+	return E('div', { 'class': 'cbi-section fibocom-device' }, children);
 }
 
 function renderSnapshots(snapshot, controller) {
@@ -1069,6 +1050,26 @@ function renderSnapshots(snapshot, controller) {
 	return controller.result ? E('div', {}, [ statusPanel(controller.result), content ]) : content;
 }
 
+function editorHasFocus(content) {
+	if (typeof document === 'undefined' || !content || typeof content.contains !== 'function')
+		return false;
+
+	const active = document.activeElement;
+	const tag = active && String(active.tagName || '').toLowerCase();
+
+	return content.contains(active) && [ 'input', 'select', 'textarea' ].indexOf(tag) !== -1;
+}
+
+function redrawAfterEditorBlur(controller) {
+	if (typeof window === 'undefined' || typeof window.setTimeout !== 'function')
+		return;
+
+	window.setTimeout(function() {
+		if (controller.redrawPending && !editorHasFocus(controller.content))
+			controller.redraw();
+	}, 0);
+}
+
 return view.extend({
 	load: loadSnapshots,
 
@@ -1078,7 +1079,9 @@ return view.extend({
 			content: null,
 			result: null,
 			refreshEpoch: 0,
+			redrawPending: false,
 			redraw: function() {
+				this.redrawPending = false;
 				if (this.content)
 					dom.content(this.content, renderSnapshots(this.snapshot, this));
 			},
@@ -1089,23 +1092,33 @@ return view.extend({
 					if (epoch !== controller.refreshEpoch)
 						return null;
 					controller.snapshot = next;
-					if (force !== false)
+					if (force || !editorHasFocus(controller.content)) {
 						controller.redraw();
+					}
+					else {
+						controller.redrawPending = true;
+					}
 					return next;
 				});
 			}
 		};
 
-		controller.content = E('div', { 'id': 'fibocom-lock' }, [
+		controller.content = E('div', {
+			'id': 'fibocom-lock',
+			'focusout': function() {
+				redrawAfterEditorBlur(controller);
+			}
+		}, [
 			renderSnapshots(snapshot, controller)
 		]);
 		poll.add(function() {
-			return controller.refresh(true);
+			return controller.refresh(false);
 		}, 10);
-		return E('div', { 'class': 'cbi-map' }, [
+		return E('div', { 'class': 'cbi-map fibocom-page fibocom-lock-page' }, [
+			widgets.stylesheet(),
 			E('h2', {}, [ _('Lock') ]),
 			E('div', { 'class': 'cbi-map-descr' }, [
-				_('Band Lock uses ModemManager SetCurrentBands. PCI/EARFCN Lock is an explicit expert build path; only an exact live-validated hardware and firmware tuple can use its fixed command state machine.')
+				_('Band Lock uses ModemManager')
 			]),
 			controller.content
 		]);

@@ -19,6 +19,36 @@ does not claim every L850 firmware or OpenWrt release. SMS send/delete and
 radio/band/SIM-slot mutations were not exercised. The historical eSIM probe is
 retained only as provenance for a package retired in 0.3.
 
+## Pending 0.4.0-r2 scan-cooldown acceptance, 2026-07-28
+
+The 0.4.0-r2 package candidate changes only expert scan admission: at most one
+scan may be active per modem, and a five-second cooldown begins when that scan
+finishes. Its source contract retains the 45-second timeout, cancellation,
+generation checks, shared mutation exclusion, and 64-cell/16-KiB bounds. This
+candidate has not yet been CI-built, installed, or live-validated. The steps
+below are an acceptance plan, not observed evidence.
+
+The approved read-only validation sequence is:
+
+1. verify CI artifact checksums, target architecture, package release, schema,
+   and the exact base/expert method tables before installation;
+2. record only normalized pre-test Overview and cell-lock state, without opaque
+   IDs, raw cells, subscriber data, or network addressing;
+3. start one typed `cell_scan` and issue a second request while it remains
+   active; require exactly one dispatched success path and a retryable `busy`
+   rejection without `retry_after_ms` for the overlap;
+4. after completion, require immediate retryable `rate_limited` responses whose
+   ceil-rounded `retry_after_ms` decreases without being reset by rejection;
+5. run sequential scans only after five seconds have elapsed from each prior
+   completion, then verify no overlap, normalized errors, or unbounded result;
+6. confirm the PCI lock observation, current bands, modem registration, bearer,
+   and service health are unchanged, and inspect sanitized warning/error counts.
+
+No set/clear/reset, Band Lock, mode, or SMS mutation is part of this acceptance.
+CI run IDs, source commit, artifact checksums, installed releases, timing
+observations, and the sanitized result matrix must be added only after those
+events actually complete.
+
 ## Environment
 
 | Item | Observed value |

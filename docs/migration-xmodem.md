@@ -44,7 +44,7 @@ identifiers, phone numbers, SMS, credentials, or activation codes.
 
 ## Install 0.4.0
 
-Install matching 0.4.0-r1 packages:
+Install matching 0.4.0-r2 packages:
 
 ```text
 fibocom-mm-bridge

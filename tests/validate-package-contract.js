@@ -40,7 +40,7 @@ for (const retired of [
 
 const bridgeMakefile = read('fibocom-mm-bridge/Makefile');
 assert.match(bridgeMakefile, /^PKG_VERSION:=0\.4\.0$/m);
-assert.match(bridgeMakefile, /^PKG_RELEASE:=1$/m);
+assert.match(bridgeMakefile, /^PKG_RELEASE:=2$/m);
 assert.match(bridgeMakefile, /PKG_BUILD_DEPENDS:=modemmanager\b/);
 assert.match(bridgeMakefile, /PKG_LICENSE:=GPL-2\.0-or-later/);
 for (const dependency of [ 'modemmanager', 'glib2', 'libubox', 'libubus', 'libuci' ])
@@ -65,6 +65,7 @@ const sourceWithoutNetworkBinding = sourceFiles.filter(function(file) {
 	return path.basename(file) !== 'network_binding.c';
 }).map(read).join('\n');
 const l850CellSource = read('fibocom-mm-bridge/src/l850_cell.c');
+const l850CellHeader = read('fibocom-mm-bridge/src/l850_cell.h');
 const sourceWithoutL850Grammar = sourceFiles.filter(function(file) {
 	return path.basename(file) !== 'l850_cell.c';
 }).map(read).join('\n');
@@ -203,6 +204,14 @@ assert.match(ubusSource, /mm_modem_get_cell_info_finish\s*\(/);
 assert.match(ubusSource, /l850_scan_stale_code\s*\(/,
 	'expert scan callbacks must reject a removed or stale modem generation');
 assert.match(ubusSource, /L850_SCAN_OPERATION_TIMEOUT_SECONDS/);
+assert.match(l850CellHeader,
+	/#define FIBOCOM_L850_CELL_SCAN_COOLDOWN_SECONDS 5U/,
+	'expert cell scan cooldown must be exactly five seconds');
+assert.match(ubusSource,
+	/operation->modem->l850_last_scan_completed_at\s*=\s*\n?\s*g_get_monotonic_time\(\)/,
+	'expert cell scan cooldown must start only from common completion');
+assert.match(ubusSource, /l850_modem_has_active_scan\s*\(/,
+	'expert cell scan must enforce one active scan per modem');
 assert.match(ubusSource, /standard-modemmanager-get-cell-info/);
 assert.match(ubusSource, /fibocom_l850_nvm_parse\s*\(/);
 assert.match(ubusSource, /FIBOCOM_L850_STATE_APPLIED_VERIFIED|applied_verified/);
@@ -219,6 +228,12 @@ assert.ok(scanMethodStart > 0 && scanMethodEnd > scanMethodStart,
 	'the concrete cell_scan implementation must be discoverable');
 const scanMethod = ubusSource.slice(scanMethodStart, scanMethodEnd);
 assert.match(scanMethod, /mm_modem_get_cell_info\s*\(/);
+assert.match(scanMethod,
+	/if \(l850_modem_has_active_scan\(ubus, modem\)\)[\s\S]*?"busy"/,
+	'an overlapping per-modem scan must fail as busy before dispatch');
+assert.doesNotMatch(scanMethod,
+	/l850_last_scan_completed_at\s*=\s*now/,
+	'the cell scan cooldown must not start when a scan is dispatched');
 assert.doesNotMatch(scanMethod, /l850_firmware_allowed\s*\(/,
 	'standard GetCellInfo must be attempted before any unavailable vendor fallback');
 assert.match(ubusSource, /operation->dispatched\s*=\s*TRUE/,
@@ -295,7 +310,7 @@ assert.match(init, /command "\$PROG" --foreground/);
 
 const luciMakefile = read('luci-app-fibocom/Makefile');
 assert.match(luciMakefile, /^PKG_VERSION:=0\.4\.0$/m);
-assert.match(luciMakefile, /^PKG_RELEASE:=1$/m);
+assert.match(luciMakefile, /^PKG_RELEASE:=2$/m);
 assert.match(luciMakefile, /^LUCI_URL:=https:\/\/github\.com\/As-tsaqib\/luci-app-fibocom$/m);
 assert.match(luciMakefile, /^LUCI_MAINTAINER:=As Tsaqib <[^>]+>$/m);
 for (const dependency of [

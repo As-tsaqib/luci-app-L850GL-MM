@@ -4,7 +4,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_VERSION:=0.4.0
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 
 LUCI_TITLE:=LuCI companion for Fibocom modems managed by ModemManager
 LUCI_DESCRIPTION:=Minimal Fibocom Overview, Lock, and SMS UI backed by ModemManager

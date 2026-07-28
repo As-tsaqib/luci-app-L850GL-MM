@@ -14,6 +14,12 @@ have `schema: 3`, a valid envelope, and the expected object identity;
 otherwise the UI shows a compatibility/malformed-response error and disables
 mutations.
 
+All three views use the same native LuCI `cbi-*` structure and one scoped,
+theme-neutral responsive stylesheet. Desktop and phone layouts reflow the
+same DOM and retain the same status fields, controls, and actions; no
+viewport-specific JavaScript or hidden mobile/desktop copy is used. Focused
+Lock and SMS editors are preserved across the ten-second poll.
+
 The base methods are exactly:
 
 ```text
@@ -30,13 +36,17 @@ section discovers the optional `fibocom.mm.l850` expert object through its
 status call. It remains disabled on the base build. In an expert build,
 standard cell scan is independently gated from mutation. The exact
 live-validated firmware can use the fixed set/clear/reprobe/verification state
-machine; all other firmware remains fail-closed.
+machine; all other firmware remains fail-closed. Expert scans are single-flight
+per modem with a five-second cooldown beginning only after completion.
 
 SMS polls the backend cache every 10 seconds and exposes All, Inbox, Outbox,
 Draft, and Unknown. Each backend page is at most 100 messages; Load more follows
 the opaque `next_cursor` so messages beyond the first page remain visible.
 Focused compose input is preserved across polling. Send uses a browser CSPRNG
-token and delete requires a confirmation modal.
+token and delete requires a confirmation modal. Numeric tokens are copyable;
+a tap opens an exact-number conversation and a long press selects cards.
+Selected and folder-wide deletion reuse the single-message API sequentially
+and stop on the first unconfirmed result.
 
 The exact ACL groups are:
 

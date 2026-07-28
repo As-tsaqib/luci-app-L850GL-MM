@@ -36,7 +36,10 @@ the small amount of state required by the UI, and publishes one base ubus
 object. The optional expert object is compiled and registered only behind
 `FIBOCOM_MM_L850_EXPERT`.
 
-The LuCI package contains three views and one shared RPC/validation module.
+The LuCI package contains three views, one shared RPC/validation module, and
+one scoped responsive stylesheet. Each view renders a single native LuCI
+`cbi-*` information tree; CSS reflows that same tree for desktop and phone
+widths without hiding fields or creating viewport-specific browser logic.
 Views never declare ad-hoc RPC calls. Every view polls its typed snapshot every
 10 seconds; cell scan is the exception and runs only after a button press.
 

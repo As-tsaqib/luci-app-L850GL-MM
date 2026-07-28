@@ -164,6 +164,12 @@ new code.
   UTRAN preservation, validated Serving Cell cache, and SMS read metadata were
   exercised with netifd/bearer recovery. The existing PCI configuration was
   observed but not mutated; no SMS write was run.
+- 2026-07-28: the 0.4.0-r2 source candidate changes expert scan admission to
+  one active scan per modem and starts a five-second cooldown only at terminal
+  completion. Active overlap is retryable `busy` without an invented duration;
+  cooldown rejection reports a ceil-rounded `retry_after_ms` and does not move
+  the deadline. CI build, package installation, and repeated live-scan evidence
+  remain pending and are not inferred from the earlier 0.4.0-r1 scan.
 
 Historical v0.2 schema-1 results remain explicitly labeled and are not
 rewritten as schema-2 package evidence. Firmware command-level live evidence

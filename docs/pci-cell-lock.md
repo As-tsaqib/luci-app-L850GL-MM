@@ -28,6 +28,12 @@ identities and verified postconditions; an authorized HTTP `/ubus` session also
 returned the typed expert status. Interactive browser rendering remains a
 separate UI observation, not a blocker on the verified backend state machine.
 
+The five-second completion-based scan cooldown and per-modem scan single-flight
+policy described below are implemented in the 0.4.0-r2 package candidate.
+They have not yet been CI-built, installed, or exercised on the router; the
+installed 0.4.0-r1 scan evidence above must not be used to claim that cadence or
+overlap behavior live-verified.
+
 ## 4PDA community evidence
 
 The public [Fibocom L8x0-GL discussion](https://4pda.to/forum/index.php?showtopic=1066668)
@@ -118,7 +124,9 @@ requires a new snapshot and confirmation.
 
 - top-level `state`, `mutable`, and `reason` describe set/clear mutation;
 - nested `scan` describes whether a button-driven standard GetCellInfo attempt
-  is currently available, busy, not ready, or rate limited.
+  is currently available, busy, not ready, or rate limited. An active scan is
+  `busy`; because its completion cannot be predicted, that state has no
+  `retry_after_ms`.
 
 Unsupported firmware makes mutation `unsupported_firmware` while standard scan
 may still be advertised. On the exact allowlisted firmware, `cell_lock_status`
@@ -129,9 +137,17 @@ serving-cell postcondition.
 ## Standard scan path
 
 `cell_scan` first calls asynchronous libmm-glib `mm_modem_get_cell_info()`.
-It is limited to one attempt per modem every 60 seconds, blocked while another
-per-modem mutation is active, cancelled with the modem/ubus lifetime, and timed
-out after 45 seconds.
+Exactly one scan may be active per modem. A concurrent request fails as
+retryable `busy` before another operation is dispatched. Scan remains blocked
+while another per-modem mutation is active, cancelled with the modem/ubus
+lifetime, and timed out after 45 seconds.
+
+Terminal completion starts a five-second per-modem cooldown for successful,
+failed, timed-out, or cancelled scans. During that window a request fails as
+retryable `rate_limited` with the ceil-rounded remaining milliseconds in
+`retry_after_ms`. An active scan has no honest completion estimate, so `busy`
+does not carry that field. Rejected overlap and cooldown requests do not extend
+the cooldown.
 
 The callback rejects removal, proxy mismatch, and generation changes. It
 normalizes LTE objects only:

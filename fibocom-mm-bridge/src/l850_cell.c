@@ -631,17 +631,20 @@ fibocom_l850_lock_state_matches(const struct FibocomL850LockState *state,
 }
 
 uint32_t
-fibocom_l850_scan_retry_after_ms(int64_t now_us, int64_t last_scan_us)
+fibocom_l850_scan_retry_after_ms(int64_t now_us,
+				 int64_t last_scan_completed_us)
 {
 	const int64_t interval =
-		(int64_t)FIBOCOM_L850_CELL_SCAN_INTERVAL_SECONDS *
+		(int64_t)FIBOCOM_L850_CELL_SCAN_COOLDOWN_SECONDS *
 		MICROSECONDS_PER_SECOND;
 	int64_t elapsed;
 	int64_t remaining;
 
-	if (now_us < 0 || last_scan_us <= 0 || now_us < last_scan_us)
+	if (now_us < 0 || last_scan_completed_us <= 0)
 		return 0U;
-	elapsed = now_us - last_scan_us;
+	if (now_us < last_scan_completed_us)
+		return FIBOCOM_L850_CELL_SCAN_COOLDOWN_SECONDS * 1000U;
+	elapsed = now_us - last_scan_completed_us;
 	if (elapsed >= interval)
 		return 0U;
 	remaining = interval - elapsed;

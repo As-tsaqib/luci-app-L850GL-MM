@@ -63,16 +63,14 @@ function capabilityRows(capabilities) {
 		];
 
 		if (capability.reason) {
-			details.push(E('span', { 'style': 'overflow-wrap:anywhere' }, [
+			details.push(E('span', { 'class': 'fibocom-capability-reason' }, [
 				_('Reason'), ': ', capability.reason
 			]));
 		}
 
 		return [
 			entry[0],
-			E('div', {
-				'style': 'display:flex;flex-direction:column;align-items:flex-start;gap:.3em;min-width:0'
-			}, details)
+			E('div', { 'class': 'fibocom-capability-value' }, details)
 		];
 	});
 }
@@ -146,11 +144,10 @@ function servingCellLabel(serving) {
 
 function overviewGroup(title, rows, extra) {
 	return E('div', {
-		'class': 'cbi-section-node fibocom-overview-card',
-		'style': 'min-width:0;max-width:100%;padding:.75em;box-sizing:border-box;overflow-wrap:anywhere'
+		'class': 'cbi-section-node fibocom-overview-card'
 	}, [
-		E('h4', {}, [ title ]),
-		widgets.keyValueTable(rows)
+		E('h4', { 'class': 'fibocom-card-title' }, [ title ]),
+		widgets.keyValueList(rows)
 	].concat(extra || []));
 }
 
@@ -194,8 +191,8 @@ function renderDevice(entry) {
 	];
 	const bandAndCellRows = [
 		[ _('Current bands'), friendlyCurrentBands(overview.current_bands) ],
-		[ _('Serving cell status'), widgets.badge(serving.state,
-			servingCellLabel(serving)) ]
+		[ _('Serving cell status'), widgets.badge(servingCellLabel(serving),
+			serving.state) ]
 	];
 	const signalRows = [
 		[ _('Signal quality'), widgets.progress(signal.quality) ],
@@ -210,26 +207,19 @@ function renderDevice(entry) {
 	}
 
 	const children = [
-		E('h3', {}, [ widgets.activeLabel(identity.model, true) ]),
-		E('div', {
-			'class': 'fibocom-overview-grid',
-			'style': 'display:grid;grid-template-columns:repeat(auto-fit,minmax(16rem,1fr));gap:1em;align-items:start;width:100%'
-		}, [
-			E('div', {
-				'class': 'fibocom-overview-column',
-				'style': 'display:flex;flex-direction:column;gap:1em;min-width:0'
-			}, [
+		E('h3', { 'class': 'fibocom-device-title' }, [
+			widgets.activeLabel(identity.model, true)
+		]),
+		E('div', { 'class': 'fibocom-overview-grid' }, [
+			E('div', { 'class': 'fibocom-overview-column' }, [
 				overviewGroup(_('Modem Info'), modemInfoRows),
 				overviewGroup(_('Modem Status'), modemStatusRows)
 			]),
-			E('div', {
-				'class': 'fibocom-overview-column',
-				'style': 'display:flex;flex-direction:column;gap:1em;min-width:0'
-			}, [
+			E('div', { 'class': 'fibocom-overview-column' }, [
 				overviewGroup(_('Band and Cell Status'), bandAndCellRows),
 				overviewGroup(_('Signal Status'), signalRows, [
-					E('h5', {}, [ _('Capabilities') ]),
-					widgets.keyValueTable(capabilityRows(overview.capabilities))
+					E('h5', { 'class': 'fibocom-card-title' }, [ _('Capabilities') ]),
+					widgets.keyValueList(capabilityRows(overview.capabilities))
 				])
 			])
 		])
@@ -264,7 +254,8 @@ return view.extend({
 				dom.content(content, renderSnapshots(next));
 			});
 		}, 10);
-		return E('div', { 'class': 'cbi-map' }, [
+		return E('div', { 'class': 'cbi-map fibocom-page fibocom-overview-page' }, [
+			widgets.stylesheet(),
 			E('h2', {}, [ _('Overview') ]),
 			E('div', { 'class': 'cbi-map-descr' }, [
 				_('A concise ModemManager snapshot. Network configuration and connection intent remain owned by netifd.')

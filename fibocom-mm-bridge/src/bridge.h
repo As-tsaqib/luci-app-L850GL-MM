@@ -90,7 +90,7 @@ struct _FibocomModem {
 	GCancellable *mutation_cancellable;
 	gint64 advanced_cooldown_until;
 #ifdef FIBOCOM_MM_L850_EXPERT
-	gint64 l850_last_scan_at;
+	gint64 l850_last_scan_completed_at;
 #endif
 	gulong messaging_added_handler;
 	gulong messaging_deleted_handler;

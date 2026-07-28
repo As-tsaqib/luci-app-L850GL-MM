@@ -220,6 +220,8 @@ typedef struct {
 
 static gboolean l850_modem_has_active_mutation(FibocomUbus *ubus,
 						FibocomModem *modem);
+static gboolean l850_modem_has_active_scan(FibocomUbus *ubus,
+					    FibocomModem *modem);
 #endif
 
 static FibocomUbus *fibocom_ubus_ref_internal(FibocomUbus *ubus);
@@ -3562,6 +3564,25 @@ l850_modem_has_active_mutation(FibocomUbus *ubus, FibocomModem *modem)
 	return FALSE;
 }
 
+static gboolean
+l850_modem_has_active_scan(FibocomUbus *ubus, FibocomModem *modem)
+{
+	GHashTableIter iter;
+	gpointer key;
+
+	if (ubus == NULL || modem == NULL ||
+	    ubus->l850_scan_operations == NULL)
+		return FALSE;
+	g_hash_table_iter_init(&iter, ubus->l850_scan_operations);
+	while (g_hash_table_iter_next(&iter, &key, NULL)) {
+		L850ScanOperation *operation = key;
+
+		if (operation->modem == modem)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 static const gchar *
 l850_error_message(const gchar *code)
 {
@@ -3693,10 +3714,15 @@ l850_add_scan_capability(struct blob_buf *buffer, FibocomUbus *ubus,
 			 FibocomModem *modem)
 {
 	guint32 retry_after = fibocom_l850_scan_retry_after_ms(
-		g_get_monotonic_time(), modem->l850_last_scan_at);
+		g_get_monotonic_time(), modem->l850_last_scan_completed_at);
 	void *scan = blobmsg_open_table(buffer, "scan");
 
-	if (modem->mutation_busy ||
+	if (l850_modem_has_active_scan(ubus, modem)) {
+		blobmsg_add_string(buffer, "state", "busy");
+		blobmsg_add_u8(buffer, "available", FALSE);
+		blobmsg_add_string(buffer, "reason",
+			"per-modem-scan-in-progress");
+	} else if (modem->mutation_busy ||
 	    l850_modem_has_active_mutation(ubus, modem)) {
 		blobmsg_add_string(buffer, "state", "busy");
 		blobmsg_add_u8(buffer, "available", FALSE);
@@ -4070,6 +4096,8 @@ static void
 l850_scan_complete_buffer(L850ScanOperation *operation,
 			  struct blob_buf *buffer)
 {
+	operation->modem->l850_last_scan_completed_at =
+		g_get_monotonic_time();
 	if (operation->deferred && operation->ubus->connected &&
 	    operation->ubus->context_initialized && !operation->ubus->stopping) {
 		(void)ubus_send_reply(&operation->ubus->context,
@@ -4400,6 +4428,8 @@ method_cell_scan(struct ubus_context *context, struct ubus_object *object,
 			g_str_equal(error_code, "busy"), 0U);
 	if (modem->mutation_busy)
 		return send_l850_error(context, request, modem, "busy", TRUE, 0U);
+	if (l850_modem_has_active_scan(ubus, modem))
+		return send_l850_error(context, request, modem, "busy", TRUE, 0U);
 	if (!snapshot_supported_radio_bands(modem, band_choices,
 		&band_choice_count, &supported_families) ||
 	    (supported_families & FIBOCOM_RADIO_FAMILY_4G) == 0U)
@@ -4409,11 +4439,10 @@ method_cell_scan(struct ubus_context *context, struct ubus_object *object,
 	(void)supported_families;
 	now = g_get_monotonic_time();
 	retry_after = fibocom_l850_scan_retry_after_ms(now,
-		modem->l850_last_scan_at);
+		modem->l850_last_scan_completed_at);
 	if (retry_after > 0U)
 		return send_l850_error(context, request, modem,
 			"rate_limited", TRUE, retry_after);
-	modem->l850_last_scan_at = now;
 	operation = l850_scan_operation_new(ubus, modem, context, request);
 	mm_modem_get_cell_info(operation->modem->modem, operation->cancellable,
 		l850_scan_ready, operation);

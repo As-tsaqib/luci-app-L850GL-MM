@@ -12,7 +12,7 @@
 
 #define FIBOCOM_L850_CELL_MAX_RESPONSE 16384U
 #define FIBOCOM_L850_CELL_MAX_RESULTS 64U
-#define FIBOCOM_L850_CELL_SCAN_INTERVAL_SECONDS 60U
+#define FIBOCOM_L850_CELL_SCAN_COOLDOWN_SECONDS 5U
 #define FIBOCOM_L850_NVM_MAX_RESPONSE 512U
 #define FIBOCOM_L850_COMMAND_MAX 96U
 #define FIBOCOM_L850_PCI_WILDCARD UINT16_MAX
@@ -97,6 +97,6 @@ bool fibocom_l850_lock_state_matches(const struct FibocomL850LockState *state,
 				     bool clear, uint32_t earfcn,
 				     bool has_pci, uint16_t pci);
 uint32_t fibocom_l850_scan_retry_after_ms(int64_t now_us,
-					 int64_t last_scan_us);
+					 int64_t last_scan_completed_us);
 
 #endif /* FIBOCOM_L850_CELL_H */

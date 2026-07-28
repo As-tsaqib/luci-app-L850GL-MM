@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2026 As Tsaqib
 // SPDX-License-Identifier: Apache-2.0
+/* global L */
 
 'use strict';
 'require baseclass';
@@ -209,7 +210,10 @@ function smsError(result, summary, maximumMessages) {
 		return error;
 	if (!identityMatches(result, summary) || !isUnsigned(result.messaging_generation) ||
 	    !isUnsigned(result.revision) || !isString(result.cache_state, 64) ||
+	    typeof result.cache_truncated !== 'boolean' ||
 	    !isUnsigned(result.dedupe_capacity) || !isUnsigned(result.dedupe_window_seconds) ||
+	    [ 'all', 'inbox', 'outbox', 'draft', 'unknown' ].indexOf(result.folder) === -1 ||
+	    !isUnsigned(result.limit) || result.limit < 1 || result.limit > 100 ||
 	    !Array.isArray(result.messages) || result.messages.length > maximum ||
 	    !result.messages.every(smsMessageIsValid) ||
 	    typeof result.has_more !== 'boolean' || !isString(result.next_cursor, 80) ||
@@ -237,6 +241,7 @@ function stateClass(state) {
 	case 'home':
 	case 'on':
 	case 'ready':
+	case 'received':
 	case 'registered':
 		return 'label success';
 	case 'failed':
@@ -251,6 +256,12 @@ function stateClass(state) {
 	case 'unavailable':
 	case 'unknown':
 		return 'label warning';
+	case 'notice':
+	case 'locked':
+	case 'send':
+	case 'sending':
+	case 'sent':
+		return 'label notice';
 	default:
 		return 'label';
 	}
@@ -275,8 +286,14 @@ function table(headers, rows, emptyMessage) {
 	}
 	else {
 		rows.forEach(function(row) {
-			children.push(E('tr', { 'class': 'tr' }, row.map(function(cell) {
-				return E('td', { 'class': 'td' }, [
+			children.push(E('tr', { 'class': 'tr' }, row.map(function(cell, index) {
+				const title = headers[index];
+
+				return E('td', {
+					'class': 'td',
+					'data-title': typeof title === 'string' || typeof title === 'number' ?
+						String(title) : null
+				}, [
 					cell != null && typeof cell === 'object' && cell.nodeType != null ?
 						cell : display(cell)
 				]);
@@ -286,10 +303,35 @@ function table(headers, rows, emptyMessage) {
 	return E('table', { 'class': 'table' }, children);
 }
 
-function keyValueTable(rows, emptyMessage) {
-	return table([ _('Property'), _('Value') ], rows.filter(function(row) {
+function keyValueList(rows, emptyMessage) {
+	const values = rows.filter(function(row) {
 		return row.length > 1 && row[1] != null && row[1] !== '';
-	}), emptyMessage);
+	});
+
+	if (!values.length) {
+		return E('div', { 'class': 'fibocom-kv-empty' }, [
+			E('em', {}, [ emptyMessage || _('No information is available.') ])
+		]);
+	}
+
+	return E('div', { 'class': 'fibocom-kv' }, values.map(function(row) {
+		const value = row[1];
+
+		return E('div', { 'class': 'cbi-value fibocom-kv-row' }, [
+			E('div', { 'class': 'cbi-value-title fibocom-kv-key' }, [ row[0] ]),
+			E('div', { 'class': 'cbi-value-field fibocom-kv-value' }, [
+				value != null && typeof value === 'object' && value.nodeType != null ?
+					value : display(value)
+			])
+		]);
+	}));
+}
+
+function stylesheet() {
+	return E('link', {
+		'rel': 'stylesheet',
+		'href': L.resource('fibocom/fibocom.css')
+	});
 }
 
 function progress(value) {
@@ -334,7 +376,7 @@ return baseclass.extend({
 	identityMatches: identityMatches,
 	isCompatible: isCompatible,
 	isObject: isObject,
-	keyValueTable: keyValueTable,
+	keyValueList: keyValueList,
 	listError: listError,
 	lockError: lockError,
 	modems: modems,
@@ -344,6 +386,7 @@ return baseclass.extend({
 	progress: progress,
 	responseError: responseError,
 	smsError: smsError,
+	stylesheet: stylesheet,
 	table: table,
 	warningList: warningList
 });

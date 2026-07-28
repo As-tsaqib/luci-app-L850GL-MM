@@ -241,16 +241,21 @@ Returns the mutation state independently from scan capability:
 }
 ```
 
-Scan state may instead be `busy`, `not_ready`, or `rate_limited`; a rate-limited
-status includes `retry_after_ms`. The nested lock is a bounded NVM
-configuration observation (`clear`, `configured_earfcn`, or
-`configured_exact`), not a serving-cell postcondition. Unsupported firmware
-still advertises a standard-only scan when ready.
+Scan state may instead be `busy`, `not_ready`, or `rate_limited`. `busy` means
+that a scan or a per-modem mutation is still active and does not include
+`retry_after_ms`, because the completion time is not predictable. A
+`rate_limited` status includes the ceil-rounded remaining cooldown in
+`retry_after_ms`. The nested lock is a bounded NVM configuration observation
+(`clear`, `configured_earfcn`, or `configured_exact`), not a serving-cell
+postcondition. Unsupported firmware still advertises a standard-only scan when
+ready.
 
 ### `cell_scan(modem_id, generation)`
 
-Rate-limited to one attempt per modem per 60 seconds and never polled. It first
-calls asynchronous ModemManager `GetCellInfo`. Success is:
+Only one scan may be active per modem. A request received while that scan is
+active returns retryable `busy` without `retry_after_ms` and does not dispatch a
+second ModemManager operation. The scan is button-driven and never polled. It
+first calls asynchronous ModemManager `GetCellInfo`. Success is:
 
 ```json
 {
@@ -273,7 +278,11 @@ Only LTE type 4 serving and type 5 neighbor records are emitted. PCI is
 0..503, including zero. EARFCN must map to a live supported LTE band. RSRP and
 RSRQ are omitted when ModemManager reports its unavailable sentinel. More than
 64 LTE records or malformed data fail closed. The operation has a 45-second
-timeout, cancellation, and callback generation checks.
+timeout, cancellation, and callback generation checks. Every terminal scan
+completion, whether success or normalized failure, starts a five-second
+per-modem cooldown. A request during that cooldown returns retryable
+`rate_limited` with an accurate, ceil-rounded `retry_after_ms`; rejected `busy`
+and `rate_limited` requests do not restart the cooldown.
 
 On the allowlisted firmware, standard GetCellInfo is unsupported and the
 bridge falls back to its fixed XMCI query through ModemManager. `method` is

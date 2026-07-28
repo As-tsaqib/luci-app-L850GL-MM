@@ -17,6 +17,12 @@ Modem
     `-- SMS
 ```
 
+Overview, Lock, and SMS share native LuCI `cbi-*` markup plus one scoped
+responsive stylesheet. The browser renders one information tree at every
+viewport width: phone layouts only reflow panels and actions, without hiding
+status fields or maintaining a second mobile UI. Focus guards keep active Lock
+and SMS inputs intact during polling.
+
 ModemManager remains the only owner of modem objects, ports, SIMs, SMS, radio,
 and bearers. netifd remains the owner of connection intent, APN, routes, and
 DNS. The companion neither dials nor creates bearers, scans sysfs, opens modem
@@ -51,7 +57,8 @@ Lock contains:
   ModemManager `GetCellInfo`, normalizes at most 64 LTE cells, and validates
   PCI and EARFCN against live supported bands. For the single allowlisted
   firmware `18500.5001.00.05.27.30`, `Core.Unsupported` falls back to a fixed
-  XMCI query through ModemManager. Set/clear use fixed typed tuples, `CFUN=15`,
+  XMCI query through ModemManager. Scans are single-flight per modem and have
+  a five-second cooldown measured from completion. Set/clear use fixed typed tuples, `CFUN=15`,
   exact hardware-slot reprobe correlation, registration wait, NVM verification,
   and serving-cell verification. Every other firmware fails closed.
 
@@ -61,7 +68,10 @@ and property-change signals, reconciles every 30 seconds, keeps the newest
 every 10 seconds and follows opaque cursor pages past the backend's 100-message
 per-call limit. Send uses Messaging.Create followed by Sms.Send; delete uses
 Messaging.Delete and requires confirmation. Binary payloads and raw PDUs are
-never exported.
+never exported. Numeric tokens in either direction are directly copyable. A
+normal tap opens an in-tab exact-number conversation, while a long press
+selects one or more cards for confirmed sequential deletion; `Delete all`
+first freezes a complete, stable snapshot of the active folder.
 
 Send retry tokens are CSPRNG values bound to a digest of recipient and body.
 The in-memory dedupe cache holds at most 64 retained tokens; each retained
@@ -109,8 +119,8 @@ opaque ID, modem generation, and (for SMS) messaging generation are present.
 The active package set is:
 
 ```text
-fibocom-mm-bridge   0.4.0-r1 native libmm-glib/GDBus to ubus bridge
-luci-app-fibocom   0.4.0-r1 Overview, Lock, and SMS views
+fibocom-mm-bridge   0.4.0-r2 native libmm-glib/GDBus to ubus bridge
+luci-app-fibocom   0.4.0-r2 Overview, Lock, and SMS views
 ```
 
 The retired Status, old Advanced, Settings, radio toggle, generic reset,
