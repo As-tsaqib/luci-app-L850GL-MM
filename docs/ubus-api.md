@@ -366,6 +366,11 @@ band mismatch errors reject the complete response. Although primary cellular
 identity and signal fields are validated structurally, raw response,
 MCC/MNC/TAC/cell ID, RSRP, RSRQ, and SINR are not exported.
 
+LuCI may use the validated primary carrier as a display-only serving EARFCN/PCI
+fallback when `get_overview.serving_cell` is unavailable. This does not mutate
+the backend serving-cell cache and is never attempted from a rejected or
+malformed carrier response.
+
 B29 and B32 are downlink-only LTE bands whose active `GTCAINFO` uplink/sentinel
 representation has not been captured on the allowlisted firmware. An active
 B29/B32 record therefore fails closed even if ModemManager lists that band in

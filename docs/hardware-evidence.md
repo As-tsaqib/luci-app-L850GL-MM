@@ -138,8 +138,9 @@ Implemented in the current source/host/static contract:
   secondary grammar, with exact inactive-sentinel omission, supported-band and
   paired DL/UL EARFCN, PCI, and bandwidth validation, bounded output, and
   valid/invalid fixtures;
-- schema-4 frontend structural validation and fail-closed unavailable state on
-  base builds or rejected expert responses.
+- schema-4 frontend structural validation, a display-only serving EARFCN/PCI
+  fallback from the validated primary carrier, and fail-closed unavailable
+  state on base builds or rejected expert responses.
 
 Before implementation, an approved read-only command-level observation on
 2026-07-28 established the exact target input shape without recording raw

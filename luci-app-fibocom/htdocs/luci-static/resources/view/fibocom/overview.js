@@ -227,7 +227,17 @@ function renderDevice(entry) {
 	const network = overview.network;
 	const signal = overview.signal;
 	const bearer = overview.bearer;
-	const serving = overview.serving_cell;
+	const carrierAvailable = widgets.carrierInfoError(entry.carrier, summary) == null;
+	const serving = overview.serving_cell.state === 'available' || !carrierAvailable ?
+		overview.serving_cell : {
+			state: 'available',
+			reason: 'l850-gtcainfo',
+			earfcn: entry.carrier.primary.earfcn,
+			pci: entry.carrier.primary.pci,
+			band: entry.carrier.primary.band,
+			rsrp: null,
+			rsrq: null
+		};
 	const warning = widgets.warningList(overview.warnings.map(warningText));
 	const modemInfoRows = [
 		[ _('Manufacturer'), identity.manufacturer ],

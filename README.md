@@ -43,6 +43,8 @@ stored in fixtures or evidence. Serving EARFCN/PCI is cached only from validated
 standard CellInfo, an explicit expert scan, or a verified PCI postcondition.
 Overview never launches an automatic XMCI scan. It never returns raw D-Bus or
 sysfs paths, port tables, IP configuration, credentials, or diagnostic dumps.
+On an expert build, a validated `GTCAINFO` primary carrier also supplies the
+display-only serving EARFCN/PCI fallback when that standard cache is empty.
 
 An expert build also adds read-only LTE carrier aggregation details to
 Overview: active LTE bands, primary and secondary LTE bands, active-carrier

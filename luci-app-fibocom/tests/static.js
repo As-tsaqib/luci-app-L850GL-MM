@@ -750,6 +750,28 @@ const unavailableCarrierOverview = overviewView.render({
 	assert.deepStrictEqual(renderedText(rows[0]), [ label, 'Unavailable' ],
 		`${label} must fail closed instead of displaying partial carrier data`);
 });
+const carrierServingFallbackNode = overviewView.render({
+	list: listResult,
+	entries: [ {
+		summary: summary,
+		overview: Object.assign({}, overviewResult, {
+			serving_cell: { state: 'unavailable', reason: 'refresh-pending' }
+		}),
+		carrier: carrierResult
+	} ]
+});
+
+assert.deepStrictEqual(
+	renderedText(findKeyValueRows(carrierServingFallbackNode, 'Serving cell status')[0]),
+	[ 'Serving cell status', 'Available' ],
+	'validated GTCAINFO primary carrier must prevent a false unavailable serving state');
+assert.deepStrictEqual(
+	renderedText(findKeyValueRows(carrierServingFallbackNode, 'Serving EARFCN')[0]),
+	[ 'Serving EARFCN', '1325' ]);
+assert.deepStrictEqual(
+	renderedText(findKeyValueRows(carrierServingFallbackNode, 'Serving PCI')[0]),
+	[ 'Serving PCI', '0' ],
+	'validated GTCAINFO fallback must retain PCI zero');
 [ 'utran-', 'eutran-' ].forEach(function(internalPrefix) {
 	assert.ok(!renderedOverview.some(function(value) { return value.includes(internalPrefix); }),
 		`Overview must not expose the internal ${internalPrefix} band prefix`);

@@ -95,8 +95,10 @@ serving record has PCI 0..503, EARFCN-to-supported-band mapping, finite optional
 metrics, the current generation, and bounded freshness. Explicit expert scans
 and verified PCI postconditions update the same cache. Overview never starts
 the XMCI fallback; on the tested L850 firmware, where standard CellInfo is
-unsupported, status stays honestly unavailable until an explicit expert result
-exists.
+unsupported, the base build stays honestly unavailable until an explicit
+expert result exists. On an expert build, the frontend may instead display the
+already validated `GTCAINFO` primary carrier as a serving EARFCN/PCI fallback;
+it does not write that observation into the generation-bound CellInfo cache.
 
 On an expert build, Overview separately invokes `get_carrier_info` to obtain
 current LTE carrier aggregation state. The method dispatches only the fixed
