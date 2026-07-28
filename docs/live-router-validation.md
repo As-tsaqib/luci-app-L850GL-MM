@@ -7,7 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 
 > This page separates schema-1 v0.2 testing from 2026-07-19, the approved L850
 > firmware command/recovery matrix from 2026-07-27, and the dated schema-2 and
-> schema-3 package acceptances that followed. No live SMS mutation was run.
+> schema-3/schema-4 package acceptances that followed. No live SMS mutation was
+> run.
 
 ## Scope
 
@@ -17,6 +18,58 @@ not recorded. The evidence proves the MBIM/ModemManager lifecycle and only the
 listed companion behavior on this hardware; it does not claim every L850
 firmware or OpenWrt release. The historical eSIM probe is retained only as
 provenance for a package retired in 0.3.
+
+## Installed 0.5.0-r1 schema-4 acceptance, 2026-07-28
+
+Static run `30365531206` and OpenWrt SDK run `30365531207` passed for source
+commit `56dbc0eb4f59c2686ef31001c8376c6091b7c281`. The SDK built OpenWrt
+25.12.5 `ipq40xx/generic` base and expert variants. Its binary checks proved
+that the base bridge omitted both `fibocom.mm.l850` and `AT+GTCAINFO?`, while
+the expert bridge contained the object, `get_carrier_info`, and the fixed
+command. Downloaded expert-package hashes, verified again on the router, were:
+
+| Artifact | SHA-256 |
+|---|---|
+| `fibocom-mm-bridge-0.5.0-r1.apk` | `b38b228f1a2c119154c3de3fa9718c3535698bf9ff711f6b82d47496b1dc61fa` |
+| `luci-app-fibocom-0.5.0-r1.apk` | `485d3101ed439ef7442fea421fa288cfc294c046c85a7b065150bf11e0571bbe` |
+| `modemmanager-1.24.0-r10.apk` | `9b46039b963f5766a0a13d767ff77e978f590d2d50226183bd609f462112e60c` |
+
+An APK simulation admitted only the bridge and LuCI upgrades. The installed
+expert ModemManager package was byte-identical to the artifact and therefore
+was not reinstalled. The transaction upgraded the companion packages to
+0.5.0-r1, refreshed the LuCI/rpcd cache, and republished both ubus objects in
+two seconds. Runtime tables were exactly:
+
+```text
+fibocom.mm:
+  list_modems, get_overview, get_lock_status, set_bands, set_modes,
+  list_sms, send_sms, delete_sms
+
+fibocom.mm.l850:
+  cell_scan, get_carrier_info, cell_lock_status,
+  set_cell_lock, clear_cell_lock
+```
+
+The sanitized schema-4 acceptance matrix was:
+
+| Test | Observed result |
+|---|---|
+| Overview envelope | schema 4; MBIM; modem connected/on; SIM present |
+| Identifier contract | `list_modems` contained no private identifier keys; authenticated Overview returned IMEI/IMSI/ICCID lengths 15/15/19 without printing their values |
+| SIM number | ModemManager OwnNumbers was empty; the always-present UI row therefore rendered the honest `Unavailable` state rather than inventing a number |
+| Carrier state | one validated active carrier, primary B3 at EARFCN 1325 / PCI 381; no active secondary |
+| Serving fallback | backend standard serving cache remained unavailable; LuCI's validated primary-carrier fallback supplied the displayed serving EARFCN/PCI without launching XMCI |
+| Parallel carrier reads | exactly one `available` and one retryable `busy` |
+| Completion cooldown | immediate retry was `rate_limited` with `retry_after_ms = 4981`; a retry after six seconds was `available` |
+| Installed UI | three menu children; exact ACL; all requested Overview rows present; concise capability badges and responsive CSS present |
+| Served assets | loopback uhttpd hashes for Overview JS and shared CSS matched their installed package files |
+| Ownership/health | one bridge, one ModemManager at INFO, bearer connected, netifd up/available/not pending with `proto modemmanager` |
+| Privacy/logs | identifier values were absent from process arguments and logs; zero bridge warning/error entries were observed |
+
+No cell scan, SMS read/send/delete, Band/Mode mutation, PCI set/clear, reset, or
+traffic-generating test was run for this acceptance. Raw ubus responses,
+opaque modem identifiers, subscriber values, addresses, and credentials were
+not retained.
 
 ## Installed 0.4.0-r2 scan-cooldown acceptance, 2026-07-28
 

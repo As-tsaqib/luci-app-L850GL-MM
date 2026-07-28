@@ -155,18 +155,24 @@ remain fail-closed as active carriers until their exact uplink/sentinel form is
 observed on the allowlisted firmware and added with fixtures; SupportedBands
 advertisement alone is not sufficient evidence.
 
-Still pending for 0.5.0:
+Live-validated through installed 0.5.0-r1 packages:
 
-- base and expert SDK builds and artifact checksums;
-- installation of matching 0.5.0-r1 bridge/LuCI artifacts;
-- installed exact schema-4 base/expert method tables and ACL checks;
-- post-install Overview rendering of USB/identifier/carrier fields and repeated
-  typed carrier-query admission/cooldown behavior;
-- log/privacy inspection after the installed API/UI exercise.
+- static run `30365531206` and SDK run `30365531207` for commit `56dbc0e`;
+- checksum-verified base/expert artifacts, with expert object/command absent
+  from base and present in expert;
+- exact installed schema-4 8/5 method tables, three-menu package, and ACL;
+- MBIM plus bounded IMEI/IMSI/ICCID presence without retaining values;
+- one live B3 primary carrier and no active secondary;
+- one-available/one-busy parallel query admission, a 4,981 ms immediate
+  completion-based cooldown, and successful post-cooldown query;
+- serving EARFCN/PCI display fallback from that validated primary without an
+  XMCI scan;
+- matching installed/served LuCI asset hashes, connected netifd/bearer state,
+  no identifier leakage in logs/process arguments, and zero bridge warnings.
 
-No schema-4 package, router installation, or post-install acceptance is claimed
-in this section. The historical evidence below remains scoped to its recorded
-release.
+ModemManager reported no OwnNumbers value, so SIM Number remains visibly
+`Unavailable`. No SMS, Band/Mode, PCI, reset, or cell-scan action was run. The
+historical evidence below remains scoped to its recorded release.
 
 ## Version 0.4.0 evidence status
 

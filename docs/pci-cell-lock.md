@@ -43,8 +43,9 @@ and recovery caveat, is in `live-router-validation.md`.
 Release r2 also contains separately requested LuCI and SMS-view work. The live
 claim in the preceding paragraph applies specifically to the expert backend
 scan admission/cooldown delta; PCI mutation behavior was not changed or rerun.
-Schema-4 0.5.0 SDK/package installation and post-install validation remain
-pending and are not inferred from those historical runs.
+Schema-4 0.5.0-r1 SDK/package installation and read-only post-install
+validation passed on 2026-07-28. The CA addition does not extend the PCI
+mutation allowlist, and no PCI mutation or cell scan was repeated in that run.
 
 ## 4PDA community evidence
 

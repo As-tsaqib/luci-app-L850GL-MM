@@ -134,7 +134,7 @@ opaque ID, modem generation, and (for SMS) messaging generation are present.
 
 ## Packaging
 
-The target package metadata is (SDK/install validation is still pending):
+The built and installed package metadata is:
 
 ```text
 fibocom-mm-bridge   0.5.0-r1 native libmm-glib/GDBus to ubus bridge
@@ -178,8 +178,11 @@ confirmed the target firmware's `GTCAINFO` primary/secondary grammar: one
 active B3 primary carrier at EARFCN 1325 / PCI 381 with 20 MHz bandwidth, plus
 an inactive secondary sentinel. `GTUSBMODE` value 7 and ModemManager's live
 composition independently agreed on MBIM. This is command-level input evidence,
-not an installed schema-4 package claim. The 0.5.0 SDK build, package install,
-and post-install schema/UI acceptance remain pending until recorded separately.
+not an installed schema-4 package claim. The later schema-4 packages from
+static run `30365531206` and SDK run `30365531207` were checksum-verified,
+installed as 0.5.0-r1, and accepted with one live B3 primary, exact 8/5 method
+tables, responsive served assets, and a healthy connected bearer. See the
+[live record](docs/live-router-validation.md).
 
 ## Development
 

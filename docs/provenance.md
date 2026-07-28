@@ -207,9 +207,12 @@ were separate checks.
   bandwidth and an exact inactive index-2 sentinel, so the normalized active
   carrier count was one. `GTUSBMODE` value 7 and ModemManager composition both
   identified MBIM. No identifier or raw response is retained in repository
-  evidence. This establishes the target grammar/input evidence only; schema-4
-  SDK build, package installation, and post-install UI/API validation remain
-  pending.
+  evidence. This establishes the target grammar/input evidence only.
+- 2026-07-28: static run `30365531206` and SDK run `30365531207` passed for
+  schema-4 commit `56dbc0e`. Checksummed 0.5.0-r1 packages were installed and
+  the sanitized UI/API, CA admission/cooldown, ownership, privacy, and
+  served-asset checks passed. This installed evidence remains distinct from
+  the earlier command-level capture.
 
 Historical v0.2 schema-1 results remain explicitly labeled and are not
 rewritten as schema-2 package evidence. Firmware command-level live evidence

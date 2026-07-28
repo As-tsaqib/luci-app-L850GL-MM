@@ -75,9 +75,9 @@ After installation:
    including read-only `get_carrier_info`, then verify its normalized carrier
    result without recording subscriber/cellular identity or raw output.
 
-The schema-4 0.5.0 SDK build, artifact installation, and post-install checks
-are pending until a dated release record says otherwise. Historical 0.3/0.4
-installation evidence does not satisfy this checklist.
+Schema-4 0.5.0-r1 completed this checklist on 2026-07-28 through static run
+`30365531206`, SDK run `30365531207`, checksum verification on both host and
+router, and the sanitized post-install checks in `live-router-validation.md`.
 
 ## Mutation staging
 
