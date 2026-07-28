@@ -136,9 +136,13 @@ packages were validated through schema-2 local ubus and an authorized
 HTTP `/ubus` rpcd session: XMCI fallback, exact current-cell set, replacement identity,
 stale-identity rejection, clear, NVM/registration/serving-cell postconditions,
 and final connected-bearer recovery all passed. No live SMS send/delete was
-performed. Version 0.4 schema-3 mode persistence, serving-cell cache, and
-installed-package evidence are recorded separately and are not retroactively
-claimed by that 0.3 run. See [hardware evidence](docs/hardware-evidence.md) and the
+performed. On 2026-07-28, static run `30314503929` and SDK run `30314503962`
+built schema-3 v0.4 artifacts from `06eb8df`; their checksums passed locally and
+on the router. Installed v0.4 validation proved combined/4G-only mode
+persistence and restoration, LTE-only Band Lock with hidden UTRAN preservation,
+explicit-scan Serving Cell cache, schema-3 SMS read metadata, and connected
+netifd recovery. No v0.4 SMS write or PCI mutation was run. See
+[hardware evidence](docs/hardware-evidence.md) and the
 [live record](docs/live-router-validation.md).
 
 ## Development

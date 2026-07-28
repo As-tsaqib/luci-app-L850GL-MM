@@ -102,6 +102,50 @@ evidence for the schema-3 serving cache. It does not validate the 0.4 package,
 does not authorize automatic XMCI polling, and made no band, mode, PCI, or SMS
 mutation.
 
+## Installed schema-3 package validation, 2026-07-28
+
+Static run `30314503929` and OpenWrt SDK run `30314503962` passed for source
+commit `06eb8df`. The SDK built and verified separate base/expert bridge
+artifacts, rebuilt the pinned router-matched ModemManager 1.24.0-r10 expert
+package, proved the base binary omitted `fibocom.mm.l850`, and proved the expert
+binary contained it. Artifact checksums passed locally and again on the router.
+
+The expert APK transaction reinstalled ModemManager 1.24.0-r10 and upgraded
+both companion packages to 0.4.0-r1. ModemManager and the bridge were explicitly
+restarted. Runtime tables were exactly eight base methods and four expert
+methods:
+
+```text
+fibocom.mm:
+  list_modems, get_overview, get_lock_status, set_bands, set_modes,
+  list_sms, send_sms, delete_sms
+
+fibocom.mm.l850:
+  cell_scan, cell_lock_status, set_cell_lock, clear_cell_lock
+```
+
+The sanitized schema-3 result matrix was:
+
+| Test | Result |
+|---|---|
+| Package/API | bridge 0.4.0; matching LuCI 0.4.0-r1; schema 3; exact method tables |
+| Persistent combined mode | `3g|4g`, preferred `4g`; committed/read back; `activation = reloaded`; connected bearer retained |
+| Persistent 4G-only mode | `4g`, preference `none`; live ModemManager modes matched; connected/home bearer retained |
+| Restoration | returned to persisted/live `3g|4g`, preferred `4g`; connected/home bearer |
+| Fail closed | stale generation returned non-retryable `stale_generation`; inconsistent `4g` + preferred `4g` returned `invalid_argument` before write |
+| LTE-only Band Lock | all 24 supported LTE bands submitted; backend preserved 5 hidden UTRAN bands; 29-band live result and connected bearer |
+| Serving Cell | standard CellInfo reported unavailable; explicit schema-3 XMCI scan populated validated Overview cache with one serving cell |
+| PCI expert read | exact firmware capability available; existing `configured_earfcn` state observed and left untouched |
+| SMS read | schema-3 cache `ready`, not truncated, dedupe 64/300; no number/body recorded |
+| Ownership/recovery | netifd up/available/not pending, proto modemmanager, one ModemManager daemon, one bridge, INFO logging |
+| Installed UI/ACL | packaged minified schema-3 API/widgets/mode/serving code present; menu and five exact ACL files matched source hashes |
+
+No SMS send/delete or PCI set/clear/reset was run. The existing PCI lock was not
+changed. The bridge logged zero warning/error entries during acceptance. A
+private network-config backup and pre-upgrade binaries were retained only in a
+mode-0700 router `/tmp` directory; no credential or subscriber value entered
+this repository or the test output.
+
 ## Installed schema-2 package validation, 2026-07-27
 
 Static run `30261750255` and OpenWrt SDK run `30261750513` passed for source

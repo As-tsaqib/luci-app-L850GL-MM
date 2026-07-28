@@ -158,6 +158,12 @@ new code.
 - 2026-07-28: one authorized pre-install expert scan on the target router
   reconfirmed that standard CellInfo is unsupported and the installed schema-2
   expert path selects `l850-xmci`; no mode, band, PCI, or SMS mutation was run.
+- 2026-07-28: static run `30314503929` and SDK run `30314503962` passed for
+  `06eb8df`. Checksum-verified v0.4 expert artifacts were installed. Schema-3
+  combined/4G-only mode persistence and restoration, LTE-only Band Lock with
+  UTRAN preservation, validated Serving Cell cache, and SMS read metadata were
+  exercised with netifd/bearer recovery. The existing PCI configuration was
+  observed but not mutated; no SMS write was run.
 
 Historical v0.2 schema-1 results remain explicitly labeled and are not
 rewritten as schema-2 package evidence. Firmware command-level live evidence

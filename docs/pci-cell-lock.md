@@ -21,8 +21,9 @@ mismatch, or failed `2cb7:0007` attestation remains fail-closed.
 
 Status is therefore: implemented and live-verified for that one
 hardware/firmware tuple at command level and through the prior installed
-schema-2 expert package. The schema-3 package keeps the same fixed grammar and
-hardware gate; its installation evidence is recorded separately. Exact set and clear returned replacement opaque
+schema-2 expert package. Installed schema-3 v0.4 additionally verified the
+expert capability, NVM status, and XMCI scan on the same tuple while leaving the
+existing lock untouched. Exact set and clear returned replacement opaque
 identities and verified postconditions; an authorized HTTP `/ubus` session also
 returned the typed expert status. Interactive browser rendering remains a
 separate UI observation, not a blocker on the verified backend state machine.

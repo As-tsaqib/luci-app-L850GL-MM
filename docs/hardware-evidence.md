@@ -136,8 +136,25 @@ returns `Core.Unsupported` for standard CellInfo and that an explicitly invoked
 expert scan succeeds through `l850-xmci`. Therefore Overview does not claim
 automatic serving-cell availability: it never starts vendor scan itself, and
 its cache becomes available only after an explicit validated expert result or
-verified PCI postcondition. Schema-3 SDK/install/mode-activation evidence is
-recorded below only after the matching 0.4 artifacts are built and installed.
+verified PCI postcondition.
+
+Live-validated through installed 0.4.0-r1 expert packages:
+
+- static run `30314503929` and SDK run `30314503962`, source `06eb8df`;
+- checksum-verified expert bridge, LuCI, and router-matched ModemManager APKs;
+- exact eight-method schema-3 base and four-method expert tables;
+- combined and 4G-only persistence/readback/activation, followed by restoration
+  to combined preferred-4G intent with connected/home bearer;
+- stale-generation and inconsistent-preference rejection before write;
+- LTE-only Band Lock request with all five hidden UTRAN bands preserved;
+- explicit XMCI scan populating the bounded validated Overview serving cache;
+- schema-3 SMS read/cache metadata without exposing number or body;
+- netifd up/available, services running, and zero bridge warning/error entries.
+
+The installed v0.4 run did not repeat PCI set/clear/reset or SMS send/delete.
+PCI mutation remains command-level and schema-2-package live-verified on the
+same exact allowlisted tuple; v0.4 additionally verified expert capability,
+NVM status, and XMCI scan while leaving the existing lock untouched.
 
 ## Version 0.3.0 evidence status
 
