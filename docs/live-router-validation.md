@@ -5,49 +5,63 @@ SPDX-License-Identifier: Apache-2.0
 
 # Live router validation
 
-> This page separates schema-1 v0.2 testing from 2026-07-19 and the approved
-> L850 firmware command/recovery matrix from 2026-07-27. The latter validates
-> the exact PCI grammar and hardware behavior; the installed package-level
-> schema-2 acceptance follows below. No live SMS mutation was run.
+> This page separates schema-1 v0.2 testing from 2026-07-19, the approved L850
+> firmware command/recovery matrix from 2026-07-27, and the dated schema-2 and
+> schema-3 package acceptances that followed. No live SMS mutation was run.
 
 ## Scope
 
-Validation was performed on 2026-07-19. Identifiers and secrets were not
-recorded. The evidence proves the MBIM/ModemManager lifecycle and the explicitly
-listed v0.2 companion-app reads/inbound-SMS observation on this hardware; it
-does not claim every L850 firmware or OpenWrt release. SMS send/delete and
-radio/band/SIM-slot mutations were not exercised. The historical eSIM probe is
-retained only as provenance for a package retired in 0.3.
+The initial lifecycle validation was performed on 2026-07-19; later work is
+reported only in its explicitly dated sections. Identifiers and secrets were
+not recorded. The evidence proves the MBIM/ModemManager lifecycle and only the
+listed companion behavior on this hardware; it does not claim every L850
+firmware or OpenWrt release. The historical eSIM probe is retained only as
+provenance for a package retired in 0.3.
 
-## Pending 0.4.0-r2 scan-cooldown acceptance, 2026-07-28
+## Installed 0.4.0-r2 scan-cooldown acceptance, 2026-07-28
 
-The 0.4.0-r2 package candidate changes only expert scan admission: at most one
-scan may be active per modem, and a five-second cooldown begins when that scan
-finishes. Its source contract retains the 45-second timeout, cancellation,
-generation checks, shared mutation exclusion, and 64-cell/16-KiB bounds. This
-candidate has not yet been CI-built, installed, or live-validated. The steps
-below are an acceptance plan, not observed evidence.
+Static CI run `30348512717` and OpenWrt SDK run `30348512557` passed for source
+commit `10fa6a6868bd9ee423ad3473a897107194f8481e`. The SDK target was OpenWrt
+25.12.5 `ipq40xx/generic`. Downloaded expert-artifact hashes were:
 
-The approved read-only validation sequence is:
+| Artifact | SHA-256 |
+|---|---|
+| `fibocom-mm-bridge` | `c73084340684b2e5894bfa416f498352a06f729920c19dfb153ae0aa0ba60c48` |
+| `luci-app-fibocom` | `afb29d100f331a61ca8bedcb9a2016d212cdb190d44ea55467f45ac0b9da85af` |
+| `modemmanager` | `9b46039b963f5766a0a13d767ff77e978f590d2d50226183bd609f462112e60c` |
 
-1. verify CI artifact checksums, target architecture, package release, schema,
-   and the exact base/expert method tables before installation;
-2. record only normalized pre-test Overview and cell-lock state, without opaque
-   IDs, raw cells, subscriber data, or network addressing;
-3. start one typed `cell_scan` and issue a second request while it remains
-   active; require exactly one dispatched success path and a retryable `busy`
-   rejection without `retry_after_ms` for the overlap;
-4. after completion, require immediate retryable `rate_limited` responses whose
-   ceil-rounded `retry_after_ms` decreases without being reset by rejection;
-5. run sequential scans only after five seconds have elapsed from each prior
-   completion, then verify no overlap, normalized errors, or unbounded result;
-6. confirm the PCI lock observation, current bands, modem registration, bearer,
-   and service health are unchanged, and inspect sanitized warning/error counts.
+The bridge and LuCI packages were installed as 0.4.0-r2. The router already had
+the identical expert ModemManager 1.24.0-r10 package, so ModemManager was not
+reinstalled. Release r2 also contains separately requested LuCI and SMS-view
+changes; the backend delta exercised in this section is limited to expert scan
+admission and cooldown behavior.
 
-No set/clear/reset, Band Lock, mode, or SMS mutation is part of this acceptance.
-CI run IDs, source commit, artifact checksums, installed releases, timing
-observations, and the sanitized result matrix must be added only after those
-events actually complete.
+The sanitized scan matrix was:
+
+| Test | Observed result |
+|---|---|
+| 50 ms overlap batch | Exactly one `scan_ready` and one retryable `busy`; the busy response omitted `retry_after_ms` and therefore did not invent a completion estimate |
+| Dispatched scan | `method = l850-xmci`, 4 normalized cells, 718-byte bounded response; the two-request batch completed in 50 ms |
+| Immediate cooldown | `rate_limited`, `retry_after_ms = 4933` |
+| Cooldown after 1040 ms | `rate_limited`, `retry_after_ms = 3888`; the reported drop was 1045 ms, a 5 ms measurement difference, and neither rejection extended the original deadline |
+| Three post-cooldown scans | Each began after the five-second post-completion interval and returned `scan_ready` through `l850-xmci`; cell counts were 4/5/5, bounded response sizes were 722/847/839 bytes, and each recorded duration was 50 ms |
+| Health after each scan | Modem remained connected |
+| Final state | Modem connected/on/home, bearer connected, netifd up/available/not pending with `proto modemmanager`, current bands unchanged, cell lock clear, and scan capability available |
+
+The first harness attempt is excluded from those acceptance measurements.
+BusyBox did not support the harness's fractional `sleep`; the client was
+abandoned after a scan had already dispatched. The modem later reported
+disabled/low power and netifd entered an `Invalid` transition loop. A
+ModemManager service restart, bounded netifd settle cycles, and one
+ModemManager power-on attempt did not recover it. A physical replug restored
+the modem, after which the clean matrix above passed. This temporal sequence
+does not establish that the scan caused the modem state change; it records a
+harness/recovery caveat so the discarded attempt is not silently presented as
+a clean result.
+
+No PCI set/clear/reset, Band Lock, mode, or SMS mutation was run. The evidence
+retains only normalized state, counts, sizes, and timing; it does not retain
+opaque IDs, raw cells, subscriber data, or network addressing.
 
 ## Environment
 

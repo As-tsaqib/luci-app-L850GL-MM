@@ -29,10 +29,18 @@ returned the typed expert status. Interactive browser rendering remains a
 separate UI observation, not a blocker on the verified backend state machine.
 
 The five-second completion-based scan cooldown and per-modem scan single-flight
-policy described below are implemented in the 0.4.0-r2 package candidate.
-They have not yet been CI-built, installed, or exercised on the router; the
-installed 0.4.0-r1 scan evidence above must not be used to claim that cadence or
-overlap behavior live-verified.
+policy described below were built and installed in 0.4.0-r2. Live admission
+testing produced exactly one `scan_ready` and one retryable `busy` without
+`retry_after_ms` from a 50 ms overlap batch. Immediate cooldown values decreased
+from 4933 ms to 3888 ms across a measured 1040 ms interval without either
+rejection extending the deadline. Three further post-cooldown XMCI scans
+completed sequentially with bounded 4/5/5-cell results while the modem remained
+connected. The detailed record, including the discarded first-harness attempt
+and recovery caveat, is in `live-router-validation.md`.
+
+Release r2 also contains separately requested LuCI and SMS-view work. The live
+claim in the preceding paragraph applies specifically to the expert backend
+scan admission/cooldown delta; PCI mutation behavior was not changed or rerun.
 
 ## 4PDA community evidence
 

@@ -164,12 +164,25 @@ new code.
   UTRAN preservation, validated Serving Cell cache, and SMS read metadata were
   exercised with netifd/bearer recovery. The existing PCI configuration was
   observed but not mutated; no SMS write was run.
-- 2026-07-28: the 0.4.0-r2 source candidate changes expert scan admission to
-  one active scan per modem and starts a five-second cooldown only at terminal
-  completion. Active overlap is retryable `busy` without an invented duration;
-  cooldown rejection reports a ceil-rounded `retry_after_ms` and does not move
-  the deadline. CI build, package installation, and repeated live-scan evidence
-  remain pending and are not inferred from the earlier 0.4.0-r1 scan.
+- 2026-07-28: static run `30348512717` and OpenWrt 25.12.5
+  `ipq40xx/generic` SDK run `30348512557` passed for
+  `10fa6a6868bd9ee423ad3473a897107194f8481e`. Checksum-verified bridge and
+  LuCI 0.4.0-r2 packages were installed; the identical existing expert
+  ModemManager 1.24.0-r10 was not reinstalled. A 50 ms overlap batch returned
+  exactly one `scan_ready` and one retryable `busy` without `retry_after_ms`.
+  The five-second completion cooldown decreased from 4933 ms to 3888 ms across
+  a measured 1040 ms interval without rejection extending it, then three
+  sequential post-cooldown XMCI scans returned bounded 4/5/5-cell results with
+  the modem connected. No PCI set/clear/reset, Band Lock, mode, or SMS mutation
+  was run. The release also includes separately requested LuCI/SMS-view changes;
+  this live matrix validates only the expert backend scan delta.
+- 2026-07-28: an earlier r2 harness attempt used an unsupported fractional
+  BusyBox `sleep` and abandoned its client after dispatch. The modem later
+  entered disabled/low power with a netifd `Invalid` loop; a ModemManager
+  service restart, bounded netifd settle cycles, and one ModemManager power-on
+  attempt did not recover it, while a physical replug did. The clean acceptance
+  followed the replug. The temporal sequence is retained as a harness/recovery
+  caveat and is not evidence that the scan caused the state change.
 
 Historical v0.2 schema-1 results remain explicitly labeled and are not
 rewritten as schema-2 package evidence. Firmware command-level live evidence

@@ -138,6 +138,35 @@ automatic serving-cell availability: it never starts vendor scan itself, and
 its cache becomes available only after an explicit validated expert result or
 verified PCI postcondition.
 
+Live-validated through installed 0.4.0-r2 packages:
+
+- static run `30348512717` and OpenWrt 25.12.5 `ipq40xx/generic` SDK run
+  `30348512557`, source
+  `10fa6a6868bd9ee423ad3473a897107194f8481e`;
+- checksum-verified bridge and LuCI 0.4.0-r2 packages installed while the
+  identical existing expert ModemManager 1.24.0-r10 was left installed;
+- one 50 ms overlap batch admitted exactly one XMCI scan and rejected the
+  second as retryable `busy` without `retry_after_ms`;
+- immediate cooldown values of 4933 ms and 3888 ms across a measured 1040 ms
+  interval differed by only 5 ms from the measured drop and were not extended
+  by rejected requests;
+- three sequential scans after the five-second post-completion interval
+  returned bounded 4/5/5-cell responses of 722/847/839 bytes, with the modem
+  connected after each;
+- final cell lock was clear, current bands were unchanged, and modem,
+  bearer, and netifd ownership state were healthy.
+
+The first validation harness used an unsupported fractional BusyBox `sleep`
+and abandoned its client after dispatch. The modem later entered disabled/low
+power and a netifd `Invalid` loop; a ModemManager service restart, bounded
+netifd settle cycles, and one ModemManager power-on attempt did not recover it,
+while a physical replug did. Clean acceptance was performed only after
+recovery. This is retained as a harness/recovery caveat, not as proof that scan
+caused the state transition.
+No PCI set/clear/reset, Band Lock, mode, or SMS mutation was run. Release r2
+also contains separately requested LuCI/SMS-view changes; the scan matrix
+validates only the expert backend admission/cooldown delta.
+
 Live-validated through installed 0.4.0-r1 expert packages:
 
 - static run `30314503929` and SDK run `30314503962`, source `06eb8df`;
