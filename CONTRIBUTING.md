@@ -16,10 +16,10 @@ The browser must never submit raw AT, a D-Bus/sysfs/device path, or an arbitrary
 ubus method. Prefer typed asynchronous libmm-glib and fail closed when the
 standard capability is absent.
 
-## Keep the 0.4 surface small
+## Keep the 0.5 surface small
 
 The menu is exactly Overview, Lock, and SMS. The base `fibocom.mm` object is
-exactly eight schema-3 methods. Do not restore Status, Settings, old Advanced,
+exactly eight schema-4 methods. Do not restore Status, Settings, old Advanced,
 radio toggle, generic reset, SIM-slot switching, eSIM, rescan, diagnostic dump,
 or connection controls without a new product decision.
 
@@ -45,11 +45,15 @@ not permission to populate a firmware allowlist.
   mistyped fields.
 - Accept only one canonical rpcd session transport field.
 - Bound every text/list/response and keep frontend structural validation.
-- Never log or include in general status: phone numbers, SMS body, subscriber
-  identifiers, credentials, addresses, binary SMS, raw PDU, or raw modem output.
+- Never log phone numbers, SMS bodies, subscriber identifiers, credentials,
+  addresses, binary SMS, raw PDU, or raw modem output. The product-owner-approved
+  schema-4 Overview exception may return only bounded/sanitized IMEI, SIM number,
+  IMSI, and ICCID through the authenticated Overview ACL; do not copy those
+  values into logs, fixtures, evidence, diagnostics, list results, or another
+  endpoint.
 - Grant only the five exact ACL groups and exact ubus methods. Never add
   wildcard, filesystem, cgi-io, shell/file execution, or UCI-write access.
-- Keep LuCI fail-closed for every schema other than 3.
+- Keep LuCI fail-closed for every schema other than 4.
 
 ## SMS contract
 
@@ -78,6 +82,18 @@ fixtures, ModemManager arbitration, exact clear/reset/recovery behavior, and
 serving-cell postcondition. Never guess a band encoding, wildcard, NVM path,
 unlock tuple, or reset sequence. No live scan, lock, clear, reset, or SMS
 mutation may be run without explicit user permission.
+
+The expert read-only carrier query is similarly build- and firmware-gated. It
+must remain the fixed `AT+GTCAINFO?` command dispatched asynchronously through
+ModemManager, with a 20-second operation deadline, 15-second command deadline,
+per-modem single-flight exclusion against scans and mutations, and a five-second
+post-completion cooldown. Keep the parser limited to the documented 14-field
+primary and 10-field secondary records, eight declared slots, supported LTE
+bands, paired DL/UL EARFCN band-range validation, exact inactive sentinels, and
+bounded typed output. Active B29/B32 must remain rejected until an allowlisted
+firmware capture establishes their real uplink/sentinel representation. Never
+return raw command output, MCC/MNC/TAC/cell ID, or accept any command text from
+a client.
 
 ## Development flow
 

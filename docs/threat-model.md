@@ -48,12 +48,16 @@ routes, addresses, DNS, PIN, and credentials are outside the API.
    on an unintended cell.
 10. Malformed or oversized SMS/cell data consumes memory or reaches the DOM.
 11. SMS send retries duplicate a chargeable/private message.
-12. Logs, general status, or binary/PDU fields leak phone numbers or content.
+12. Logs, unauthorized status, or binary/PDU fields leak phone numbers or
+    content beyond the explicit Overview disclosure.
 13. Schema drift leaves old UI mutation controls enabled.
 14. Broad ACL, shell, file, cgi-io, or UCI grants expand compromise impact.
 15. A second dialer, direct TTY reader, or SMS tool races ModemManager.
 16. A mode request targets the wrong netifd section, overwrites a credential,
     or is blindly retried after persistence/reload uncertainty.
+17. A carrier-status poll overlaps a scan/mutation, injects command text, leaks
+    raw cellular identity, or mistakes an inactive sentinel for an active
+    secondary carrier.
 
 ## Controls
 
@@ -63,7 +67,7 @@ routes, addresses, DNS, PIN, and credentials are outside the API.
   `blobmsg_name`, type, or data access.
 - Requests accept exact typed fields plus at most one validated canonical
   `ubus_rpc_session`; malformed, missing, duplicate, and unknown fields fail.
-- The base method table is fixed to eight schema-3 methods.
+- The base method table is fixed to eight schema-4 methods.
 - Raw AT, D-Bus/sysfs/device paths, shell/process execution, arbitrary ubus,
   and bearer lifecycle calls are absent.
 - Text is UTF-8/control-character checked and bounded before serialization.
@@ -113,6 +117,10 @@ length, bad name termination, duplicate fields, and malformed session data.
   guessed retry duration. Every terminal scan completion starts a five-second
   cooldown; cooldown rejection reports the ceil-rounded remaining
   `retry_after_ms` without extending the deadline.
+- The expert carrier query is single-flight per modem and mutually excluded
+  with scans and mutations. Its 20-second operation/15-second command timeouts
+  are cancellable, and every terminal completion starts a separate five-second
+  cooldown with accurate `retry_after_ms`.
 - Band Lock uses only standard `SetCurrentBands`, exact supported/current-mode
   validation, confirmation, cooldown, and a prominent WAN interruption warning.
 
@@ -140,6 +148,14 @@ length, bad name termination, duplicate fields, and malformed session data.
 - A mutation cannot report verified success until all applicable
   postconditions pass; post-dispatch ambiguity is `outcome_unknown` with no
   automatic retry.
+- Carrier aggregation has a distinct fixed read-only `AT+GTCAINFO?` command.
+  It is available only in the expert build on the exact allowlisted tuple; no
+  command field crosses ubus. Its parser bounds the response to 4,096 bytes and
+  eight slots, enforces the 14-field primary/10-field secondary grammar,
+  validates live bands, paired DL/UL EARFCN ranges, PCI, and bandwidth, ignores
+  only the exact inactive sentinel, and exports no raw output or
+  MCC/MNC/TAC/cell ID/signal fields. Active B29/B32 fail closed until their
+  allowlisted-firmware uplink/sentinel shape has live evidence.
 
 ### SMS safety and privacy
 
@@ -151,13 +167,25 @@ length, bad name termination, duplicate fields, and malformed session data.
 - Client tokens are bound to a digest. At most 64 entries are retained for up
   to 300 seconds; capacity eviction and restart are documented honestly.
 - Unknown send outcome is cached and never resent automatically.
-- Phone number/body may appear only in an authorized SMS response and UI.
-  They are excluded from normal logs, Overview, diagnostics, process arguments,
-  binary payloads, and raw PDU exports.
+- SMS correspondent/body may appear only in an authorized SMS response and UI.
+  Schema 4 separately permits the ModemManager OwnNumbers value in authenticated
+  Overview. Both classes remain excluded from logs, diagnostics, process
+  arguments, binary payloads, and raw PDU exports.
+
+### Overview identifier disclosure
+
+- At the product owner's explicit direction, authenticated schema-4 Overview
+  may return the full ModemManager equipment identifier, one deterministic
+  bounded OwnNumbers entry, and cached SIM IMSI/ICCID.
+- The bridge UTF-8/control-character sanitizes and bounds these values; no
+  client can provide a source path or identifier lookup key.
+- These identifiers are intentionally excluded from `list_modems`, logs,
+  fixtures, evidence, diagnostics, browser storage, and console output. The
+  exact Overview ACL is the disclosure boundary.
 
 ### Frontend and ACL
 
-- LuCI requires schema 3 and complete typed success objects. Unknown schema or
+- LuCI requires schema 4 and complete typed success objects. Unknown schema or
   malformed data disables every mutation.
 - Cell records are structurally validated again before rendering.
 - DOM nodes are built without `innerHTML`; private data is not written to

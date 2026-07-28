@@ -68,7 +68,7 @@ fibocom_network_binding_lookup_at(const char *confdir, const char *device,
 				  struct FibocomNetworkBinding *binding);
 
 /*
- * Persist the schema-3 radio-mode intent on the uniquely bound netifd
+ * Persist the schema-4 radio-mode intent on the uniquely bound netifd
  * interface. Only the exact allowedmode/preferredmode options are changed.
  * The section is resolved again in the same libuci context, committed once,
  * and read back before OK is returned. No section or device identifier needs

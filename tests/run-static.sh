@@ -36,6 +36,7 @@ sh tests/run-host-sms-policy.sh
 sh tests/run-host-sms-dedupe.sh
 sh tests/run-host-ubus-blob.sh
 sh tests/run-host-cell-parser.sh
+sh tests/run-host-ca-parser.sh
 
 if command -v shellcheck >/dev/null 2>&1; then
 	for file in $shell_files; do

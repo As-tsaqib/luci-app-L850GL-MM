@@ -3,10 +3,10 @@ SPDX-FileCopyrightText: 2026 As Tsaqib
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Ubus API 0.4.0
+# Ubus API 0.5.0
 
-The public contract is schema 3. `fibocom.mm` has exactly eight methods. The
-optional `fibocom.mm.l850` object has four expert methods and is absent from a
+The public contract is schema 4. `fibocom.mm` has exactly eight methods. The
+optional `fibocom.mm.l850` object has five expert methods and is absent from a
 base build.
 
 ## Common rules
@@ -15,7 +15,7 @@ Every reply contains:
 
 ```json
 {
-  "schema": 3,
+  "schema": 4,
   "generated_at": 1780000000,
   "ok": true
 }
@@ -34,7 +34,7 @@ Every reply contains:
 }
 ```
 
-Consumers must reject a missing/mistyped envelope, any schema other than 3,
+Consumers must reject a missing/mistyped envelope, any schema other than 4,
 and incomplete success objects. LuCI disables mutations on compatibility or
 structural errors.
 
@@ -57,7 +57,7 @@ No product arguments. Returns `modems`, newest live inventory only:
 
 ```json
 {
-  "schema": 3,
+  "schema": 4,
   "generated_at": 1780000000,
   "ok": true,
   "modems": [{
@@ -77,8 +77,14 @@ No product arguments. Returns `modems`, newest live inventory only:
 Returns a compact snapshot with these top-level objects:
 
 - `identity`: sanitized `manufacturer`, `model`, and `revision`;
+- `identity.imei`: full ModemManager equipment identifier, sanitized to at most
+  64 Unicode code points;
+- `usb_mode`: normalized `mbim`, `ncm`, or `unknown` composition;
 - `modem`: normalized `state` and `power`;
-- `sim`: boolean `present` and normalized `lock`;
+- `sim`: boolean `present`, normalized `lock`, full `number` selected
+  deterministically from at most 16 ModemManager OwnNumbers entries, and full
+  cached `imsi`/`iccid`; number is bounded to 32 code points and identifiers to
+  64, with an empty string when unavailable;
 - `network`: `operator`, `registration`, `roaming`, and `access` array;
 - `signal`: quality/recent and available `rsrp`, `rsrq`, `sinr` numbers;
 - `bearer`: boolean `connected` and sanitized `interface`;
@@ -88,8 +94,11 @@ Returns a compact snapshot with these top-level objects:
 - `capabilities`: `sms`, `band_lock`, and `pci_lock` feature objects;
 - `warnings`: bounded machine-readable dependency/capability warnings.
 
-The response does not contain raw ports, paths, IMEI/IMSI/ICCID, IP addresses,
-gateway, DNS, APN, credentials, or a diagnostic dump.
+The full IMEI, SIM number, IMSI, and ICCID are a schema-4 product-owner override
+and are disclosed only by this authenticated Overview method. They must never
+be logged, stored in fixtures/evidence, copied into list results, or exposed by
+diagnostics. The response does not contain raw ports or paths, IP addresses,
+gateway, DNS, APN, credentials, raw modem output, or a diagnostic dump.
 
 ### `get_lock_status(modem_id)`
 
@@ -289,6 +298,80 @@ bridge falls back to its fixed XMCI query through ModemManager. `method` is
 `standard-cell-info` or `l850-xmci`. Other firmware receives no vendor
 fallback.
 
+### `get_carrier_info(modem_id, generation)`
+
+This read-only expert method is absent from a base build. It requires exact
+L850-GL/Fibocom/MBIM/`2cb7:0007` attestation, the sole allowlisted firmware,
+live supported LTE bands, and the current generation. It dispatches only the
+compiled-in `AT+GTCAINFO?` query through asynchronous ModemManager; no request
+field can select or alter a command.
+
+Only one carrier query may run per modem and it is mutually excluded with a
+cell scan or any modem mutation. An overlap returns retryable `busy` without a
+guessed duration. The operation timeout is 20 seconds and the ModemManager
+command timeout is 15 seconds. Every terminal completion starts a five-second
+cooldown. During cooldown, retryable `rate_limited` includes an accurate,
+ceil-rounded `retry_after_ms`; rejected requests do not extend the deadline.
+Removal, transport loss, cancellation, proxy replacement, or generation change
+fails closed.
+
+Success is bounded typed data only:
+
+```json
+{
+  "schema": 4,
+  "generated_at": 1780000000,
+  "ok": true,
+  "modem_id": "fibocom-<opaque>",
+  "generation": 7,
+  "state": "available",
+  "source": "modemmanager",
+  "method": "l850-gtcainfo",
+  "active_bands": [3, 7],
+  "primary": {
+    "index": 1,
+    "band": 3,
+    "earfcn": 1325,
+    "pci": 381,
+    "dl_bandwidth_mhz": 20,
+    "ul_bandwidth_mhz": 20
+  },
+  "secondary": [{
+    "index": 2,
+    "band": 7,
+    "earfcn": 3100,
+    "pci": 100,
+    "dl_bandwidth_mhz": 10,
+    "ul_bandwidth_mhz": 10
+  }],
+  "active_carriers": 2
+}
+```
+
+`active_bands` is the unique set of bands in the active carriers, not the Band
+Lock configuration. `primary` must be index 1. `secondary` contains only active
+index 2..8 slots; an exact inactive sentinel is counted in the declared modem
+response but omitted here. `active_carriers` is therefore exactly one plus the
+number of returned secondaries. Every carrier requires band 1..85, a matching
+pair of LTE downlink and uplink EARFCNs within the reported band's reviewed
+ranges, PCI 0..503, a live SupportedBands match, and DL/UL bandwidth of 1.4, 3,
+5, 10, 15, or 20 MHz. The parser does not accept a merely globally bounded UL
+EARFCN from another band.
+
+The parser accepts at most 4,096 response bytes and eight declared slots. It
+requires the 14-field primary grammar and 10-field secondary grammar, exact
+slot count/index uniqueness, one active primary, and no duplicate active
+carrier. Sentinel, range, count, field-shape, overflow, unexpected-line, and
+band mismatch errors reject the complete response. Although primary cellular
+identity and signal fields are validated structurally, raw response,
+MCC/MNC/TAC/cell ID, RSRP, RSRQ, and SINR are not exported.
+
+B29 and B32 are downlink-only LTE bands whose active `GTCAINFO` uplink/sentinel
+representation has not been captured on the allowlisted firmware. An active
+B29/B32 record therefore fails closed even if ModemManager lists that band in
+SupportedBands. Admission requires a future sanitized live capture plus parser
+fixtures; no value is guessed from 3GPP tables or reference-project code.
+
 ### `set_cell_lock(modem_id, generation, earfcn, pci?, confirm)`
 
 ### `clear_cell_lock(modem_id, generation, confirm)`
@@ -342,17 +425,17 @@ coordinator can establish all postconditions.
 
 | ACL | Access |
 |---|---|
-| `luci-app-fibocom-overview` | read `list_modems`, `get_overview`, `get_lock_status` |
+| `luci-app-fibocom-overview` | read base `list_modems`, `get_overview`, `get_lock_status`; read expert `get_carrier_info` when that object exists |
 | `luci-app-fibocom-sms-read` | read `list_sms` |
 | `luci-app-fibocom-sms-write` | write `send_sms`, `delete_sms` |
 | `luci-app-fibocom-lock-band` | write `set_bands`, `set_modes` |
-| `luci-app-fibocom-lock-pci-expert` | read `cell_scan`, `cell_lock_status`; write `set_cell_lock`, `clear_cell_lock` |
+| `luci-app-fibocom-lock-pci-expert` | read `cell_scan`, `get_carrier_info`, `cell_lock_status`; write `set_cell_lock`, `clear_cell_lock` |
 
 There are no wildcard, file, filesystem, shell, cgi-io, or UCI permissions.
 
 ## Deliberately absent API
 
-Schema 3 has no `get_status`, `get_capabilities`, `set_radio`, `reset`,
+Schema 4 has no `get_status`, `get_capabilities`, `set_radio`, `reset`,
 `set_primary_sim_slot`, dial/connect/disconnect/bearer methods, generic command,
 device/path input, arbitrary UCI mutation, eSIM operation, rescan, or diagnostic
 dump. The only persistent configuration mutation is the exact two-option

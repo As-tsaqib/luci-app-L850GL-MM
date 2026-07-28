@@ -101,7 +101,7 @@ assert.deepStrictEqual(acl['luci-app-fibocom-lock-band'].write.ubus['fibocom.mm'
 ]);
 assert.deepStrictEqual(
 	acl['luci-app-fibocom-lock-pci-expert'].read.ubus['fibocom.mm.l850'],
-	[ 'cell_scan', 'cell_lock_status' ]);
+	[ 'cell_scan', 'get_carrier_info', 'cell_lock_status' ]);
 assert.deepStrictEqual(
 	acl['luci-app-fibocom-lock-pci-expert'].write.ubus['fibocom.mm.l850'],
 	[ 'set_cell_lock', 'clear_cell_lock' ]);
@@ -124,7 +124,7 @@ const rpc = {
 const baseclass = { extend: function(specification) { return specification; } };
 const api = evaluate('htdocs/luci-static/resources/fibocom/api.js', { baseclass, rpc });
 
-assert.strictEqual(api.SCHEMA_VERSION, 3);
+assert.strictEqual(api.SCHEMA_VERSION, 4);
 assert.deepStrictEqual(declarations.map(function(call) {
 	return `${call.object}.${call.method}`;
 }), [
@@ -137,6 +137,7 @@ assert.deepStrictEqual(declarations.map(function(call) {
 	'fibocom.mm.send_sms',
 	'fibocom.mm.delete_sms',
 	'fibocom.mm.l850.cell_scan',
+	'fibocom.mm.l850.get_carrier_info',
 	'fibocom.mm.l850.cell_lock_status',
 	'fibocom.mm.l850.set_cell_lock',
 	'fibocom.mm.l850.clear_cell_lock'
@@ -160,9 +161,10 @@ assert.deepStrictEqual(declarations[7].params, [
 ]);
 assert.deepStrictEqual(declarations[8].params, [ 'modem_id', 'generation' ]);
 assert.deepStrictEqual(declarations[9].params, [ 'modem_id', 'generation' ]);
-assert.deepStrictEqual(declarations[10].params,
-	[ 'modem_id', 'generation', 'earfcn', 'pci', 'confirm' ]);
+assert.deepStrictEqual(declarations[10].params, [ 'modem_id', 'generation' ]);
 assert.deepStrictEqual(declarations[11].params,
+	[ 'modem_id', 'generation', 'earfcn', 'pci', 'confirm' ]);
+assert.deepStrictEqual(declarations[12].params,
 	[ 'modem_id', 'generation', 'confirm' ]);
 assert.deepStrictEqual(api.listModems().arguments, []);
 assert.deepStrictEqual(api.getOverview('fibocom-test').arguments, [ 'fibocom-test' ]);
@@ -173,6 +175,8 @@ assert.deepStrictEqual(api.setModes('fibocom-test', 4, '3g|4g', '4g', true).argu
 	[ 'fibocom-test', 4, '3g|4g', '4g', true ]);
 assert.deepStrictEqual(api.listSms('fibocom-test', 'inbox', 100, 'next').arguments,
 	[ 'fibocom-test', 'inbox', 100, 'next' ]);
+assert.deepStrictEqual(api.getCarrierInfo('fibocom-test', 4).arguments,
+	[ 'fibocom-test', 4 ]);
 assert.deepStrictEqual(api.cellScan('fibocom-test', 4).arguments,
 	[ 'fibocom-test', 4 ]);
 assert.deepStrictEqual(api.cellLockStatus('fibocom-test', 4).arguments,
@@ -330,15 +334,15 @@ assert.ok(hasClass(widgets.badge('Received', 'received'), 'success'),
 	'received SMS state must use the native LuCI green success badge');
 assert.ok(hasClass(widgets.badge('Sent', 'sent'), 'notice'),
 	'sent SMS state must use the native LuCI blue notice badge');
-assert.strictEqual(widgets.isCompatible({ schema: 3, ok: true }), true);
+assert.strictEqual(widgets.isCompatible({ schema: 4, ok: true }), true);
 assert.strictEqual(widgets.isCompatible({ schema: 1, ok: true }), false);
-assert.strictEqual(widgets.isCompatible({ schema: 3, ok: 'yes' }), false);
-assert.deepStrictEqual(widgets.modems({ schema: 3, ok: true, modems: [] }), []);
+assert.strictEqual(widgets.isCompatible({ schema: 4, ok: 'yes' }), false);
+assert.deepStrictEqual(widgets.modems({ schema: 4, ok: true, modems: [] }), []);
 assert.deepStrictEqual(widgets.modems({ schema: 1, ok: true, modems: [] }), []);
 assert.match(widgets.responseError({ schema: 1, ok: true }), /schema/i);
-assert.match(widgets.responseError({ schema: 3, ok: true }), /malformed/i,
+assert.match(widgets.responseError({ schema: 4, ok: true }), /malformed/i,
 	'a partial success response must fail closed');
-assert.strictEqual(widgets.mutationAllowed({ schema: 3, generated_at: 1, ok: true }, {
+assert.strictEqual(widgets.mutationAllowed({ schema: 4, generated_at: 1, ok: true }, {
 	modem_id: 'fibocom-test', generation: 4
 }, 'fibocom-test', 4), true);
 assert.strictEqual(widgets.mutationAllowed({ schema: 2, generated_at: 1, ok: true }, {
@@ -384,22 +388,27 @@ const summary = {
 	power: 'on'
 };
 const listResult = {
-	schema: 3,
+	schema: 4,
 	generated_at: 1,
 	ok: true,
 	modems: [ summary ]
 };
 const overviewResult = {
-	schema: 3,
+	schema: 4,
 	generated_at: 1,
 	ok: true,
 	modem_id: 'fibocom-test',
 	generation: 4,
 	identity: {
-		manufacturer: 'Fibocom Wireless Inc.', model: 'L850-GL', revision: '18500.test'
+		manufacturer: 'Fibocom Wireless Inc.', model: 'L850-GL', revision: '18500.test',
+		imei: '359762080000001'
 	},
+	usb_mode: 'mbim',
 	modem: { state: 'connected', power: 'on' },
-	sim: { present: true, lock: 'none' },
+	sim: {
+		present: true, lock: 'none', number: '+628111000000',
+		imsi: '510100000000001', iccid: '8962100000000000001'
+	},
 	network: {
 		operator: 'Example', registration: 'home', roaming: false, access: [ 'lte' ]
 	},
@@ -417,8 +426,28 @@ const overviewResult = {
 	},
 	warnings: []
 };
+const carrierResult = {
+	schema: 4,
+	generated_at: 1,
+	ok: true,
+	modem_id: 'fibocom-test',
+	generation: 4,
+	state: 'available',
+	active_bands: [ 3, 7 ],
+	primary: {
+		index: 1, band: 3, earfcn: 1325, pci: 0,
+		dl_bandwidth_mhz: 20, ul_bandwidth_mhz: 10
+	},
+	secondary: [ {
+		index: 2, band: 7, earfcn: 2850, pci: 321,
+		dl_bandwidth_mhz: 15, ul_bandwidth_mhz: 5
+	} ],
+	active_carriers: 2,
+	source: 'modemmanager',
+	method: 'l850-gtcainfo'
+};
 const lockResult = {
-	schema: 3,
+	schema: 4,
 	generated_at: 1,
 	ok: true,
 	modem_id: 'fibocom-test',
@@ -435,7 +464,7 @@ const lockResult = {
 	pci_lock: { state: 'unsupported_build', mutable: false, reason: 'expert-object-absent' }
 };
 const smsResult = {
-	schema: 3,
+	schema: 4,
 	generated_at: 1,
 	ok: true,
 	modem_id: 'fibocom-test',
@@ -466,7 +495,7 @@ assert.match(widgets.smsError(Object.assign({}, smsResult, {
 }), summary), /malformed/i,
 'SMS page limits outside the backend bound must fail closed');
 const expertResult = {
-	schema: 3,
+	schema: 4,
 	generated_at: 1,
 	ok: false,
 	modem_id: 'fibocom-test',
@@ -479,7 +508,7 @@ const expertResult = {
 	}
 };
 const availableExpertResult = {
-	schema: 3,
+	schema: 4,
 	generated_at: 1,
 	ok: true,
 	modem_id: 'fibocom-test',
@@ -515,6 +544,64 @@ assert.match(widgets.overviewError(Object.assign({}, overviewResult, {
 assert.strictEqual(widgets.overviewError(Object.assign({}, overviewResult, {
 	serving_cell: { state: 'unavailable', reason: 'refresh-pending' }
 }), summary), null, 'a typed unavailable Serving Cell state must remain renderable');
+assert.match(widgets.overviewError(Object.assign({}, overviewResult, {
+	usb_mode: 'qmi'
+}), summary), /malformed/i,
+'unrecognized USB compositions must fail closed');
+assert.match(widgets.overviewError(Object.assign({}, overviewResult, {
+	identity: Object.assign({}, overviewResult.identity, { imei: 359762080000001 })
+}), summary), /malformed/i,
+'modem identifiers must remain typed strings to preserve every digit');
+assert.match(widgets.overviewError(Object.assign({}, overviewResult, {
+	identity: Object.assign({}, overviewResult.identity, { imei: '1'.repeat(65) })
+}), summary), /malformed/i,
+'frontend identifier bounds must match the backend serializer');
+assert.match(widgets.overviewError(Object.assign({}, overviewResult, {
+	sim: Object.assign({}, overviewResult.sim, { number: '1'.repeat(33) })
+}), summary), /malformed/i,
+'frontend SIM-number bounds must match the backend serializer');
+assert.match(widgets.overviewError(Object.assign({}, overviewResult, {
+	sim: Object.assign({}, overviewResult.sim, { present: false })
+}), summary), /malformed/i,
+'an absent SIM must never carry subscriber identifiers');
+assert.strictEqual(widgets.carrierInfoError(carrierResult, summary), null);
+assert.match(widgets.carrierInfoError(Object.assign({}, carrierResult, {
+	primary: Object.assign({}, carrierResult.primary, { pci: 504 })
+}), summary), /malformed/i,
+'carrier PCI values outside the LTE range must fail closed');
+assert.match(widgets.carrierInfoError(Object.assign({}, carrierResult, {
+	primary: Object.assign({}, carrierResult.primary, { band: 1 })
+}), summary), /malformed/i,
+'carrier EARFCN must map to its reported LTE band');
+assert.match(widgets.carrierInfoError(Object.assign({}, carrierResult, {
+	primary: Object.assign({}, carrierResult.primary, { dl_bandwidth_mhz: 2 })
+}), summary), /malformed/i,
+'unrecognized carrier bandwidth values must fail closed');
+assert.match(widgets.carrierInfoError(Object.assign({}, carrierResult, {
+	secondary: [ Object.assign({}, carrierResult.secondary[0], { index: 1 }) ]
+}), summary), /malformed/i,
+'carrier indexes must be unique and reserve index 1 for the primary carrier');
+assert.match(widgets.carrierInfoError(Object.assign({}, carrierResult, {
+	secondary: [ Object.assign({}, carrierResult.primary, { index: 2 }) ],
+	active_bands: [ 3 ]
+}), summary), /malformed/i,
+'duplicate public carrier tuples must fail closed even with distinct indexes');
+assert.match(widgets.carrierInfoError(Object.assign({}, carrierResult, {
+	active_bands: [ 3, 20 ]
+}), summary), /malformed/i,
+'active LTE bands must exactly match the validated carrier set');
+assert.match(widgets.carrierInfoError(Object.assign({}, carrierResult, {
+	active_carriers: 3
+}), summary), /malformed/i,
+'the active carrier count must match primary plus secondary carriers');
+assert.match(widgets.carrierInfoError(Object.assign({}, carrierResult, {
+	method: 'unreviewed-command'
+}), summary), /malformed/i,
+'carrier provenance must match the exact reviewed backend contract');
+assert.match(widgets.carrierInfoError(Object.assign({}, carrierResult, {
+	schema: 3
+}), summary), /schema/i,
+'legacy expert schemas must fail closed');
 assert.strictEqual(widgets.lockError(lockResult, summary), null);
 assert.match(widgets.lockError(Object.assign({}, lockResult, {
 	mode_policy: Object.assign({}, lockResult.mode_policy, {
@@ -532,7 +619,7 @@ const smsView = evaluate(
 
 const overviewNode = overviewView.render({
 	list: listResult,
-	entries: [ { summary: summary, overview: overviewResult } ]
+	entries: [ { summary: summary, overview: overviewResult, carrier: carrierResult } ]
 });
 assert.strictEqual(overviewNode.tag, 'div');
 assertPageStructure(overviewNode, 'fibocom-overview-page');
@@ -566,12 +653,103 @@ assert.strictEqual(leftOverviewColumn.includes('Capabilities'), false,
 	'Capabilities must not remain below Modem Status');
 assert.ok(capabilitiesIndex !== -1 && signalStatusIndex < capabilitiesIndex,
 	'Capabilities must be rendered below Signal Status');
+[ [ 'SMS', 'available' ], [ 'Band Lock', 'available' ],
+	[ 'PCI/EARFCN Lock', 'unsupported_build' ] ].forEach(function(expectation) {
+	assert.deepStrictEqual(
+		renderedText(findKeyValueRows(overviewNode, expectation[0])[0]),
+		expectation,
+		`${expectation[0]} must expose only its concise state badge`);
+});
+assert.ok(!renderedOverview.some(function(value) {
+	return value.includes('Mutation available') || value.includes('Reason:');
+}), 'Overview capability rows must hide mutation internals and machine reasons');
 [ 'Modem Info', 'Modem Status', 'Band and Cell Status', 'Signal Status',
-	'3G: B1 | 4G: B1, B3' ]
+	'3G: B1 | 4G: B1, B3', 'USB Mode', 'SIM Number', 'IMEI', 'IMSI', 'ICCID',
+	'Active LTE Bands', 'Primary LTE Band', 'Secondary LTE Bands',
+	'Active LTE Carriers', 'LTE CA Details' ]
 	.forEach(function(expected) {
 		assert.ok(renderedOverview.some(function(value) { return value.includes(expected); }),
 			`Overview must render the ${expected} group or friendly band label`);
 	});
+assert.deepStrictEqual(renderedText(findKeyValueRows(overviewNode, 'USB Mode')[0]),
+	[ 'USB Mode', 'MBIM' ]);
+[ [ 'ncm', 'NCM' ], [ 'unknown', 'Unknown' ] ].forEach(function(expectation) {
+	const usbOverviewNode = overviewView.render({
+		list: listResult,
+		entries: [ {
+			summary: summary,
+			overview: Object.assign({}, overviewResult, { usb_mode: expectation[0] }),
+			carrier: carrierResult
+		} ]
+	});
+
+	assert.deepStrictEqual(
+		renderedText(findKeyValueRows(usbOverviewNode, 'USB Mode')[0]),
+		[ 'USB Mode', expectation[1] ],
+		`USB mode ${expectation[0]} must render its normalized label`);
+});
+assert.deepStrictEqual(renderedText(findKeyValueRows(overviewNode, 'Active LTE Bands')[0]),
+	[ 'Active LTE Bands', 'B3 + B7' ]);
+assert.deepStrictEqual(renderedText(findKeyValueRows(overviewNode, 'Primary LTE Band')[0]),
+	[ 'Primary LTE Band', 'B3' ]);
+assert.deepStrictEqual(renderedText(findKeyValueRows(overviewNode, 'Secondary LTE Bands')[0]),
+	[ 'Secondary LTE Bands', 'B7' ]);
+assert.deepStrictEqual(renderedText(findKeyValueRows(overviewNode, 'Active LTE Carriers')[0]),
+	[ 'Active LTE Carriers', '2' ]);
+const carrierDetailsText = renderedText(
+	findKeyValueRows(overviewNode, 'LTE CA Details')[0]).join(' ');
+
+assert.match(carrierDetailsText, /Primary carrier #1.*B3, EARFCN 1325, PCI 0/);
+assert.match(carrierDetailsText, /Secondary carrier #2.*B7, EARFCN 2850, PCI 321/);
+assert.match(carrierDetailsText, /DL\/UL 20\/10 MHz/);
+assert.doesNotMatch(carrierDetailsText, /Source|Method/,
+	'Overview must not expose internal carrier transport labels');
+assert.strictEqual(findKeyValueRows(overviewNode, 'Revision').length, 0,
+	'Overview must keep the previously retired Revision display row hidden');
+const renderedIdentifiers = findNodes(overviewNode, function(node) {
+	return node.tag === 'code' && hasClass(node, 'fibocom-identifier');
+});
+
+assert.deepStrictEqual(renderedIdentifiers.map(function(node) {
+	return renderedText(node).join('');
+}), [ '359762080000001', '+628111000000', '510100000000001',
+	'8962100000000000001' ],
+'the full identifiers explicitly requested by the user must be rendered without mutation');
+assert.ok(renderedIdentifiers.every(function(node) {
+	return node.attributes.dir === 'ltr' && node.attributes.tabindex === '0';
+}), 'identifiers must remain selectable and copy-friendly');
+const emptyIdentifierOverview = Object.assign({}, overviewResult, {
+	identity: Object.assign({}, overviewResult.identity, { imei: '' }),
+	sim: Object.assign({}, overviewResult.sim, { number: '', imsi: '', iccid: '' })
+});
+
+assert.strictEqual(widgets.overviewError(emptyIdentifierOverview, summary), null,
+	'empty identity fields are a valid typed Unavailable state');
+const emptyIdentifierNode = overviewView.render({
+	list: listResult,
+	entries: [ {
+		summary: summary, overview: emptyIdentifierOverview, carrier: carrierResult
+	} ]
+});
+
+[ 'IMEI', 'SIM Number', 'IMSI', 'ICCID' ].forEach(function(label) {
+	assert.deepStrictEqual(renderedText(findKeyValueRows(emptyIdentifierNode, label)[0]),
+		[ label, 'Unavailable' ]);
+});
+const unavailableCarrierOverview = overviewView.render({
+	list: listResult,
+	entries: [ { summary: summary, overview: overviewResult } ]
+});
+
+[ 'Active LTE Bands', 'Primary LTE Band', 'Secondary LTE Bands',
+	'Active LTE Carriers', 'LTE CA Details' ].forEach(function(label) {
+	const rows = findKeyValueRows(unavailableCarrierOverview, label);
+
+	assert.strictEqual(rows.length, 1,
+		`${label} must remain visible when the expert object is absent`);
+	assert.deepStrictEqual(renderedText(rows[0]), [ label, 'Unavailable' ],
+		`${label} must fail closed instead of displaying partial carrier data`);
+});
 [ 'utran-', 'eutran-' ].forEach(function(internalPrefix) {
 	assert.ok(!renderedOverview.some(function(value) { return value.includes(internalPrefix); }),
 		`Overview must not expose the internal ${internalPrefix} band prefix`);
@@ -722,7 +900,7 @@ const interactiveApi = {
 		assert.strictEqual(modemId, summary.modem_id);
 		assert.strictEqual(generation, summary.generation);
 		const result = {
-			schema: 3,
+			schema: 4,
 			generated_at: 2,
 			ok: true,
 			modem_id: modemId,
@@ -904,32 +1082,75 @@ const renderedSms = smsView.render({
 assert.strictEqual(renderedSms.tag, 'div');
 assertPageStructure(renderedSms, 'fibocom-sms-page');
 assert.ok(renderedText(renderedSms).includes('Load more'));
+const smsPageHeading = findNodes(renderedSms, function(node) {
+	return hasClass(node, 'fibocom-sms-page-heading');
+})[0];
+const smsStatusDot = findNodes(smsPageHeading, function(node) {
+	return hasClass(node, 'fibocom-sms-status-dot');
+})[0];
+const compactFilter = findNodes(renderedSms, function(node) {
+	return node.tag === 'select' && hasClass(node, 'fibocom-sms-filter-select');
+})[0];
+const loadedCount = findNodes(renderedSms, function(node) {
+	return hasClass(node, 'fibocom-sms-loaded-count');
+})[0];
+
+assert.ok(renderedText(smsPageHeading).includes('SMS'));
+assert.ok(hasClass(smsStatusDot, 'is-ready'),
+	'a healthy SMS cache must render a green-ready header status');
+assert.strictEqual(smsStatusDot.attributes.role, 'status');
+assert.strictEqual(smsStatusDot.attributes['aria-live'], 'polite');
+assert.strictEqual(findNodes(renderedSms, function(node) {
+	return hasClass(node, 'fibocom-device-title');
+}).length, 0, 'the compact folder filter must replace the large modem title');
+assert.ok(compactFilter, 'the folder selector must remain available in the compact toolbar');
+assert.strictEqual(compactFilter.attributes['aria-label'], 'Folder');
+assert.deepStrictEqual(renderedText(compactFilter),
+	[ 'All messages', 'Inbox', 'Outbox', 'Drafts', 'Unknown' ],
+	'the compact filter must retain every supported SMS folder');
+assert.ok(hasClass(loadedCount, 'notice'));
+assert.deepStrictEqual(renderedText(loadedCount), [ '0 loaded' ]);
 assert.strictEqual(findKeyValueRows(renderedSms, 'Revision').length, 0,
 	'the SMS summary must omit the technical cache revision');
+assert.strictEqual(findKeyValueRows(renderedSms, 'Messaging cache').length, 0,
+	'the cache state must move from a technical row to the header dot');
+assert.strictEqual(findKeyValueRows(renderedSms, 'Loaded messages').length, 0,
+	'the loaded count must move from a key/value row to the compact toolbar');
 assert.strictEqual(findKeyValueRows(renderedSms, 'Request-token capacity').length, 0);
 assert.strictEqual(findKeyValueRows(renderedSms,
 	'Request-token maximum age (seconds)').length, 0);
-const collapsedComposer = findNodes(renderedSms, function(node) {
-	return node.tag === 'details' && hasClass(node, 'fibocom-compose');
+const smsToolbar = findNodes(renderedSms, function(node) {
+	return hasClass(node, 'fibocom-sms-toolbar');
+})[0];
+let composeToggle = findNodes(renderedSms, function(node) {
+	return node.tag === 'button' && hasClass(node, 'fibocom-compose-toggle');
 })[0];
 
-assert.ok(collapsedComposer, 'Write SMS must use a native collapsible details panel');
-assert.strictEqual(collapsedComposer.attributes.open, null,
-	'Write SMS must be collapsed by default');
-assert.ok(findNodes(collapsedComposer, function(node) {
-	return node.tag === 'summary' && renderedText(node).includes('Write SMS');
-}).length === 1, 'the collapsed composer banner must be named Write SMS');
-collapsedComposer.attributes.toggle({ target: { open: true } });
+assert.ok(composeToggle, 'Write SMS must render as a compact toolbar button');
+assert.ok(hasClass(composeToggle, 'btn') && hasClass(composeToggle, 'cbi-button'));
+assert.strictEqual(renderedText(composeToggle).join(''), 'Write SMS');
+assert.strictEqual(composeToggle.attributes['aria-expanded'], 'false');
+assert.ok(smsToolbar.children.indexOf(compactFilter) < smsToolbar.children.indexOf(loadedCount));
+assert.ok(smsToolbar.children.indexOf(loadedCount) < smsToolbar.children.indexOf(composeToggle),
+	'filter, loaded count, and Write SMS must share the same top toolbar row');
+assert.strictEqual(findNodes(renderedSms, function(node) {
+	return node.tag === 'form' && hasClass(node, 'fibocom-compose-form');
+}).length, 0, 'the Write SMS form must remain closed by default');
+composeToggle.attributes.click();
 const openComposerNode = smsView.render({
 	list: listResult,
 	entries: [ { summary: summary, messages: smsResult } ]
 });
+composeToggle = findNodes(openComposerNode, function(node) {
+	return node.tag === 'button' && hasClass(node, 'fibocom-compose-toggle');
+})[0];
 const openComposer = findNodes(openComposerNode, function(node) {
-	return node.tag === 'details' && hasClass(node, 'fibocom-compose');
+	return node.tag === 'form' && hasClass(node, 'fibocom-compose-form');
 })[0];
 
-assert.strictEqual(openComposer.attributes.open, '',
-	'Write SMS open state must survive a polling redraw');
+assert.strictEqual(composeToggle.attributes['aria-expanded'], 'true');
+assert.ok(openComposer,
+	'clicking Write SMS must open its full form and survive a polling redraw');
 const binarySms = Object.assign({}, smsResult, {
 	has_more: false,
 	next_cursor: '',
@@ -1216,7 +1437,7 @@ function smsBulkButton(node) {
 
 function successfulDeleteResult(smsId) {
 	return {
-		schema: 3,
+		schema: 4,
 		generated_at: 2,
 		ok: true,
 		modem_id: summary.modem_id,
@@ -1225,6 +1446,54 @@ function successfulDeleteResult(smsId) {
 		sms_id: smsId,
 		deleted: true
 	};
+}
+
+async function testOverviewLoadMerge() {
+	const calls = [];
+	const loadingApi = {
+		listModems: function() {
+			calls.push([ 'listModems' ]);
+			return Promise.resolve(listResult);
+		},
+		getOverview: function(modemId) {
+			calls.push([ 'getOverview', modemId ]);
+			return Promise.resolve(overviewResult);
+		},
+		getCarrierInfo: function(modemId, generation) {
+			calls.push([ 'getCarrierInfo', modemId, generation ]);
+			return Promise.resolve(carrierResult);
+		}
+	};
+	const module = evaluate('htdocs/luci-static/resources/view/fibocom/overview.js',
+		Object.assign({}, viewDependencies, { api: loadingApi }));
+	const snapshot = await module.load();
+
+	assert.deepStrictEqual(calls, [
+		[ 'listModems' ],
+		[ 'getOverview', 'fibocom-test' ],
+		[ 'getCarrierInfo', 'fibocom-test', 4 ]
+	]);
+	assert.strictEqual(snapshot.entries[0].overview, overviewResult);
+	assert.strictEqual(snapshot.entries[0].carrier, carrierResult,
+		'Overview polling must merge the typed base and expert snapshots');
+
+	const unavailableModule = evaluate(
+		'htdocs/luci-static/resources/view/fibocom/overview.js',
+		Object.assign({}, viewDependencies, {
+			api: Object.assign({}, loadingApi, {
+				getCarrierInfo: function() {
+					return Promise.reject(new Error('expert object absent'));
+				}
+			})
+		}));
+	const unavailableSnapshot = await unavailableModule.load();
+	const unavailableNode = unavailableModule.render(unavailableSnapshot);
+
+	[ 'Active LTE Bands', 'Primary LTE Band', 'Secondary LTE Bands',
+		'Active LTE Carriers', 'LTE CA Details' ].forEach(function(label) {
+		assert.deepStrictEqual(renderedText(
+			findKeyValueRows(unavailableNode, label)[0]), [ label, 'Unavailable' ]);
+	});
 }
 
 async function testSmsInteractions() {
@@ -1239,9 +1508,47 @@ async function testSmsInteractions() {
 			interactionSmsMessage('sms-chat-local', '08111000', 'outgoing', 'Local alias')
 		];
 		let timers = fakeSmsTimers();
+		let conversationSendArguments = null;
 
+		timers.window.crypto = {
+			getRandomValues: function(bytes) {
+				for (let index = 0; index < bytes.length; index++)
+					bytes[index] = index + 1;
+				return bytes;
+			}
+		};
 		global.window = timers.window;
-		let harness = createSmsInteractionHarness(conversationMessages);
+		let harness = createSmsInteractionHarness(conversationMessages, {
+			api: {
+				sendSms: function() {
+					conversationSendArguments = Array.from(arguments);
+					return Promise.resolve({
+						schema: 4,
+						generated_at: 2,
+						ok: false,
+						error: {
+							code: 'not_ready',
+							message: 'Mock send stop after argument capture',
+							retryable: true
+						}
+					});
+				}
+			}
+		});
+		let listComposeToggle = findNodes(harness.root, function(node) {
+			return node.tag === 'button' && hasClass(node, 'fibocom-compose-toggle');
+		})[0];
+
+		listComposeToggle.attributes.click();
+		const listRecipient = findNodes(harness.root, function(node) {
+			return node.tag === 'input' && node.attributes.type === 'tel';
+		})[0];
+
+		listRecipient.attributes.input({ target: { value: '+629999999' } });
+		listComposeToggle = findNodes(harness.root, function(node) {
+			return node.tag === 'button' && hasClass(node, 'fibocom-compose-toggle');
+		})[0];
+		listComposeToggle.attributes.click();
 		let card = smsCardWithText(harness.root, 'Exact inbound');
 		let prevented = 0;
 		const opened = card.attributes.click({
@@ -1268,6 +1575,71 @@ async function testSmsInteractions() {
 		assert.ok(!renderedText(harness.root).includes('Local alias'));
 		assert.ok(chatCards.some(function(node) { return hasClass(node, 'fibocom-sms-chat-inbound'); }));
 		assert.ok(chatCards.some(function(node) { return hasClass(node, 'fibocom-sms-chat-outbound'); }));
+		const chatList = findNodes(harness.root, function(node) {
+			return hasClass(node, 'fibocom-sms-chat-list');
+		})[0];
+		let inlineComposer = findNodes(harness.root, function(node) {
+			return node.tag === 'form' && hasClass(node, 'fibocom-conversation-compose');
+		})[0];
+		const chatPanel = findNodes(harness.root, function(node) {
+			return hasClass(node, 'fibocom-panel') && Array.isArray(node.children) &&
+				node.children.indexOf(chatList) !== -1;
+		})[0];
+
+		assert.ok(inlineComposer,
+			'a numeric conversation must render an always-open inline composer');
+		assert.ok(chatPanel.children.indexOf(inlineComposer) > chatPanel.children.indexOf(chatList),
+			'the conversation composer must follow the chat messages at the bottom');
+		assert.strictEqual(findNodes(harness.root, function(node) {
+			return node.tag === 'details' && hasClass(node, 'fibocom-compose');
+		}).length, 0, 'conversation mode must not retain the top Write SMS panel');
+		assert.strictEqual(findNodes(inlineComposer, function(node) {
+			return node.tag === 'input' && node.attributes.type === 'tel';
+		}).length, 0, 'the conversation recipient must not be editable');
+		assert.strictEqual(smsBulkButton(harness.root), undefined,
+			'normal conversation mode must replace Delete all with the inline composer');
+		let inlineText = findNodes(inlineComposer, function(node) {
+			return node.tag === 'textarea';
+		})[0];
+
+		inlineText.attributes.input({ target: { value: 'Conversation reply' } });
+		await inlineComposer.attributes.submit({ preventDefault: function() {} });
+		assert.ok(conversationSendArguments,
+			'the conversation composer must use the existing SMS send path');
+		assert.strictEqual(conversationSendArguments[3], exactNumber,
+			'conversation send must lock the recipient to the exact chat number');
+		assert.strictEqual(conversationSendArguments[4], 'Conversation reply');
+		assert.match(conversationSendArguments[5], /^smsop-[0-9a-f]{32}$/);
+
+		card = smsCardWithText(harness.root, 'Exact inbound');
+		card.attributes.pointerdown({
+			button: 0,
+			clientX: 5,
+			clientY: 5,
+			target: smsPlainTarget()
+		});
+		timers.runAll();
+		assert.strictEqual(findNodes(harness.root, function(node) {
+			return hasClass(node, 'fibocom-conversation-compose');
+		}).length, 0, 'selection mode must temporarily replace the conversation composer');
+		assert.strictEqual(renderedText(smsBulkButton(harness.root)).join(''), 'Delete',
+			'conversation selection must retain the selected-message delete action');
+		const cancelConversationSelection = findNodes(harness.root, function(node) {
+			return node.tag === 'button' && hasClass(node, 'fibocom-sms-selection-cancel');
+		})[0];
+
+		cancelConversationSelection.attributes.click();
+		inlineComposer = findNodes(harness.root, function(node) {
+			return node.tag === 'form' && hasClass(node, 'fibocom-conversation-compose');
+		})[0];
+		inlineText = findNodes(inlineComposer, function(node) {
+			return node.tag === 'textarea';
+		})[0];
+		assert.ok(inlineComposer,
+			'canceling conversation selection must restore the inline composer');
+		assert.ok(renderedText(inlineText).includes('Conversation reply'),
+			'conversation draft text must survive selection-mode redraws');
+		assert.strictEqual(smsBulkButton(harness.root), undefined);
 
 		timers = fakeSmsTimers();
 		global.window = timers.window;
@@ -1475,7 +1847,7 @@ async function testSmsBulkDeletion() {
 		assert.deepStrictEqual(deleteCalls, [ 'sms-bulk-1', 'sms-bulk-2' ],
 			'the second delete must wait for confirmation of the first');
 		pendingDeletes[1].resolve({
-			schema: 3,
+			schema: 4,
 			generated_at: 3,
 			ok: false,
 			error: { code: 'busy', message: 'Mock busy', retryable: true }
@@ -1558,7 +1930,9 @@ async function testSmsDeleteAllPreparation() {
 
 function testFocusedFolderPolling() {
 	let pollCallback = null;
-	let redraws = 0;
+	let contentRedraws = 0;
+	let headerRedraws = 0;
+	let pollIndex = 0;
 	const compose = {};
 	const folderSelect = {
 		tagName: 'SELECT',
@@ -1571,13 +1945,23 @@ function testFocusedFolderPolling() {
 		}
 	};
 	const documentDescriptor = Object.getOwnPropertyDescriptor(global, 'document');
+	const pollResults = [
+		Object.assign({}, smsResult, { cache_state: 'loading' }),
+		Object.assign({}, smsResult, {
+			cache_state: 'ready-truncated',
+			cache_truncated: true
+		})
+	];
 	const pollingApi = {
 		listModems: function() { return Promise.resolve(listResult); },
-		listSms: function() { return Promise.resolve(smsResult); }
+		listSms: function() { return Promise.resolve(pollResults[pollIndex++]); }
 	};
 	const pollingDom = {
 		content: function(node, replacement) {
-			redraws++;
+			if (node.attributes.id === 'fibocom-sms-header')
+				headerRedraws++;
+			else if (node.attributes.id === 'fibocom-sms')
+				contentRedraws++;
 			node.children = [ replacement ];
 		}
 	};
@@ -1599,6 +1983,14 @@ function testFocusedFolderPolling() {
 	const content = findNodes(pollingNode, function(node) {
 		return node.attributes.id === 'fibocom-sms';
 	})[0];
+	const header = findNodes(pollingNode, function(node) {
+		return node.attributes.id === 'fibocom-sms-header';
+	})[0];
+	function statusDot() {
+		return findNodes(header, function(node) {
+			return hasClass(node, 'fibocom-sms-status-dot');
+		})[0];
+	}
 
 	content.contains = function(node) {
 		return node === folderSelect || node === composeInput || node === compose;
@@ -1609,13 +2001,20 @@ function testFocusedFolderPolling() {
 	});
 
 	return pollCallback().then(function() {
-		assert.strictEqual(redraws, 1,
+		assert.strictEqual(contentRedraws, 1,
 			'a focused Folder select must not defer a ten-second SMS polling redraw');
+		assert.strictEqual(headerRedraws, 1);
+		assert.ok(hasClass(statusDot(), 'is-loading'),
+			'the header dot must follow a loading cache snapshot');
 		global.document.activeElement = composeInput;
 		return pollCallback();
 	}).then(function() {
-		assert.strictEqual(redraws, 1,
+		assert.strictEqual(contentRedraws, 1,
 			'a focused Write SMS field must still protect the draft from polling redraws');
+		assert.strictEqual(headerRedraws, 2,
+			'the cache-status header must update even while message redraw is deferred');
+		assert.ok(hasClass(statusDot(), 'is-limited'),
+			'a truncated ready cache must not be shown as fully green');
 	}).finally(function() {
 		if (documentDescriptor)
 			Object.defineProperty(global, 'document', documentDescriptor);
@@ -1631,7 +2030,7 @@ const numericSendApi = {
 		return {
 			then: function(callback) {
 				callback({
-					schema: 3,
+					schema: 4,
 					generated_at: 2,
 					ok: false,
 					error: {
@@ -1668,6 +2067,11 @@ try {
 		list: listResult,
 		entries: [ { summary: summary, messages: smsResult } ]
 	});
+	const numericComposeToggle = findNodes(numericSendNode, function(node) {
+		return node.tag === 'button' && hasClass(node, 'fibocom-compose-toggle');
+	})[0];
+
+	numericComposeToggle.attributes.click();
 	const recipientInput = findNodes(numericSendNode, function(node) {
 		return node.tag === 'input' && node.attributes.type === 'tel';
 	})[0];
@@ -1743,7 +2147,7 @@ function renderFreshScannedLock(width) {
 
 const overviewParitySnapshot = {
 	list: listResult,
-	entries: [ { summary: summary, overview: overviewResult } ]
+	entries: [ { summary: summary, overview: overviewResult, carrier: carrierResult } ]
 };
 const smsParityResult = Object.assign({}, binarySms, {
 	has_more: true,
@@ -1770,6 +2174,15 @@ const incompatibleOverview = renderedText(overviewView.render({
 	list: Object.assign({}, listResult, { schema: 1 }), entries: []
 }));
 assert.ok(incompatibleOverview.some(function(value) { return /schema/i.test(value); }));
+const incompatibleSms = smsView.render({
+	list: Object.assign({}, listResult, { schema: 1 }), entries: []
+});
+const incompatibleSmsDot = findNodes(incompatibleSms, function(node) {
+	return hasClass(node, 'fibocom-sms-status-dot');
+})[0];
+
+assert.ok(hasClass(incompatibleSmsDot, 'is-unavailable'),
+	'an incompatible or unavailable SMS snapshot must never show a green status dot');
 
 [ overviewView, lockView, smsView ].forEach(function(module) {
 	assert.strictEqual(module.handleSaveApply, null);
@@ -1812,6 +2225,12 @@ assert.match(uiCss,
 assert.match(uiCss,
 	/@media screen and \(max-width: 850px\)[\s\S]*?\.fibocom-page \.fibocom-overview-grid\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)/,
 	'Overview groups must reflow to one column without dropping fields');
+assert.match(uiCss,
+	/\.fibocom-page \.fibocom-identifier\s*\{[\s\S]*?word-break:\s*break-all[\s\S]*?user-select:\s*text/,
+	'full modem and SIM identifiers must wrap and remain selectable on narrow screens');
+assert.match(uiCss,
+	/\.fibocom-page \.fibocom-carrier-details\s*\{[\s\S]*?flex-direction:\s*column/,
+	'LTE CA details must reflow without a desktop-only table');
 
 const smsSource = read('htdocs/luci-static/resources/view/fibocom/sms.js');
 assert.ok(smsSource.includes('ui.showModal'));
@@ -1825,9 +2244,18 @@ assert.ok(smsSource.includes('has_more'));
 assert.ok(smsSource.includes("_('Load more')"));
 assert.ok(smsSource.includes('dedupe_capacity'));
 assert.ok(smsSource.includes('dedupe_window_seconds'));
-assert.ok(smsSource.includes("E('details'"));
 assert.ok(smsSource.includes('composeOpen'));
 assert.ok(smsSource.includes("_('Write SMS')"));
+assert.ok(smsSource.includes('fibocom-compose-toggle'));
+assert.ok(smsSource.includes("'aria-expanded': state.composeOpen"));
+assert.ok(smsSource.includes('fibocom-conversation-compose'));
+assert.ok(smsSource.includes('const lockedRecipient = conversationRecipient(state)'));
+assert.ok(smsSource.includes('fibocom-sms-status-dot is-'));
+assert.ok(smsSource.includes('controller.redrawHeader()'));
+assert.ok(!smsSource.includes('fibocom-device-title'));
+assert.match(smsSource,
+	/if \(!state\.conversationNumber \|\| state\.selectionMode\)[\s\S]*?fibocom-sms-bulk-delete/,
+	'normal conversation mode must omit Delete all while selection keeps Delete');
 assert.ok(smsSource.includes(
 	"_('Messages are read, sent, and deleted through ModemManager.')"));
 assert.ok(smsSource.includes('navigator.clipboard.writeText'));
@@ -1946,8 +2374,17 @@ assert.match(uiCss,
 	/\.fibocom-copy-buffer\s*\{[\s\S]*?opacity:\s*0/,
 	'HTTP LuCI sessions must retain a non-disruptive clipboard fallback');
 assert.match(uiCss,
-	/\.fibocom-page \.fibocom-compose-summary\s*\{[\s\S]*?cursor:\s*pointer/,
-	'Write SMS must expose an obvious collapsible summary control');
+	/\.fibocom-page \.fibocom-compose-toggle\s*\{[\s\S]*?white-space:\s*nowrap/,
+	'Write SMS must remain a compact control in the filter toolbar');
+assert.match(uiCss,
+	/\.fibocom-page \.fibocom-sms-status-dot\.is-ready\s*\{[\s\S]*?background:[\s\S]*?animation:/,
+	'the ready SMS cache must use a dynamic green status dot');
+assert.match(uiCss,
+	/\.fibocom-page \.fibocom-sms-toolbar\s*\{[\s\S]*?display:\s*flex/,
+	'the folder filter and loaded count must share one compact toolbar');
+assert.match(uiCss,
+	/@media screen and \(max-width: 600px\)[\s\S]*?\.fibocom-page \.fibocom-sms-toolbar\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) auto auto/,
+	'the phone SMS toolbar must keep filter, loaded count, and Write SMS on one row');
 assert.match(uiCss,
 	/\.fibocom-page \.fibocom-sms-delete-icon\s*\{[\s\S]*?position:\s*absolute[\s\S]*?width:\s*2\.75rem[\s\S]*?height:\s*2\.75rem/,
 	'the top-right trash action must retain an accessible 44px touch target');
@@ -1963,6 +2400,12 @@ assert.match(uiCss,
 assert.match(uiCss,
 	/\.fibocom-page \.fibocom-sms-chat-list \.fibocom-sms-card\s*\{[\s\S]*?width:\s*min\(88%, 46rem\)/,
 	'conversation cards must use a compact responsive chat width');
+assert.match(uiCss,
+	/\.fibocom-page \.fibocom-conversation-compose\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) auto[\s\S]*?position:\s*sticky/,
+	'the conversation composer must remain a responsive bottom chat row');
+assert.match(uiCss,
+	/\.fibocom-page \.fibocom-conversation-compose \.fibocom-conversation-send\s*\{[\s\S]*?min-height:\s*2\.75rem/,
+	'the conversation send action must retain a 44px touch target');
 assert.match(uiCss, /@media screen and \(max-width: 600px\)/,
 	'the shared stylesheet must include a phone breakpoint');
 assert.match(uiCss,
@@ -2017,10 +2460,13 @@ for (const retired of [
 }
 for (const text of [
 	'Overview', 'Lock', 'SMS', 'Band Lock', 'PCI/EARFCN Lock', 'Load more',
-	'Write SMS', 'Delete SMS', '(active)', 'Tap line to use', 'Invert', 'Lock status',
+	'Write SMS', 'Delete SMS', 'Ready', '%d loaded', '(active)', 'Tap line to use', 'Invert', 'Lock status',
 	'Locked', 'Unlocked', 'Any Supported bands',
 	'Explicit LTE bands', 'Modem Info', 'Modem Status',
 	'Band and Cell Status', 'Signal Status', 'Band Lock uses ModemManager',
+	'LTE Carrier Aggregation', 'Active LTE Bands', 'Primary LTE Band',
+	'Secondary LTE Bands', 'Active LTE Carriers', 'LTE CA Details',
+	'USB Mode', 'SIM Number', 'IMEI', 'IMSI', 'ICCID',
 	'Messages are read, sent, and deleted through ModemManager.',
 	'Copy number', 'Number copied.',
 	'Unable to copy the number. Select it manually instead.',
@@ -2034,6 +2480,7 @@ for (const removedText of [
 	'Selection reported by ModemManager', 'Current allowed mode families',
 	'Supported LTE bands', 'Current allowed mode', 'Current preferred mode',
 	'Compose SMS', 'Request-token capacity', 'Request-token maximum age (seconds)',
+	'Messaging cache', 'Loaded messages',
 	'Direction', 'Discharge timestamp', 'PDU type', 'Delivery state',
 	'Message reference', 'Storage', 'Binary data present',
 	'Messages are read, sent, and deleted through ModemManager. Recipient numbers and message text remain only in this authorized view and are never written to application logs.',
@@ -2046,7 +2493,8 @@ assert.strictEqual(listFiles(appRoot).filter(function(file) {
 	return file.endsWith('.lua');
 }).length, 0, 'legacy Lua controllers and models are forbidden');
 
-testSmsInteractions()
+testOverviewLoadMerge()
+	.then(testSmsInteractions)
 	.then(testSmsBulkDeletion)
 	.then(testSmsDeleteAllPreparation)
 	.then(testFocusedFolderPolling)

@@ -66,4 +66,5 @@ jobs:
           test -f tests/run-host-ubus-blob.sh
           test -f tests/run-host-sms-dedupe.sh
           test -f tests/run-host-cell-parser.sh
+          test -f tests/run-host-ca-parser.sh
           make check

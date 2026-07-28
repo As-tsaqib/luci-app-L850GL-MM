@@ -1,13 +1,14 @@
 {
 	"luci-app-fibocom-overview": {
-		"description": "Grant read-only access to the Fibocom schema 3 overview and lock snapshots",
+		"description": "Grant read-only access to the Fibocom schema 4 overview and lock snapshots",
 		"read": {
 			"ubus": {
 				"fibocom.mm": [
 					"list_modems",
 					"get_overview",
 					"get_lock_status"
-				]
+				],
+				"fibocom.mm.l850": [ "get_carrier_info" ]
 			}
 		}
 	},
@@ -39,7 +40,11 @@
 		"description": "Grant exact access to the build-gated L850 PCI/EARFCN expert object",
 		"read": {
 			"ubus": {
-				"fibocom.mm.l850": [ "cell_scan", "cell_lock_status" ]
+				"fibocom.mm.l850": [
+					"cell_scan",
+					"get_carrier_info",
+					"cell_lock_status"
+				]
 			}
 		},
 		"write": {

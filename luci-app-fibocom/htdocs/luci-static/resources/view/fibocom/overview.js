@@ -20,8 +20,12 @@ function loadSnapshots() {
 		if (widgets.listError(listResult))
 			return { list: listResult, entries: [] };
 		return Promise.all(widgets.modems(listResult).map(function(summary) {
-			return api.getOverview(summary.modem_id).catch(transportResult).then(function(overview) {
-				return { summary: summary, overview: overview };
+			return Promise.all([
+				api.getOverview(summary.modem_id).catch(transportResult),
+				api.getCarrierInfo(summary.modem_id, summary.generation)
+					.catch(transportResult)
+			]).then(function(results) {
+				return { summary: summary, overview: results[0], carrier: results[1] };
 			});
 		})).then(function(entries) {
 			return { list: listResult, entries: entries };
@@ -55,23 +59,8 @@ function capabilityRows(capabilities) {
 		[ _('PCI/EARFCN Lock'), capabilities.pci_lock ]
 	].map(function(entry) {
 		const capability = widgets.object(entry[1]);
-		const details = [
-			widgets.badge(capability.state, capability.state),
-			E('span', {}, [
-				_('Mutation available'), ': ', widgets.display(capability.mutable)
-			])
-		];
 
-		if (capability.reason) {
-			details.push(E('span', { 'class': 'fibocom-capability-reason' }, [
-				_('Reason'), ': ', capability.reason
-			]));
-		}
-
-		return [
-			entry[0],
-			E('div', { 'class': 'fibocom-capability-value' }, details)
-		];
+		return [ entry[0], widgets.badge(capability.state, capability.state) ];
 	});
 }
 
@@ -121,6 +110,75 @@ function friendlyCurrentBands(bands) {
 
 function signalMetric(value, unit) {
 	return value == null ? null : '%s %s'.format(value, unit);
+}
+
+function identifierValue(value) {
+	if (!value)
+		return _('Unavailable');
+	return E('code', {
+		'class': 'fibocom-identifier',
+		'dir': 'ltr',
+		'tabindex': '0',
+		'title': _('Select to copy')
+	}, [ value ]);
+}
+
+function usbModeLabel(mode) {
+	switch (mode) {
+	case 'mbim':
+		return 'MBIM';
+	case 'ncm':
+		return 'NCM';
+	default:
+		return _('Unknown');
+	}
+}
+
+function lteBandLabel(band) {
+	return 'B%d'.format(band);
+}
+
+function carrierDetail(role, carrier) {
+	return E('div', { 'class': 'fibocom-carrier-detail' }, [
+		E('strong', {}, [ role ]), ': ',
+		_('B%d, EARFCN %d, PCI %d, DL/UL %s/%s MHz').format(
+			carrier.band, carrier.earfcn, carrier.pci,
+			carrier.dl_bandwidth_mhz, carrier.ul_bandwidth_mhz)
+	]);
+}
+
+function carrierRows(result, summary) {
+	const labels = [
+		_('Active LTE Bands'),
+		_('Primary LTE Band'),
+		_('Secondary LTE Bands'),
+		_('Active LTE Carriers'),
+		_('LTE CA Details')
+	];
+
+	if (widgets.carrierInfoError(result, summary)) {
+		return labels.map(function(label) {
+			return [ label, widgets.badge(_('Unavailable'), 'unavailable') ];
+		});
+	}
+
+	const details = [ carrierDetail(
+		_('Primary carrier #%d').format(result.primary.index), result.primary) ];
+
+	result.secondary.forEach(function(carrier) {
+		details.push(carrierDetail(
+			_('Secondary carrier #%d').format(carrier.index), carrier));
+	});
+	return [
+		[ labels[0], result.active_bands.map(lteBandLabel).join(' + ') ],
+		[ labels[1], lteBandLabel(result.primary.band) ],
+		[ labels[2], result.secondary.length ?
+			result.secondary.map(function(carrier) {
+				return lteBandLabel(carrier.band);
+			}).join(', ') : _('None') ],
+		[ labels[3], result.active_carriers ],
+		[ labels[4], E('div', { 'class': 'fibocom-carrier-details' }, details) ]
+	];
 }
 
 function servingCellLabel(serving) {
@@ -174,13 +232,17 @@ function renderDevice(entry) {
 	const modemInfoRows = [
 		[ _('Manufacturer'), identity.manufacturer ],
 		[ _('Model'), identity.model ],
-		[ _('Revision'), identity.revision ]
+		[ _('USB Mode'), usbModeLabel(overview.usb_mode) ],
+		[ _('IMEI'), identifierValue(identity.imei) ]
 	];
 	const modemStatusRows = [
 		[ _('Modem state'), widgets.badge(modem.state, modem.state) ],
 		[ _('Power'), widgets.badge(modem.power, modem.power) ],
 		[ _('SIM present'), sim.present ],
 		[ _('SIM lock'), sim.lock ],
+		[ _('SIM Number'), identifierValue(sim.number) ],
+		[ _('IMSI'), identifierValue(sim.imsi) ],
+		[ _('ICCID'), identifierValue(sim.iccid) ],
 		[ _('Operator'), network.operator ],
 		[ _('Registration'), widgets.badge(network.registration, network.registration) ],
 		[ _('Roaming'), network.roaming ],
@@ -194,6 +256,7 @@ function renderDevice(entry) {
 		[ _('Serving cell status'), widgets.badge(servingCellLabel(serving),
 			serving.state) ]
 	];
+	const activeCarrierRows = carrierRows(entry.carrier, summary);
 	const signalRows = [
 		[ _('Signal quality'), widgets.progress(signal.quality) ],
 		[ _('RSRP'), signalMetric(signal.rsrp, 'dBm') ],
@@ -216,7 +279,12 @@ function renderDevice(entry) {
 				overviewGroup(_('Modem Status'), modemStatusRows)
 			]),
 			E('div', { 'class': 'fibocom-overview-column' }, [
-				overviewGroup(_('Band and Cell Status'), bandAndCellRows),
+				overviewGroup(_('Band and Cell Status'), bandAndCellRows, [
+					E('h5', { 'class': 'fibocom-card-title fibocom-subsection-title' }, [
+						_('LTE Carrier Aggregation')
+					]),
+					widgets.keyValueList(activeCarrierRows)
+				]),
 				overviewGroup(_('Signal Status'), signalRows, [
 					E('h5', { 'class': 'fibocom-card-title' }, [ _('Capabilities') ]),
 					widgets.keyValueList(capabilityRows(overview.capabilities))

@@ -722,7 +722,7 @@ function validateExpertResult(result, context, requireAccepted) {
 	if (!requireAccepted &&
 	    (!widgets.mutationAllowed(result, result, context.modemId, context.generation) ||
 	     typeof result.state !== 'string'))
-		return _('The expert bridge returned an incomplete schema 3 response.');
+		return _('The expert bridge returned an incomplete schema 4 response.');
 	if (requireAccepted && (!replacementIdentityIsValid(result) || result.accepted !== true ||
 	    [ 'applied_verified', 'cleared_verified' ].indexOf(result.state) === -1 ||
 	    verification.registration !== true || verification.nvm !== true ||
@@ -731,7 +731,7 @@ function validateExpertResult(result, context, requireAccepted) {
 	      !Number.isSafeInteger(verification.earfcn) || verification.earfcn < 0 ||
 	      !Number.isSafeInteger(verification.pci) || verification.pci < 0 ||
 	      verification.pci > 503))))
-		return _('The expert bridge returned an incomplete schema 3 response.');
+		return _('The expert bridge returned an incomplete schema 4 response.');
 	return null;
 }
 

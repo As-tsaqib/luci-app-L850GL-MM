@@ -6,6 +6,7 @@
 #include "ubus_glib.h"
 
 #include "identity.h"
+#include "l850_ca.h"
 #include "l850_cell.h"
 #include "network_binding.h"
 #include "radio_policy.h"
@@ -24,6 +25,9 @@
 #define RECONNECT_MAX_MS 30000U
 #define SAFE_TEXT_MAX 160U
 #define SAFE_PORT_MAX 64U
+#define SAFE_IDENTIFIER_MAX 64U
+#define SAFE_PHONE_NUMBER_MAX 32U
+#define MAX_OWN_NUMBERS 16U
 #define SMS_DEFAULT_LIMIT 50U
 #define SMS_MAX_LIMIT 100U
 #define SMS_INBOUND_CHARS_MAX 4096U
@@ -34,6 +38,8 @@
 #define ADVANCED_SHORT_COOLDOWN_SECONDS 10U
 #define L850_SCAN_OPERATION_TIMEOUT_SECONDS 45U
 #define L850_STATUS_OPERATION_TIMEOUT_SECONDS 20U
+#define L850_CARRIER_OPERATION_TIMEOUT_MS 20000U
+#define L850_CARRIER_COMMAND_TIMEOUT_SECONDS 15U
 #define L850_MUTATION_OPERATION_TIMEOUT_SECONDS 130U
 #define L850_COMMAND_TIMEOUT_SECONDS 30U
 #define L850_REPROBE_TIMEOUT_SECONDS 45U
@@ -68,6 +74,7 @@ struct _FibocomUbus {
 #ifdef FIBOCOM_MM_L850_EXPERT
 	GHashTable *l850_scan_operations;
 	GHashTable *l850_status_operations;
+	GHashTable *l850_carrier_operations;
 	GHashTable *l850_mutation_operations;
 #endif
 };
@@ -159,6 +166,19 @@ typedef struct {
 	gboolean deferred;
 } L850StatusOperation;
 
+typedef struct {
+	FibocomUbus *ubus;
+	FibocomModem *modem;
+	GCancellable *cancellable;
+	struct ubus_request_data request;
+	guint32 generation;
+	guint timeout_source;
+	gulong parent_cancel_handler;
+	gboolean timed_out;
+	gboolean transport_lost;
+	gboolean deferred;
+} L850CarrierOperation;
+
 typedef enum {
 	L850_MUTATION_SET,
 	L850_MUTATION_CLEAR,
@@ -222,6 +242,8 @@ static gboolean l850_modem_has_active_mutation(FibocomUbus *ubus,
 						FibocomModem *modem);
 static gboolean l850_modem_has_active_scan(FibocomUbus *ubus,
 					    FibocomModem *modem);
+static gboolean l850_modem_has_active_carrier_query(FibocomUbus *ubus,
+						    FibocomModem *modem);
 #endif
 
 static FibocomUbus *fibocom_ubus_ref_internal(FibocomUbus *ubus);
@@ -308,6 +330,25 @@ cancel_l850_status_operations(FibocomUbus *ubus, gboolean transport_lost)
 	operations = g_hash_table_get_keys(ubus->l850_status_operations);
 	for (cursor = operations; cursor != NULL; cursor = cursor->next) {
 		L850StatusOperation *operation = cursor->data;
+
+		operation->deferred = FALSE;
+		operation->transport_lost = transport_lost;
+		g_cancellable_cancel(operation->cancellable);
+	}
+	g_list_free(operations);
+}
+
+static void
+cancel_l850_carrier_operations(FibocomUbus *ubus, gboolean transport_lost)
+{
+	GList *operations;
+	GList *cursor;
+
+	if (ubus == NULL || ubus->l850_carrier_operations == NULL)
+		return;
+	operations = g_hash_table_get_keys(ubus->l850_carrier_operations);
+	for (cursor = operations; cursor != NULL; cursor = cursor->next) {
+		L850CarrierOperation *operation = cursor->data;
 
 		operation->deferred = FALSE;
 		operation->transport_lost = transport_lost;
@@ -521,6 +562,11 @@ static int method_cell_scan(struct ubus_context *context,
 			    struct ubus_object *object,
 			    struct ubus_request_data *request,
 			    const char *method, struct blob_attr *message);
+static int method_get_carrier_info(struct ubus_context *context,
+				   struct ubus_object *object,
+				   struct ubus_request_data *request,
+				   const char *method,
+				   struct blob_attr *message);
 static int method_cell_lock_status(struct ubus_context *context,
 				   struct ubus_object *object,
 				   struct ubus_request_data *request,
@@ -553,6 +599,8 @@ static struct ubus_object_type fibocom_object_type =
 #ifdef FIBOCOM_MM_L850_EXPERT
 static const struct ubus_method l850_methods[] = {
 	UBUS_METHOD("cell_scan", method_cell_scan, l850_status_policy),
+	UBUS_METHOD("get_carrier_info", method_get_carrier_info,
+		l850_status_policy),
 	UBUS_METHOD("cell_lock_status", method_cell_lock_status,
 		l850_status_policy),
 	UBUS_METHOD("set_cell_lock", method_set_cell_lock, l850_set_policy),
@@ -599,6 +647,34 @@ add_safe_string(struct blob_buf *buffer, const gchar *name,
 	g_autofree gchar *sanitized = safe_text(value, limit);
 
 	blobmsg_add_string(buffer, name, sanitized);
+}
+
+static gchar *
+preferred_own_number(MMModem *modem)
+{
+	const gchar *const *numbers = mm_modem_get_own_numbers(modem);
+	gchar *selected = NULL;
+	guint index;
+
+	/*
+	 * OwnNumbers is supplied by ModemManager, but its ordering is not a
+	 * stable API contract. Pick the lexicographically smallest usable value
+	 * so identical snapshots always produce the same scalar MSISDN. Keep
+	 * both traversal and output bounded before exporting it over ubus.
+	 */
+	for (index = 0; numbers != NULL && numbers[index] != NULL &&
+	     index < MAX_OWN_NUMBERS; index++) {
+		g_autofree gchar *candidate =
+			safe_text(numbers[index], SAFE_PHONE_NUMBER_MAX);
+
+		if (candidate[0] == '\0')
+			continue;
+		if (selected == NULL || g_strcmp0(candidate, selected) < 0) {
+			g_free(selected);
+			selected = g_steal_pointer(&candidate);
+		}
+	}
+	return selected != NULL ? selected : g_strdup("");
 }
 
 static const gchar *
@@ -1453,12 +1529,23 @@ static void
 add_sim_summary(struct blob_buf *buffer, FibocomModem *modem)
 {
 	const gchar *sim_path = mm_modem_get_sim_path(modem->modem);
+	gboolean present = sim_path != NULL && !g_str_equal(sim_path, "/");
+	MMSim *cached_sim = present &&
+		g_str_equal(modem->sim_cache_state, "ready") ? modem->sim : NULL;
+	g_autofree gchar *number = cached_sim != NULL ?
+		preferred_own_number(modem->modem) : g_strdup("");
 	void *sim = blobmsg_open_table(buffer, "sim");
 
-	blobmsg_add_u8(buffer, "present",
-		sim_path != NULL && !g_str_equal(sim_path, "/"));
+	blobmsg_add_u8(buffer, "present", present);
 	blobmsg_add_string(buffer, "lock",
 		lock_name(mm_modem_get_unlock_required(modem->modem)));
+	add_safe_string(buffer, "number", number, SAFE_PHONE_NUMBER_MAX);
+	add_safe_string(buffer, "imsi",
+		cached_sim != NULL ? mm_sim_get_imsi(cached_sim) : "",
+		SAFE_IDENTIFIER_MAX);
+	add_safe_string(buffer, "iccid",
+		cached_sim != NULL ? mm_sim_get_identifier(cached_sim) : "",
+		SAFE_IDENTIFIER_MAX);
 	blobmsg_close_table(buffer, sim);
 }
 
@@ -1556,7 +1643,12 @@ method_get_overview(struct ubus_context *context, struct ubus_object *object,
 		SAFE_TEXT_MAX);
 	add_safe_string(&buffer, "revision", mm_modem_get_revision(modem->modem),
 		SAFE_TEXT_MAX);
+	add_safe_string(&buffer, "imei",
+		mm_modem_get_equipment_identifier(modem->modem),
+		SAFE_IDENTIFIER_MAX);
 	blobmsg_close_table(&buffer, identity);
+	blobmsg_add_string(&buffer, "usb_mode",
+		fibocom_modem_composition(modem));
 	modem_state = blobmsg_open_table(&buffer, "modem");
 	blobmsg_add_string(&buffer, "state",
 		state_name(mm_modem_get_state(modem->modem)));
@@ -2697,7 +2789,9 @@ sms_mutation_modem(FibocomUbus *ubus, const gchar *modem_id,
 		return NULL;
 	}
 #ifdef FIBOCOM_MM_L850_EXPERT
-	if (l850_modem_has_active_mutation(ubus, modem)) {
+	if (l850_modem_has_active_mutation(ubus, modem) ||
+	    l850_modem_has_active_scan(ubus, modem) ||
+	    l850_modem_has_active_carrier_query(ubus, modem)) {
 		*error_code = "busy";
 		return NULL;
 	}
@@ -2985,7 +3079,9 @@ advanced_mutation_modem(FibocomUbus *ubus, const gchar *modem_id,
 		return NULL;
 	}
 #ifdef FIBOCOM_MM_L850_EXPERT
-	if (l850_modem_has_active_mutation(ubus, modem)) {
+	if (l850_modem_has_active_mutation(ubus, modem) ||
+	    l850_modem_has_active_scan(ubus, modem) ||
+	    l850_modem_has_active_carrier_query(ubus, modem)) {
 		*error_code = "busy";
 		return NULL;
 	}
@@ -3583,6 +3679,26 @@ l850_modem_has_active_scan(FibocomUbus *ubus, FibocomModem *modem)
 	return FALSE;
 }
 
+static gboolean
+l850_modem_has_active_carrier_query(FibocomUbus *ubus,
+				    FibocomModem *modem)
+{
+	GHashTableIter iter;
+	gpointer key;
+
+	if (ubus == NULL || modem == NULL ||
+	    ubus->l850_carrier_operations == NULL)
+		return FALSE;
+	g_hash_table_iter_init(&iter, ubus->l850_carrier_operations);
+	while (g_hash_table_iter_next(&iter, &key, NULL)) {
+		L850CarrierOperation *operation = key;
+
+		if (operation->modem == modem)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 static const gchar *
 l850_error_message(const gchar *code)
 {
@@ -3601,7 +3717,7 @@ l850_error_message(const gchar *code)
 	if (g_str_equal(code, "unsupported_firmware"))
 		return "Firmware is not in the live-validated allowlist";
 	if (g_str_equal(code, "rate_limited"))
-		return "Cell scan is rate limited";
+		return "The expert modem query is rate limited";
 	if (g_str_equal(code, "timeout"))
 		return "The expert ModemManager operation timed out";
 	if (g_str_equal(code, "permission_denied"))
@@ -3609,7 +3725,7 @@ l850_error_message(const gchar *code)
 	if (g_str_equal(code, "malformed_response"))
 		return "ModemManager returned malformed or oversized expert data";
 	if (g_str_equal(code, "busy"))
-		return "Another per-modem mutation is in progress";
+		return "Another per-modem expert operation is in progress";
 	if (g_str_equal(code, "not_ready"))
 		return "Supported LTE bands are not available";
 	if (g_str_equal(code, "outcome_unknown"))
@@ -3675,7 +3791,9 @@ l850_requested_modem(FibocomUbus *ubus, struct blob_attr **parsed,
 		return NULL;
 	}
 #ifdef FIBOCOM_MM_L850_EXPERT
-	if (l850_modem_has_active_mutation(ubus, modem)) {
+	if (l850_modem_has_active_mutation(ubus, modem) ||
+	    l850_modem_has_active_scan(ubus, modem) ||
+	    l850_modem_has_active_carrier_query(ubus, modem)) {
 		*error_code = "busy";
 		return NULL;
 	}
@@ -4449,6 +4567,291 @@ method_cell_scan(struct ubus_context *context, struct ubus_object *object,
 	return UBUS_STATUS_OK;
 }
 
+static const gchar *
+l850_carrier_stale_code(L850CarrierOperation *operation, GObject *source)
+{
+	if (!operation->modem->live)
+		return "device_gone";
+	if (operation->modem->generation != operation->generation ||
+	    source != G_OBJECT(operation->modem->modem))
+		return "stale_generation";
+	return NULL;
+}
+
+static gboolean
+l850_carrier_timeout(gpointer user_data)
+{
+	L850CarrierOperation *operation = user_data;
+
+	operation->timeout_source = 0U;
+	operation->timed_out = TRUE;
+	g_cancellable_cancel(operation->cancellable);
+	return G_SOURCE_REMOVE;
+}
+
+static void
+l850_carrier_parent_cancelled(GCancellable *parent, gpointer user_data)
+{
+	L850CarrierOperation *operation = user_data;
+
+	(void)parent;
+	g_cancellable_cancel(operation->cancellable);
+}
+
+static void
+l850_carrier_operation_free(L850CarrierOperation *operation)
+{
+	FibocomUbus *ubus = operation->ubus;
+
+	if (operation->timeout_source != 0U)
+		g_source_remove(operation->timeout_source);
+	if (operation->parent_cancel_handler != 0U &&
+	    operation->modem->cancellable != NULL)
+		g_cancellable_disconnect(operation->modem->cancellable,
+			operation->parent_cancel_handler);
+	g_clear_object(&operation->cancellable);
+	fibocom_modem_unref(operation->modem);
+	if (ubus != NULL && ubus->l850_carrier_operations != NULL)
+		g_hash_table_remove(ubus->l850_carrier_operations, operation);
+	g_free(operation);
+	fibocom_ubus_unref_internal(ubus);
+}
+
+static void
+l850_carrier_complete_buffer(L850CarrierOperation *operation,
+			     struct blob_buf *buffer)
+{
+	operation->modem->l850_last_carrier_query_completed_at =
+		g_get_monotonic_time();
+	if (operation->deferred && operation->ubus->connected &&
+	    operation->ubus->context_initialized && !operation->ubus->stopping) {
+		(void)ubus_send_reply(&operation->ubus->context,
+			&operation->request, buffer->head);
+		ubus_complete_deferred_request(&operation->ubus->context,
+			&operation->request, UBUS_STATUS_OK);
+	}
+	operation->deferred = FALSE;
+	blob_buf_free(buffer);
+	l850_carrier_operation_free(operation);
+}
+
+static void
+l850_carrier_complete_error(L850CarrierOperation *operation,
+			    const gchar *code, gboolean retryable)
+{
+	struct blob_buf buffer = {};
+	void *error;
+
+	blob_buf_init(&buffer, 0);
+	add_common(&buffer, FALSE);
+	add_modem_identity(&buffer, operation->modem);
+	blobmsg_add_string(&buffer, "state", code);
+	error = blobmsg_open_table(&buffer, "error");
+	blobmsg_add_string(&buffer, "code", code);
+	blobmsg_add_string(&buffer, "message", l850_error_message(code));
+	blobmsg_add_u8(&buffer, "retryable", retryable);
+	blobmsg_close_table(&buffer, error);
+	l850_carrier_complete_buffer(operation, &buffer);
+}
+
+static void
+l850_add_ca_carrier(struct blob_buf *buffer,
+		    const struct FibocomL850CaCarrier *carrier)
+{
+	blobmsg_add_u32(buffer, "index", carrier->index);
+	blobmsg_add_u32(buffer, "band", carrier->band);
+	blobmsg_add_u32(buffer, "earfcn", carrier->dl_earfcn);
+	blobmsg_add_u32(buffer, "pci", carrier->pci);
+	blobmsg_add_double(buffer, "dl_bandwidth_mhz",
+		(gdouble)carrier->dl_bandwidth_tenths_mhz / 10.0);
+	blobmsg_add_double(buffer, "ul_bandwidth_mhz",
+		(gdouble)carrier->ul_bandwidth_tenths_mhz / 10.0);
+}
+
+static void
+l850_carrier_complete_success(L850CarrierOperation *operation,
+			      const struct FibocomL850CaInfo *info)
+{
+	const struct FibocomL850CaCarrier *primary = NULL;
+	guint16 unique_bands[FIBOCOM_L850_CA_MAX_SLOTS];
+	guint n_unique_bands = 0U;
+	struct blob_buf buffer = {};
+	void *active_bands;
+	void *primary_entry;
+	void *secondary;
+	size_t index;
+
+	memset(unique_bands, 0, sizeof(unique_bands));
+	for (index = 0U; index < info->length; index++) {
+		const struct FibocomL850CaCarrier *carrier =
+			&info->carriers[index];
+		guint band_index;
+
+		if (carrier->primary)
+			primary = carrier;
+		for (band_index = 0U; band_index < n_unique_bands;
+		     band_index++) {
+			if (unique_bands[band_index] == carrier->band)
+				break;
+		}
+		if (band_index == n_unique_bands)
+			unique_bands[n_unique_bands++] = carrier->band;
+	}
+	if (primary == NULL) {
+		l850_carrier_complete_error(operation, "malformed_response", FALSE);
+		return;
+	}
+
+	blob_buf_init(&buffer, 0);
+	add_common(&buffer, TRUE);
+	add_modem_identity(&buffer, operation->modem);
+	blobmsg_add_string(&buffer, "state", "available");
+	blobmsg_add_string(&buffer, "source", "modemmanager");
+	blobmsg_add_string(&buffer, "method", "l850-gtcainfo");
+	active_bands = blobmsg_open_array(&buffer, "active_bands");
+	for (index = 0U; index < n_unique_bands; index++)
+		blobmsg_add_u32(&buffer, NULL, unique_bands[index]);
+	blobmsg_close_array(&buffer, active_bands);
+	primary_entry = blobmsg_open_table(&buffer, "primary");
+	l850_add_ca_carrier(&buffer, primary);
+	blobmsg_close_table(&buffer, primary_entry);
+	secondary = blobmsg_open_array(&buffer, "secondary");
+	for (index = 0U; index < info->length; index++) {
+		const struct FibocomL850CaCarrier *carrier =
+			&info->carriers[index];
+		void *entry;
+
+		if (carrier->primary)
+			continue;
+		entry = blobmsg_open_table(&buffer, NULL);
+		l850_add_ca_carrier(&buffer, carrier);
+		blobmsg_close_table(&buffer, entry);
+	}
+	blobmsg_close_array(&buffer, secondary);
+	blobmsg_add_u32(&buffer, "active_carriers", (guint32)info->length);
+	l850_carrier_complete_buffer(operation, &buffer);
+}
+
+static void
+l850_carrier_ready(GObject *source, GAsyncResult *result, gpointer user_data)
+{
+	L850CarrierOperation *operation = user_data;
+	g_autoptr(GError) error = NULL;
+	g_autofree gchar *response = NULL;
+	struct FibocomL850CaInfo info;
+	L850NormalizedError normalized;
+	enum FibocomL850CaParseResult parse_result;
+	const gchar *stale;
+	gsize response_length;
+	size_t index;
+
+	response = mm_modem_command_finish(MM_MODEM(source), result, &error);
+	stale = l850_carrier_stale_code(operation, source);
+	if (stale != NULL) {
+		l850_carrier_complete_error(operation, stale, FALSE);
+		return;
+	}
+	if (!fibocom_modem_attest_mutation_target(operation->modem)) {
+		l850_carrier_complete_error(operation, "unsupported", FALSE);
+		return;
+	}
+	if (!l850_firmware_allowed(operation->modem)) {
+		l850_carrier_complete_error(operation, "unsupported_firmware", FALSE);
+		return;
+	}
+	if (error != NULL || response == NULL) {
+		normalized = l850_normalize_error(error, operation->timed_out,
+			operation->transport_lost);
+		l850_carrier_complete_error(operation, normalized.code,
+			normalized.retryable);
+		return;
+	}
+	response_length = strnlen(response, FIBOCOM_L850_CA_MAX_RESPONSE + 1U);
+	parse_result = fibocom_l850_ca_parse(response, response_length, &info);
+	if (parse_result != FIBOCOM_L850_CA_PARSE_OK) {
+		l850_carrier_complete_error(operation, "malformed_response", FALSE);
+		return;
+	}
+	for (index = 0U; index < info.length; index++) {
+		if (!l850_band_is_supported(operation->modem,
+			info.carriers[index].band)) {
+			l850_carrier_complete_error(operation,
+				"malformed_response", FALSE);
+			return;
+		}
+	}
+	l850_carrier_complete_success(operation, &info);
+}
+
+static L850CarrierOperation *
+l850_carrier_operation_new(FibocomUbus *ubus, FibocomModem *modem,
+			   struct ubus_context *context,
+			   struct ubus_request_data *request)
+{
+	L850CarrierOperation *operation = g_new0(L850CarrierOperation, 1);
+
+	operation->ubus = fibocom_ubus_ref_internal(ubus);
+	operation->modem = fibocom_modem_ref(modem);
+	operation->cancellable = g_cancellable_new();
+	operation->generation = modem->generation;
+	ubus_defer_request(context, request, &operation->request);
+	operation->deferred = TRUE;
+	g_hash_table_add(ubus->l850_carrier_operations, operation);
+	operation->timeout_source = g_timeout_add(
+		L850_CARRIER_OPERATION_TIMEOUT_MS, l850_carrier_timeout, operation);
+	if (modem->cancellable != NULL)
+		operation->parent_cancel_handler = g_cancellable_connect(
+			modem->cancellable,
+			G_CALLBACK(l850_carrier_parent_cancelled), operation, NULL);
+	return operation;
+}
+
+static int
+method_get_carrier_info(struct ubus_context *context,
+			struct ubus_object *object,
+			struct ubus_request_data *request, const char *method,
+			struct blob_attr *message)
+{
+	FibocomUbus *ubus = from_l850_object(object);
+	struct blob_attr *parsed[__L850_STATUS_MAX] = {};
+	const gchar *error_code;
+	FibocomModem *modem;
+	L850CarrierOperation *operation;
+	guint32 retry_after;
+
+	(void)method;
+	if (!parse_exact_fields(message, l850_status_policy, __L850_STATUS_MAX,
+		(G_GUINT64_CONSTANT(1) << __L850_STATUS_MAX) - 1U, parsed))
+		return send_l850_error(context, request, NULL,
+			"invalid_argument", FALSE, 0U);
+	modem = l850_requested_modem(ubus, parsed, L850_MODEM_ID,
+		L850_GENERATION, &error_code);
+	if (modem == NULL)
+		return send_l850_error(context, request, NULL, error_code,
+			g_str_equal(error_code, "dependency_unavailable") ||
+			g_str_equal(error_code, "busy"), 0U);
+	if (modem->mutation_busy || l850_modem_has_active_scan(ubus, modem) ||
+	    l850_modem_has_active_carrier_query(ubus, modem))
+		return send_l850_error(context, request, modem, "busy", TRUE, 0U);
+	if (!l850_firmware_allowed(modem))
+		return send_l850_error(context, request, modem,
+			"unsupported_firmware", FALSE, 0U);
+	if (!l850_supported_lte_bands_available(modem))
+		return send_l850_error(context, request, modem, "not_ready", TRUE,
+			0U);
+	retry_after = fibocom_l850_ca_retry_after_ms(g_get_monotonic_time(),
+		modem->l850_last_carrier_query_completed_at);
+	if (retry_after > 0U)
+		return send_l850_error(context, request, modem, "rate_limited",
+			TRUE, retry_after);
+	operation = l850_carrier_operation_new(ubus, modem, context, request);
+	mm_modem_command(operation->modem->modem,
+		fibocom_l850_ca_query_command(),
+		L850_CARRIER_COMMAND_TIMEOUT_SECONDS, operation->cancellable,
+		l850_carrier_ready, operation);
+	return UBUS_STATUS_OK;
+}
+
 static FibocomModem *
 l850_mutation_response_modem(L850MutationOperation *operation)
 {
@@ -5169,6 +5572,7 @@ connection_lost(struct ubus_context *context)
 #ifdef FIBOCOM_MM_L850_EXPERT
 	cancel_l850_scan_operations(ubus, TRUE);
 	cancel_l850_status_operations(ubus, TRUE);
+	cancel_l850_carrier_operations(ubus, TRUE);
 	cancel_l850_mutation_operations(ubus, TRUE);
 #endif
 	old_source = ubus->fd_source;
@@ -5302,6 +5706,7 @@ fibocom_ubus_unref_internal(FibocomUbus *ubus)
 #ifdef FIBOCOM_MM_L850_EXPERT
 	g_clear_pointer(&ubus->l850_scan_operations, g_hash_table_unref);
 	g_clear_pointer(&ubus->l850_status_operations, g_hash_table_unref);
+	g_clear_pointer(&ubus->l850_carrier_operations, g_hash_table_unref);
 	g_clear_pointer(&ubus->l850_mutation_operations, g_hash_table_unref);
 #endif
 	g_free(ubus->socket_path);
@@ -5325,6 +5730,8 @@ fibocom_ubus_new(FibocomBridge *bridge, const gchar *socket_path)
 	ubus->l850_scan_operations = g_hash_table_new(g_direct_hash,
 		g_direct_equal);
 	ubus->l850_status_operations = g_hash_table_new(g_direct_hash,
+		g_direct_equal);
+	ubus->l850_carrier_operations = g_hash_table_new(g_direct_hash,
 		g_direct_equal);
 	ubus->l850_mutation_operations = g_hash_table_new(g_direct_hash,
 		g_direct_equal);
@@ -5366,6 +5773,7 @@ fibocom_ubus_stop(FibocomUbus *ubus)
 #ifdef FIBOCOM_MM_L850_EXPERT
 	cancel_l850_scan_operations(ubus, TRUE);
 	cancel_l850_status_operations(ubus, TRUE);
+	cancel_l850_carrier_operations(ubus, TRUE);
 	cancel_l850_mutation_operations(ubus, TRUE);
 #endif
 	if (ubus->fd_source != 0) {

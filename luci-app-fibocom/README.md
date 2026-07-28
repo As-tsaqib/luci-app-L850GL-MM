@@ -5,12 +5,12 @@ SPDX-License-Identifier: Apache-2.0
 
 # luci-app-fibocom
 
-LuCI 0.4.0 frontend for the schema-3 `fibocom.mm` companion API. It installs
+LuCI 0.5.0 frontend for the schema-4 `fibocom.mm` companion API. It installs
 exactly Overview, Lock, and SMS below Modem / Fibocom Modem.
 
 The browser uses only the shared typed RPC module. It never calls D-Bus,
 `mmcli`, a shell, UCI, the filesystem, or a modem device. Every response must
-have `schema: 3`, a valid envelope, and the expected object identity;
+have `schema: 4`, a valid envelope, and the expected object identity;
 otherwise the UI shows a compatibility/malformed-response error and disables
 mutations.
 
@@ -27,6 +27,14 @@ list_modems, get_overview, get_lock_status, set_bands, set_modes,
 list_sms, send_sms, delete_sms
 ```
 
+Overview displays the schema-4 USB mode and the product-owner-approved full
+IMEI, SIM number, IMSI, and ICCID values supplied by the base ModemManager
+snapshot. On an expert build it also calls the typed `get_carrier_info` method
+every ten seconds and displays active LTE bands, primary/secondary bands,
+active-carrier count, and bounded per-carrier EARFCN/PCI/bandwidth. A base build
+has no expert object, so the same rows fail closed as unavailable. The browser
+never receives raw command output or cellular location fields.
+
 Allowed/preferred mode selection persists through the exact bound netifd
 interface and requires confirmation because activation reloads the mobile
 network. Band Lock shows only LTE choices, keeps allowed non-LTE families
@@ -37,7 +45,10 @@ status call. It remains disabled on the base build. In an expert build,
 standard cell scan is independently gated from mutation. The exact
 live-validated firmware can use the fixed set/clear/reprobe/verification state
 machine; all other firmware remains fail-closed. Expert scans are single-flight
-per modem with a five-second cooldown beginning only after completion.
+per modem with a five-second cooldown beginning only after completion. The
+expert carrier query is independently single-flight against scans and mutations
+and uses the same five-second completion-based cooldown; it never accepts
+command text from LuCI.
 
 SMS polls the backend cache every 10 seconds and exposes All, Inbox, Outbox,
 Draft, and Unknown. Each backend page is at most 100 messages; Load more follows

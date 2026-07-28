@@ -5,7 +5,7 @@
 'use strict';
 'require baseclass';
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 function isObject(value) {
 	return value != null && typeof value === 'object' && !Array.isArray(value);
@@ -61,14 +61,14 @@ function isCompatible(result) {
 
 function envelopeError(result) {
 	if (!isCompatible(result))
-		return _('Incompatible API schema. This interface requires schema 3.');
+		return _('Incompatible API schema. This interface requires schema 4.');
 	if (!isUnsigned(result.generated_at))
-		return _('Malformed schema 3 response from the Fibocom bridge.');
+		return _('Malformed schema 4 response from the Fibocom bridge.');
 	if (result.ok === false) {
 		if (!isObject(result.error) || !isString(result.error.code, 64) ||
 		    !isString(result.error.message, 256) ||
 		    typeof result.error.retryable !== 'boolean')
-			return _('Malformed schema 3 error response from the Fibocom bridge.');
+			return _('Malformed schema 4 error response from the Fibocom bridge.');
 		return result.error.message ? '%s (%s)'.format(
 			result.error.message, result.error.code) : result.error.code;
 	}
@@ -101,7 +101,7 @@ function listError(result) {
 		return error;
 	if (!Array.isArray(result.modems) || result.modems.length > 64 ||
 	    !result.modems.every(modemSummaryIsValid))
-		return _('Malformed modem inventory in the schema 3 response.');
+		return _('Malformed modem inventory in the schema 4 response.');
 	return null;
 }
 
@@ -132,9 +132,14 @@ function overviewError(result, summary) {
 		return error;
 	if (!identityMatches(result, summary) ||
 	    !isString(identity.manufacturer, 160) || !isString(identity.model, 160) ||
-	    !isString(identity.revision, 160) || !isString(modem.state, 64) ||
+	    !isString(identity.revision, 160) || !isString(identity.imei, 64) ||
+	    [ 'mbim', 'ncm', 'unknown' ].indexOf(result.usb_mode) === -1 ||
+	    !isString(modem.state, 64) ||
 	    !isString(modem.power, 64) || typeof sim.present !== 'boolean' ||
-	    !isString(sim.lock, 64) || !isString(network.operator, 160) ||
+	    !isString(sim.lock, 64) || !isString(sim.number, 32) ||
+	    !isString(sim.imsi, 64) || !isString(sim.iccid, 64) ||
+	    (!sim.present && (sim.number !== '' || sim.imsi !== '' || sim.iccid !== '')) ||
+	    !isString(network.operator, 160) ||
 	    !isString(network.registration, 64) || typeof network.roaming !== 'boolean' ||
 	    !isStringArray(network.access, 32) || !isFiniteNumber(signal.quality) ||
 	    signal.quality < 0 || signal.quality > 100 || typeof signal.recent !== 'boolean' ||
@@ -154,7 +159,87 @@ function overviewError(result, summary) {
 	    !capabilityIsValid(capabilities.band_lock) ||
 	    !capabilityIsValid(capabilities.pci_lock) ||
 	    !isStringArray(result.warnings, 32))
-		return _('Malformed Overview data in the schema 3 response.');
+		return _('Malformed Overview data in the schema 4 response.');
+	return null;
+}
+
+const lteDownlinkRanges = [
+	[ 1, 0, 599 ], [ 2, 600, 1199 ], [ 3, 1200, 1949 ],
+	[ 4, 1950, 2399 ], [ 5, 2400, 2649 ], [ 7, 2750, 3449 ],
+	[ 8, 3450, 3799 ], [ 11, 4750, 4949 ], [ 12, 5010, 5179 ],
+	[ 13, 5180, 5279 ], [ 17, 5730, 5849 ],
+	[ 18, 5850, 5999 ], [ 19, 6000, 6149 ], [ 20, 6150, 6449 ],
+	[ 21, 6450, 6599 ], [ 26, 8690, 9039 ], [ 28, 9210, 9659 ],
+	[ 30, 9770, 9869 ], [ 38, 37750, 38249 ], [ 39, 38250, 38649 ],
+	[ 40, 38650, 39649 ], [ 41, 39650, 41589 ], [ 66, 66436, 67335 ]
+];
+
+function lteBandMatchesEarfcn(band, earfcn) {
+	return lteDownlinkRanges.some(function(range) {
+		return range[0] === band && earfcn >= range[1] && earfcn <= range[2];
+	});
+}
+
+function carrierIsValid(carrier) {
+	const bandwidths = [ 1.4, 3, 5, 10, 15, 20 ];
+
+	return isObject(carrier) && isUnsigned(carrier.index) &&
+		carrier.index >= 1 && carrier.index <= 8 &&
+		isUnsigned(carrier.band) && carrier.band >= 1 && carrier.band <= 85 &&
+		isUnsigned(carrier.earfcn) && carrier.earfcn <= 262143 &&
+		lteBandMatchesEarfcn(carrier.band, carrier.earfcn) &&
+		isUnsigned(carrier.pci) && carrier.pci <= 503 &&
+		bandwidths.indexOf(carrier.dl_bandwidth_mhz) !== -1 &&
+		bandwidths.indexOf(carrier.ul_bandwidth_mhz) !== -1;
+}
+
+function carrierInfoError(result, summary) {
+	const error = responseError(result);
+
+	if (error)
+		return error;
+	if (!identityMatches(result, summary) || result.state !== 'available' ||
+	    !Array.isArray(result.active_bands) || result.active_bands.length < 1 ||
+	    result.active_bands.length > 8 ||
+	    !result.active_bands.every(function(band) {
+		    return isUnsigned(band) && band >= 1 && band <= 85;
+	    }) || !carrierIsValid(result.primary) || result.primary.index !== 1 ||
+	    !Array.isArray(result.secondary) || result.secondary.length > 7 ||
+	    !result.secondary.every(carrierIsValid) ||
+	    !result.secondary.every(function(carrier) { return carrier.index > 1; }) ||
+	    !isUnsigned(result.active_carriers) || result.active_carriers < 1 ||
+	    result.active_carriers > 8 ||
+	    result.active_carriers !== result.secondary.length + 1 ||
+	    result.source !== 'modemmanager' || result.method !== 'l850-gtcainfo')
+		return _('Malformed LTE carrier data in the schema 4 response.');
+
+	const carriers = [ result.primary ].concat(result.secondary);
+	const indexes = Object.create(null);
+	const carrierTuples = Object.create(null);
+	const expectedBands = Object.create(null);
+	const reportedBands = Object.create(null);
+
+	for (let i = 0; i < carriers.length; i++) {
+		const index = String(carriers[i].index);
+		const tuple = '%d:%d:%d'.format(
+			carriers[i].band, carriers[i].earfcn, carriers[i].pci);
+
+		if (indexes[index] || carrierTuples[tuple])
+			return _('Malformed LTE carrier data in the schema 4 response.');
+		indexes[index] = true;
+		carrierTuples[tuple] = true;
+		expectedBands[String(carriers[i].band)] = true;
+	}
+	for (let i = 0; i < result.active_bands.length; i++) {
+		const band = String(result.active_bands[i]);
+
+		if (reportedBands[band])
+			return _('Malformed LTE carrier data in the schema 4 response.');
+		reportedBands[band] = true;
+	}
+	if (Object.keys(expectedBands).length !== Object.keys(reportedBands).length ||
+	    Object.keys(expectedBands).some(function(band) { return !reportedBands[band]; }))
+		return _('Malformed LTE carrier data in the schema 4 response.');
 	return null;
 }
 
@@ -177,7 +262,7 @@ function lockError(result, summary) {
 	    policyPreferred.indexOf(policy.preferred) === -1 ||
 	    (policy.allowed !== '3g|4g' && policy.preferred !== 'none') ||
 	    !capabilityIsValid(result.band_lock) || !capabilityIsValid(result.pci_lock))
-		return _('Malformed Lock data in the schema 3 response.');
+		return _('Malformed Lock data in the schema 4 response.');
 	return null;
 }
 
@@ -218,7 +303,7 @@ function smsError(result, summary, maximumMessages) {
 	    !result.messages.every(smsMessageIsValid) ||
 	    typeof result.has_more !== 'boolean' || !isString(result.next_cursor, 80) ||
 	    (result.has_more && result.next_cursor === ''))
-		return _('Malformed SMS data in the schema 3 response.');
+		return _('Malformed SMS data in the schema 4 response.');
 	return null;
 }
 
@@ -371,6 +456,7 @@ return baseclass.extend({
 	SCHEMA_VERSION: SCHEMA_VERSION,
 	activeLabel: activeLabel,
 	badge: badge,
+	carrierInfoError: carrierInfoError,
 	display: display,
 	errorPanel: errorPanel,
 	identityMatches: identityMatches,

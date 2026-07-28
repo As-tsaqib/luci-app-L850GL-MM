@@ -12,7 +12,7 @@ The migration establishes one modem owner and one connection owner:
 ```text
 ModemManager: modem, ports, SIM, SMS, radio, bearer
 netifd:       APN, connection intent, route, DNS
-Fibocom 0.4: Overview, persistent Mode/Band Lock, gated PCI UI, SMS
+Fibocom 0.5: Overview, persistent Mode/Band Lock, gated PCI/CA UI, SMS
 ```
 
 Do not run XModem/QModem polling, direct-AT helpers, custom dialers, SMS tools,
@@ -42,9 +42,10 @@ identifiers, phone numbers, SMS, credentials, or activation codes.
 4. Replug once and verify that ModemManager creates the object and netifd
    reconnects without a saved ModemManager index or runtime device path.
 
-## Install 0.4.0
+## Install 0.5.0
 
-Install matching 0.4.0-r2 packages:
+Install matching 0.5.0-r1 packages after their SDK artifacts and checksums have
+passed the release workflow:
 
 ```text
 fibocom-mm-bridge
@@ -60,15 +61,23 @@ the expert bridge rather than mixing the bridge with the stock package.
 
 After installation:
 
-1. Verify `fibocom-mm-bridge --version` reports 0.4.0.
-2. Verify `fibocom.mm` exposes exactly the eight schema-3 methods, including
+1. Verify `fibocom-mm-bridge --version` reports 0.5.0.
+2. Verify `fibocom.mm` exposes exactly the eight schema-4 methods, including
    `set_modes`.
 3. On a base build, verify `fibocom.mm.l850` is absent.
 4. Open LuCI and verify the menu is exactly Overview, Lock, and SMS.
-5. Confirm Overview returns schema 3 without paths, identifiers, IP data, or
-   credentials.
+5. Confirm Overview returns schema 4 with normalized USB mode and only the
+   approved bounded IMEI/SIM-number/IMSI/ICCID identifiers; confirm paths, IP
+   data, credentials, and raw modem output remain absent.
 6. Confirm Network / Interfaces remains the only connection settings UI.
 7. Exercise read-only SMS listing and pagination before enabling write ACLs.
+8. On an expert build, verify `fibocom.mm.l850` has exactly five methods,
+   including read-only `get_carrier_info`, then verify its normalized carrier
+   result without recording subscriber/cellular identity or raw output.
+
+The schema-4 0.5.0 SDK build, artifact installation, and post-install checks
+are pending until a dated release record says otherwise. Historical 0.3/0.4
+installation evidence does not satisfy this checklist.
 
 ## Mutation staging
 
@@ -91,7 +100,7 @@ and do not retry until its state makes a new request safe.
 
 ## Settings that are intentionally not imported
 
-Version 0.4 does not import or reproduce:
+Version 0.5 does not import or reproduce:
 
 - custom APN/auth/PIN, route, DNS, or firewall settings;
 - raw AT macros, port paths, ModemManager indexes, sysfs paths, or USB
@@ -103,7 +112,7 @@ Version 0.4 does not import or reproduce:
   sequences.
 
 Persistent network settings must be recreated or retained in the existing
-netifd section. Version 0.4 may update only that section's `allowedmode` and
+netifd section. Version 0.5 may update only that section's `allowedmode` and
 `preferredmode` after resolving it internally; it does not import XModem mode
 state or expose a section selector. SMS inventory is read from ModemManager/SIM
 storage, not migrated from an application database.
@@ -116,7 +125,7 @@ develop and validate NCM bearer support in ModemManager as a separate project.
 
 ## Rollback
 
-If the read-only 0.4 deployment fails, stop/remove the two companion packages
+If the read-only 0.5 deployment fails, stop/remove the two companion packages
 and restore the previously backed-up configuration. Do not disable or replace
 the working ModemManager/netifd owner merely to restore an old LuCI page.
 

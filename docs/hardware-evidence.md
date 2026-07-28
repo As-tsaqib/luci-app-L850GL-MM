@@ -8,9 +8,10 @@ SPDX-License-Identifier: Apache-2.0
 ## Evidence boundary
 
 The repository separates historical schema-1 v0.2 evidence from 2026-07-19,
-the approved L850 firmware command/recovery matrix from 2026-07-27, and the
-schema-2 package-level acceptance run. Source, fixture, SDK success, firmware
-command evidence, and installed-package evidence are not interchangeable.
+the approved L850 firmware command/recovery matrix and schema-2 package run
+from 2026-07-27, installed schema-3 v0.4 evidence, and schema-4 v0.5 work from
+2026-07-28. Source, fixture, SDK success, firmware-command evidence, and
+installed-package evidence are not interchangeable.
 
 Never store IMEI, IMSI, ICCID, EID, phone numbers, SMS body, APN credentials,
 PIN/PUK, activation codes, tokens, or assigned IP configuration. Evidence must
@@ -20,7 +21,7 @@ use an allowlist and sanitized fixtures rather than raw diagnostic dumps.
 
 | Item | Observed value |
 |---|---|
-| Dates | 2026-07-19 lifecycle/v0.2; 2026-07-27 PCI matrix |
+| Dates | 2026-07-19 lifecycle/v0.2; 2026-07-27 PCI matrix; 2026-07-28 CA/composition read-only observation |
 | Router | Linksys EA6350v3 |
 | CPU / target | ARMv7 / `ipq40xx/generic` |
 | OpenWrt | 25.12.5, kernel 6.12.94 |
@@ -118,7 +119,55 @@ serving EARFCN/PCI postcondition. The local 2026-07-27 matrix supplied that
 missing proof independently; public posts are retained as provenance, not as
 the allowlist authority.
 
-## Current 0.4.0 evidence status
+## Current 0.5.0 evidence status
+
+Implemented in the current source/host/static contract:
+
+- schema 4 with the same exact eight-method base table and a five-method expert
+  table that adds only read-only `get_carrier_info`;
+- normalized `mbim`/`ncm`/`unknown` USB mode and bounded full IMEI, SIM number,
+  IMSI, and ICCID in authenticated Overview under the explicit product-owner
+  disclosure override;
+- identifier sanitization and absence from list responses, logs, fixtures,
+  raw evidence, diagnostics, browser storage, and console output;
+- the fixed asynchronous `AT+GTCAINFO?` expert query with exact target gate,
+  generation/lifetime checks, 20-second operation and 15-second command
+  deadlines, mutual exclusion with scans/mutations, and five-second
+  completion-based cooldown;
+- a 4,096-byte/eight-slot typed parser for the 14-field primary and 10-field
+  secondary grammar, with exact inactive-sentinel omission, supported-band and
+  paired DL/UL EARFCN, PCI, and bandwidth validation, bounded output, and
+  valid/invalid fixtures;
+- schema-4 frontend structural validation and fail-closed unavailable state on
+  base builds or rejected expert responses.
+
+Before implementation, an approved read-only command-level observation on
+2026-07-28 established the exact target input shape without recording raw
+output or identifiers. Firmware `18500.5001.00.05.27.30` reported an index-1
+B3 primary at EARFCN 1325 / PCI 381 with 20 MHz downlink/uplink bandwidth, one
+active carrier total, and the exact inactive index-2 sentinel. A separate
+`GTUSBMODE` value 7 observation and ModemManager's composition independently
+agreed on MBIM. This evidence validates the target grammar and expected
+normalization only; it is not a live `get_carrier_info` ubus or LuCI result.
+No active B29/B32 `GTCAINFO` capture exists. Those downlink-only bands therefore
+remain fail-closed as active carriers until their exact uplink/sentinel form is
+observed on the allowlisted firmware and added with fixtures; SupportedBands
+advertisement alone is not sufficient evidence.
+
+Still pending for 0.5.0:
+
+- base and expert SDK builds and artifact checksums;
+- installation of matching 0.5.0-r1 bridge/LuCI artifacts;
+- installed exact schema-4 base/expert method tables and ACL checks;
+- post-install Overview rendering of USB/identifier/carrier fields and repeated
+  typed carrier-query admission/cooldown behavior;
+- log/privacy inspection after the installed API/UI exercise.
+
+No schema-4 package, router installation, or post-install acceptance is claimed
+in this section. The historical evidence below remains scoped to its recorded
+release.
+
+## Version 0.4.0 evidence status
 
 Implemented in source and covered by static/host contracts:
 
@@ -242,7 +291,10 @@ Before enabling writes, record sanitized results for:
 - Overview in absent, locked, registered, and connected states;
 - SMS initial list, signals, 30-second reconciliation, 10-second UI poll,
   folder filtering, stale cursor, and more than 100 messages;
-- private content absent from logs, process lists, Overview, and artifacts.
+- SMS content/numbers and every identifier outside the four explicitly approved
+  Overview fields absent from logs, process lists, diagnostics, and artifacts;
+- approved Overview IMEI/SIM-number/IMSI/ICCID values absent from logs,
+  fixtures, evidence capture, browser storage, and console output.
 
 Live SMS send/delete still requires explicit user permission even if it is not
 expected to interrupt WAN.
@@ -274,7 +326,9 @@ complete dated matrix.
 
 ## NCM boundary
 
-L850 NCM USB `8087:095a` connectivity is not supported by this companion. A
-future NCM data path belongs in ModemManager and needs its own bearer, RAW-IP,
+L850 NCM USB `8087:095a` connectivity is not supported by this companion.
+Schema-4 Overview may identify the composition as `ncm`; that observation does
+not imply bearer/data-path support. A future NCM data path belongs in
+ModemManager and needs its own bearer, RAW-IP,
 addressing, teardown, and traffic evidence. It must not become a second dialer
 inside this repository.

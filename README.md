@@ -5,8 +5,8 @@ SPDX-License-Identifier: Apache-2.0
 
 # luci-app-fibocom
 
-Version 0.4.0 is a small LuCI companion for Fibocom modems already managed by
-ModemManager and OpenWrt netifd. Its public API is schema 3 and its menu is
+Version 0.5.0 is a small LuCI companion for Fibocom modems already managed by
+ModemManager and OpenWrt netifd. Its public API is schema 4 and its menu is
 exactly:
 
 ```text
@@ -33,14 +33,29 @@ only `allowedmode` and `preferredmode` on the uniquely resolved
 ## Product scope
 
 Overview returns a compact, sanitized snapshot: manufacturer/model/revision,
-modem state and power, SIM presence and lock, registration/operator/roaming,
-access technology, signal quality and available RSRP/RSRQ/SINR, bearer state
-and data interface, current bands, and capability summaries. Serving
-EARFCN/PCI is cached only from validated standard CellInfo, an explicit expert
-scan, or a verified PCI postcondition. Overview never launches an automatic
-XMCI scan. It never returns raw
-D-Bus or sysfs paths, port tables, subscriber identifiers, IP configuration,
-credentials, or diagnostic dumps.
+USB composition, modem state and power, SIM presence and lock,
+registration/operator/roaming, access technology, signal quality and available
+RSRP/RSRQ/SINR, bearer state and data interface, current bands, and capability
+summaries. At the product owner's explicit direction, schema 4 also exposes the
+full IMEI and the ModemManager-provided SIM number, IMSI, and ICCID to users who
+hold the authenticated Overview ACL. These bounded values are never logged or
+stored in fixtures or evidence. Serving EARFCN/PCI is cached only from validated
+standard CellInfo, an explicit expert scan, or a verified PCI postcondition.
+Overview never launches an automatic XMCI scan. It never returns raw D-Bus or
+sysfs paths, port tables, IP configuration, credentials, or diagnostic dumps.
+
+An expert build also adds read-only LTE carrier aggregation details to
+Overview: active LTE bands, primary and secondary LTE bands, active-carrier
+count, and per-carrier EARFCN, PCI, and downlink/uplink bandwidth. This uses
+only the fixed `AT+GTCAINFO?` query through asynchronous ModemManager command
+arbitration. The typed parser accepts the L850 primary slot's 14-field grammar
+and secondary slots' 10-field grammar, omits inactive sentinel slots, bounds
+the result to eight declared slots/4,096 response bytes, and validates both
+downlink and uplink EARFCN against the reported band's reviewed ranges. Active
+B29/B32 records remain deliberately fail-closed until their firmware-specific
+uplink/sentinel shape is captured live. The API never returns the raw response
+or cellular subscriber/location fields. A base build has no expert object and
+renders these details unavailable.
 
 Lock contains:
 
@@ -82,7 +97,7 @@ post-dispatch send returns `outcome_unknown` and is never resent automatically.
 
 ## API and permissions
 
-The base object `fibocom.mm` exposes exactly eight schema-3 methods:
+The base object `fibocom.mm` exposes exactly eight schema-4 methods:
 
 ```text
 list_modems
@@ -99,6 +114,7 @@ The expert object, when explicitly compiled, exposes only:
 
 ```text
 cell_scan
+get_carrier_info
 cell_lock_status
 set_cell_lock
 clear_cell_lock
@@ -110,21 +126,21 @@ The five rpcd groups are `luci-app-fibocom-overview`,
 `luci-app-fibocom-lock-pci-expert`. They grant exact ubus methods only: no
 wildcards, filesystem access, shell execution, cgi-io, or UCI writes.
 
-LuCI treats malformed responses and every schema other than 3 as a
+LuCI treats malformed responses and every schema other than 4 as a
 compatibility failure. All mutations are disabled until a matching schema,
 opaque ID, modem generation, and (for SMS) messaging generation are present.
 
 ## Packaging
 
-The active package set is:
+The target package metadata is (SDK/install validation is still pending):
 
 ```text
-fibocom-mm-bridge   0.4.0-r2 native libmm-glib/GDBus to ubus bridge
-luci-app-fibocom   0.4.0-r2 Overview, Lock, and SMS views
+fibocom-mm-bridge   0.5.0-r1 native libmm-glib/GDBus to ubus bridge
+luci-app-fibocom   0.5.0-r1 Overview, Lock, and SMS views
 ```
 
 The retired Status, old Advanced, Settings, radio toggle, generic reset,
-primary SIM-slot switch, and Fibocom eSIM addon are not part of 0.4.0. APN,
+primary SIM-slot switch, and Fibocom eSIM addon are not part of 0.5.0. APN,
 route, DNS, credentials, and all connection settings remain in OpenWrt's
 existing Network / Interfaces UI.
 
@@ -154,6 +170,14 @@ explicit-scan Serving Cell cache, schema-3 SMS read metadata, and connected
 netifd recovery. No v0.4 SMS write or PCI mutation was run. See
 [hardware evidence](docs/hardware-evidence.md) and the
 [live record](docs/live-router-validation.md).
+
+Before the 0.5.0 implementation, an approved read-only query on 2026-07-28
+confirmed the target firmware's `GTCAINFO` primary/secondary grammar: one
+active B3 primary carrier at EARFCN 1325 / PCI 381 with 20 MHz bandwidth, plus
+an inactive secondary sentinel. `GTUSBMODE` value 7 and ModemManager's live
+composition independently agreed on MBIM. This is command-level input evidence,
+not an installed schema-4 package claim. The 0.5.0 SDK build, package install,
+and post-install schema/UI acceptance remain pending until recorded separately.
 
 ## Development
 

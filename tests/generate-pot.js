@@ -67,7 +67,7 @@ const lines = [
 	'#',
 	'msgid ""',
 	'msgstr ""',
-	'"Project-Id-Version: luci-app-fibocom 0.4.0\\n"',
+	'"Project-Id-Version: luci-app-fibocom 0.5.0\\n"',
 	'"Report-Msgid-Bugs-To: \\n"',
 	'"POT-Creation-Date: 2026-07-27 00:00+0800\\n"',
 	'"MIME-Version: 1.0\\n"',

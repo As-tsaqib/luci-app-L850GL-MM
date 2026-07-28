@@ -256,7 +256,7 @@ jobs:
             exit 1
           fi
           mapfile -t binaries < <(find build_dir/target-* \
-            -path '*/fibocom-mm-bridge-0.4.0/.pkgdir/fibocom-mm-bridge/usr/sbin/fibocom-mm-bridge' \
+            -path '*/fibocom-mm-bridge-0.5.0/.pkgdir/fibocom-mm-bridge/usr/sbin/fibocom-mm-bridge' \
             -type f)
           printf 'Base_bridge_binary_count=%s\n' "${#binaries[@]}" | \
             tee "${GITHUB_WORKSPACE}/logs/verify-base.txt"
@@ -270,7 +270,14 @@ jobs:
             echo 'Base bridge unexpectedly contains the expert object name' >&2
             exit 1
           fi
+          if strings "${binaries[0]}" | grep -Fx 'AT+GTCAINFO?' \
+            >> "${GITHUB_WORKSPACE}/logs/verify-base.txt"; then
+            echo 'Base bridge unexpectedly contains the expert carrier command' >&2
+            exit 1
+          fi
           echo 'Expert_Object=absent' >> "${GITHUB_WORKSPACE}/logs/verify-base.txt"
+          echo 'Expert_Carrier_Command=absent' \
+            >> "${GITHUB_WORKSPACE}/logs/verify-base.txt"
 
       - name: Collect base packages
         shell: bash
@@ -290,7 +297,7 @@ jobs:
             echo "OpenWrt=${OPENWRT_VERSION}"
             echo 'Target=ipq40xx/generic'
             echo 'Package_Architecture=arm_cortex-a7_neon-vfpv4'
-            echo 'API_Schema=3'
+            echo 'API_Schema=4'
             echo 'Expert_Object=absent'
             echo 'ModemManager_Recipe=1.24.0-r10'
             echo "Source_Commit=${GITHUB_SHA}"
@@ -346,7 +353,7 @@ jobs:
             exit 1
           fi
           mapfile -t binaries < <(find build_dir/target-* \
-            -path '*/fibocom-mm-bridge-0.4.0/.pkgdir/fibocom-mm-bridge/usr/sbin/fibocom-mm-bridge' \
+            -path '*/fibocom-mm-bridge-0.5.0/.pkgdir/fibocom-mm-bridge/usr/sbin/fibocom-mm-bridge' \
             -type f)
           printf 'Expert_bridge_binary_count=%s\n' "${#binaries[@]}" | \
             tee "${GITHUB_WORKSPACE}/logs/verify-expert.txt"
@@ -360,7 +367,19 @@ jobs:
             echo 'Expert bridge does not contain the expert object name' >&2
             exit 1
           fi
+          if ! strings "${binaries[0]}" | grep -Fx 'get_carrier_info' \
+            >> "${GITHUB_WORKSPACE}/logs/verify-expert.txt"; then
+            echo 'Expert bridge does not contain the carrier method' >&2
+            exit 1
+          fi
+          if ! strings "${binaries[0]}" | grep -Fx 'AT+GTCAINFO?' \
+            >> "${GITHUB_WORKSPACE}/logs/verify-expert.txt"; then
+            echo 'Expert bridge does not contain the reviewed carrier command' >&2
+            exit 1
+          fi
           echo 'Expert_Object=fibocom.mm.l850' \
+            >> "${GITHUB_WORKSPACE}/logs/verify-expert.txt"
+          echo 'Expert_Carrier_Method=get_carrier_info' \
             >> "${GITHUB_WORKSPACE}/logs/verify-expert.txt"
 
       - name: Collect expert package
@@ -388,7 +407,7 @@ jobs:
             echo "OpenWrt=${OPENWRT_VERSION}"
             echo 'Target=ipq40xx/generic'
             echo 'Package_Architecture=arm_cortex-a7_neon-vfpv4'
-            echo 'API_Schema=3'
+            echo 'API_Schema=4'
             echo 'Expert_Object=fibocom.mm.l850'
             echo 'ModemManager_AT_Command_Via_DBus=enabled'
             echo 'ModemManager_Package=1.24.0-r10'

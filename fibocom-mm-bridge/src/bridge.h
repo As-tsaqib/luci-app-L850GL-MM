@@ -9,8 +9,8 @@
 #include <glib.h>
 #include <libmm-glib.h>
 
-#define FIBOCOM_MM_API_SCHEMA 3U
-#define FIBOCOM_MM_BRIDGE_VERSION "0.4.0"
+#define FIBOCOM_MM_API_SCHEMA 4U
+#define FIBOCOM_MM_BRIDGE_VERSION "0.5.0"
 #define FIBOCOM_SMS_REQUEST_DIGEST_LEN 32U
 typedef struct _FibocomBridge FibocomBridge;
 typedef struct _FibocomModem FibocomModem;
@@ -91,6 +91,7 @@ struct _FibocomModem {
 	gint64 advanced_cooldown_until;
 #ifdef FIBOCOM_MM_L850_EXPERT
 	gint64 l850_last_scan_completed_at;
+	gint64 l850_last_carrier_query_completed_at;
 #endif
 	gulong messaging_added_handler;
 	gulong messaging_deleted_handler;

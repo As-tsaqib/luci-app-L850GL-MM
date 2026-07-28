@@ -85,14 +85,6 @@
 	margin: .5rem .6rem;
 }
 
-.fibocom-page .fibocom-capability-value {
-	display: flex;
-	flex-direction: column;
-	align-items: flex-start;
-	gap: .3rem;
-	min-width: 0;
-}
-
 .fibocom-page .fibocom-overview-grid {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -112,6 +104,31 @@
 	width: 100%;
 	max-width: 100%;
 	padding: .75rem;
+	overflow-wrap: anywhere;
+}
+
+.fibocom-page .fibocom-subsection-title {
+	margin-top: .9rem;
+	padding-top: .75rem;
+	border-top: 1px solid var(--border-color-low, rgba(127, 127, 127, .22));
+}
+
+.fibocom-page .fibocom-identifier {
+	display: inline-block;
+	max-width: 100%;
+	white-space: normal;
+	word-break: break-all;
+	user-select: text;
+}
+
+.fibocom-page .fibocom-carrier-details {
+	display: flex;
+	flex-direction: column;
+	gap: .25rem;
+	min-width: 0;
+}
+
+.fibocom-page .fibocom-carrier-detail {
 	overflow-wrap: anywhere;
 }
 
@@ -470,21 +487,120 @@
 	opacity: 0;
 }
 
-.fibocom-page .fibocom-compose-summary {
-	cursor: pointer;
-	font-size: 1.05rem;
+.fibocom-page .fibocom-sms-page-heading {
+	display: flex;
+	align-items: center;
+	gap: .5rem;
+}
+
+.fibocom-page .fibocom-sms-page-heading > h2 {
+	margin: 0;
+}
+
+.fibocom-page .fibocom-sms-status-dot {
+	display: inline-block;
+	flex: 0 0 auto;
+	width: .7rem;
+	height: .7rem;
+	border-radius: 50%;
+	background: var(--border-color-medium, #777);
+}
+
+.fibocom-page .fibocom-sms-status-dot.is-ready {
+	background: var(--success-color, #2e7d32);
+	box-shadow: 0 0 0 .2rem rgba(46, 125, 50, .16);
+	animation: fibocom-sms-status-pulse 2s ease-in-out infinite;
+}
+
+.fibocom-page .fibocom-sms-status-dot.is-loading {
+	background: var(--primary-color, var(--link-color, #337ab7));
+}
+
+.fibocom-page .fibocom-sms-status-dot.is-limited {
+	background: var(--warning-color, #c47f00);
+}
+
+.fibocom-page .fibocom-sms-status-dot.is-unavailable {
+	background: var(--danger-color, #c0392b);
+}
+
+@keyframes fibocom-sms-status-pulse {
+	0%, 100% { opacity: 1; }
+	50% { opacity: .65; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.fibocom-page .fibocom-sms-status-dot.is-ready {
+		animation: none;
+	}
+}
+
+.fibocom-page .fibocom-sms-toolbar {
+	display: flex;
+	align-items: center;
+	flex-wrap: nowrap;
+	gap: .45rem;
+	margin: .5rem 0 .65rem;
+}
+
+.fibocom-page .fibocom-sms-filter-select {
+	width: auto;
+	min-width: 9rem;
+	max-width: 100%;
+	margin: 0;
+}
+
+.fibocom-page .fibocom-sms-loaded-count {
+	margin: 0;
+	font-weight: 600;
+	color: var(--primary-color, var(--link-color, #337ab7));
+}
+
+.fibocom-page .fibocom-sms-device-label {
+	font-size: .85rem;
 	font-weight: 600;
 	overflow-wrap: anywhere;
 }
 
-.fibocom-page .fibocom-compose[open] > .fibocom-compose-summary {
-	margin-bottom: .75rem;
-	padding-bottom: .65rem;
-	border-bottom: 1px solid var(--border-color-medium, rgba(127, 127, 127, .35));
+.fibocom-page .fibocom-compose-toggle {
+	flex: 0 0 auto;
+	margin: 0;
+	white-space: nowrap;
 }
 
 .fibocom-page .fibocom-compose-form {
 	min-width: 0;
+	margin: .5rem 0 .75rem;
+}
+
+.fibocom-page .fibocom-conversation-compose {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	gap: .5rem;
+	align-items: end;
+	position: sticky;
+	bottom: .5rem;
+	z-index: 2;
+	margin-top: .75rem;
+	padding: .6rem;
+	border: 1px solid var(--border-color-medium, rgba(127, 127, 127, .35));
+	border-radius: .35rem;
+	background: var(--background-color-high, Canvas);
+	box-shadow: 0 -.15rem .65rem rgba(0, 0, 0, .08);
+}
+
+.fibocom-page .fibocom-conversation-compose .fibocom-conversation-input {
+	min-height: 2.75rem;
+	max-height: 8rem;
+	margin: 0;
+	resize: vertical;
+}
+
+.fibocom-page .fibocom-conversation-compose .fibocom-conversation-send {
+	min-width: 5.5rem;
+	min-height: 2.75rem;
+	margin: 0;
+	white-space: nowrap;
 }
 
 .fibocom-page .fibocom-inline-actions {
@@ -659,5 +775,32 @@
 
 	.fibocom-page .fibocom-sms-list-actions .fibocom-sms-load-more {
 		margin-left: auto;
+	}
+
+	.fibocom-page .fibocom-sms-toolbar {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto auto;
+		width: 100%;
+	}
+
+	.fibocom-page .fibocom-sms-toolbar .fibocom-sms-device-label {
+		grid-column: 1 / -1;
+	}
+
+	.fibocom-page .fibocom-sms-filter-select {
+		width: 100%;
+		min-width: 0;
+	}
+
+	.fibocom-page .fibocom-conversation-compose {
+		grid-template-columns: minmax(0, 1fr) auto;
+		gap: .35rem;
+		bottom: .25rem;
+		padding: .45rem;
+	}
+
+	.fibocom-page .fibocom-conversation-compose .fibocom-conversation-send {
+		min-width: 4.75rem;
+		padding-inline: .65rem;
 	}
 }

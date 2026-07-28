@@ -4,8 +4,8 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=fibocom-mm-bridge
-PKG_VERSION:=0.4.0
-PKG_RELEASE:=2
+PKG_VERSION:=0.5.0
+PKG_RELEASE:=1
 
 PKG_MAINTAINER:=As Tsaqib <0xfiqks@gmail.com>
 PKG_LICENSE:=GPL-2.0-or-later
@@ -47,7 +47,7 @@ define Package/fibocom-mm-bridge/description
  supported target is the L850-GL in MBIM composition. It observes modem state
  and implements SMS and capability-gated standard radio controls through the
  native ModemManager API. It never dials or creates or deletes bearers. Its
- schema-3 mode-policy endpoint changes only allowedmode and preferredmode on
+ schema-4 mode-policy endpoint changes only allowedmode and preferredmode on
  the uniquely bound netifd interface. The base build never executes AT commands; the explicit expert
  build can dispatch only its compiled-in, firmware-gated L850 grammar through
  ModemManager's asynchronous command queue.

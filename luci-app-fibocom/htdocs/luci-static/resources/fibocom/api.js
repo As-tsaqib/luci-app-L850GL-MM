@@ -40,6 +40,9 @@ const callDeleteSms = declare('fibocom.mm', 'delete_sms', [
 const callCellScan = declare('fibocom.mm.l850', 'cell_scan', [
 	'modem_id', 'generation'
 ]);
+const callGetCarrierInfo = declare('fibocom.mm.l850', 'get_carrier_info', [
+	'modem_id', 'generation'
+]);
 const callCellLockStatus = declare('fibocom.mm.l850', 'cell_lock_status', [
 	'modem_id', 'generation'
 ]);
@@ -51,7 +54,7 @@ const callClearCellLock = declare('fibocom.mm.l850', 'clear_cell_lock', [
 ]);
 
 return baseclass.extend({
-	SCHEMA_VERSION: 3,
+	SCHEMA_VERSION: 4,
 
 	listModems: function() {
 		return callListModems();
@@ -88,6 +91,10 @@ return baseclass.extend({
 
 	cellScan: function(modemId, generation) {
 		return callCellScan(modemId, generation);
+	},
+
+	getCarrierInfo: function(modemId, generation) {
+		return callGetCarrierInfo(modemId, generation);
 	},
 
 	cellLockStatus: function(modemId, generation) {

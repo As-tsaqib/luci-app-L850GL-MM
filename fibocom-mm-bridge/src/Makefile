@@ -19,6 +19,9 @@ TARGET := fibocom-mm-bridge
 SOURCES := main.c identity.c hardware.c network_binding.c radio_policy.c \
 	sms_policy.c sms_dedupe_policy.c ubus_request.c l850_cell.c bridge.c \
 	ubus_glib.c
+ifneq ($(FIBOCOM_MM_L850_EXPERT),)
+SOURCES += l850_ca.c
+endif
 OBJECTS := $(SOURCES:.c=.o)
 DEPS := $(OBJECTS:.o=.d)
 

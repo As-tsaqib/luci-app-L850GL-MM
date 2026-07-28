@@ -31,7 +31,8 @@ Commit IDs are evidence anchors, not source-import points.
 |---|---|---|
 | [FUjr/QModem](https://github.com/FUjr/QModem) | `3bd54c1334a66461587ca89b22ee2f71129fcad3` | lifecycle/ownership failure lessons |
 | [As-tsaqib/L850GL-XModem](https://github.com/As-tsaqib/L850GL-XModem) | `eca5d92d31555777c8984ac3fe5b294eec0c9b39` | L850 USB/MBIM/NCM evidence |
-| [As-tsaqib/XModem](https://github.com/As-tsaqib/XModem) | `12cd90055525ab9f97644190a659645a47c5e244` | UX ideas and parser/security risks |
+| [nyawitniorang/XModem](https://github.com/nyawitniorang/XModem) | `12cd90055525ab9f97644190a659645a47c5e244` | UX ideas, GTCAINFO field hints, and parser/security risks |
+| [ofmodemsandmen/RooterSource](https://github.com/ofmodemsandmen/RooterSource) | `ef9f007abe22345f1f646add0d812fd7ade652a5` (`fibocomdata350.sh`) | independent GTCAINFO 14-field primary/10-field secondary grammar |
 | [ModemManager](https://gitlab.freedesktop.org/mobile-broadband/ModemManager) | `3568fb91a856d5e8de15dc7b2c2b80eecb46eb8e` plus 1.24 public API | Fibocom/XMM plugin and typed bands/SMS/cell-info behavior |
 | [OpenWrt packages](https://github.com/openwrt/packages) | `9f76dfc43c63392621b44951a0a17f8d75245751` | ModemManager packaging/netifd integration |
 | [OpenWrt LuCI](https://github.com/openwrt/luci) | `112388301e8b920a7532065c498700131990dd13` | view/menu/ACL/i18n conventions |
@@ -80,12 +81,20 @@ Commit IDs are evidence anchors, not source-import points.
 - MBIM is the supported production composition. L850 NCM bearer support is not
   established in ModemManager and is not a companion feature.
 - ModemManager provides typed asynchronous bands, Messaging/Sms, and
-  GetCellInfo APIs used by 0.4.
+  GetCellInfo APIs used by 0.5.
+- The schema-4 base Overview obtains USB composition, equipment identifier,
+  OwnNumbers, IMSI, and ICCID only from normalized libmm-glib properties. The
+  explicit product-owner identifier disclosure does not authorize logging or
+  fixture/evidence capture.
+- Carrier parsing independently validates the reported band's DL and UL EARFCN
+  ranges. No active B29/B32 target-firmware capture exists, so their
+  downlink-only uplink/sentinel form is not inferred from XModem, RooterSource,
+  or a generic band table and remains fail-closed.
 - The XMCI LTE field schema and community lock-command family were candidate
   evidence only. The 2026-07-27 local target-firmware matrix independently
   proved logical band encoding, PCI wildcard `65535`, clear tuple, NVM state,
   `CFUN=15`, reprobe/registration, and serving-cell postconditions.
-- Stock OpenWrt keeps generic AT-over-D-Bus disabled. The base 0.4 build must
+- Stock OpenWrt keeps generic AT-over-D-Bus disabled. The base 0.5 build must
   keep it disabled and omit the expert object.
 - Firmware `18500.5001.00.05.27.30` is the sole PCI mutation allowlist entry,
   based on the dated local matrix rather than a public post.
@@ -108,9 +117,13 @@ excluded are:
   controller path;
 - undocumented fallback chains and guessed firmware tuples.
 
-XModem's inconsistent license notices reinforce the clean-room boundary. Only
-user-visible concepts and independently corroborated protocol facts inform the
-new code.
+XModem's inconsistent license notices reinforce the clean-room boundary. At
+snapshot `12cd900`, its carrier implementation uses shell/direct-TTY command
+paths and counts an inactive secondary sentinel as a carrier. Neither its
+implementation nor that behavior was copied. Only user-visible concepts and
+independently corroborated protocol facts informed the new typed parser; the
+independent RooterSource 14/10-field grammar and local sanitized modem response
+were separate checks.
 
 ## Implementation record
 
@@ -183,6 +196,20 @@ new code.
   attempt did not recover it, while a physical replug did. The clean acceptance
   followed the replug. The temporal sequence is retained as a harness/recovery
   caveat and is not evidence that the scan caused the state change.
+- 2026-07-28: version 0.5.0 advances the contract to schema 4 while retaining
+  the same eight base methods. At the product owner's explicit direction,
+  Overview adds normalized USB mode plus full bounded IMEI, SIM number, IMSI,
+  and ICCID through the authenticated Overview ACL. The expert object grows to
+  five methods with typed read-only `get_carrier_info`; the base build still
+  contains no expert object or command path.
+- 2026-07-28: before implementation, an approved read-only target-modem query
+  returned a 14-field index-1 B3 primary at EARFCN 1325 / PCI 381 with 20 MHz
+  bandwidth and an exact inactive index-2 sentinel, so the normalized active
+  carrier count was one. `GTUSBMODE` value 7 and ModemManager composition both
+  identified MBIM. No identifier or raw response is retained in repository
+  evidence. This establishes the target grammar/input evidence only; schema-4
+  SDK build, package installation, and post-install UI/API validation remain
+  pending.
 
 Historical v0.2 schema-1 results remain explicitly labeled and are not
 rewritten as schema-2 package evidence. Firmware command-level live evidence

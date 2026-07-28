@@ -7,10 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Current verdict
 
-Version 0.4.0 retains the expert contract, build/ACL gates, standard
+Version 0.5.0 retains the PCI expert contract, build/ACL gates, standard
 GetCellInfo-first scan path, bounded XMCI and NVM parsers, typed command
 builders, rate limiting, cancellation, timeout, shared mutation locking, and
-the reset/reprobe/registration/postcondition state machine.
+the reset/reprobe/registration/postcondition state machine. It adds the
+read-only `get_carrier_info` sibling method described below; PCI mutation
+grammar, allowlist, recovery sequence, and postconditions are unchanged.
 
 Firmware `18500.5001.00.05.27.30` completed the approved live matrix on
 2026-07-27 and is the only allowlist entry. Exact and EARFCN-only set, clear,
@@ -41,6 +43,8 @@ and recovery caveat, is in `live-router-validation.md`.
 Release r2 also contains separately requested LuCI and SMS-view work. The live
 claim in the preceding paragraph applies specifically to the expert backend
 scan admission/cooldown delta; PCI mutation behavior was not changed or rerun.
+Schema-4 0.5.0 SDK/package installation and post-install validation remain
+pending and are not inferred from those historical runs.
 
 ## 4PDA community evidence
 
@@ -107,7 +111,10 @@ CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS=y
 CONFIG_FIBOCOM_MM_BRIDGE_L850_EXPERT=y
 ```
 
-It is protected by `luci-app-fibocom-lock-pci-expert`, separate from Band Lock.
+PCI scan/status/mutation is protected by
+`luci-app-fibocom-lock-pci-expert`, separate from Band Lock. Read-only carrier
+status is additionally granted by the exact Overview ACL for its Overview
+panel.
 SMS, Band Lock, and PCI operations share the existing per-modem mutation lock;
 an internal hardware-slot coordinator keeps that exclusion active across the
 new opaque modem object created by reset.
@@ -116,6 +123,7 @@ new opaque modem object created by reset.
 
 ```text
 cell_scan(modem_id, generation)
+get_carrier_info(modem_id, generation)
 cell_lock_status(modem_id, generation)
 set_cell_lock(modem_id, generation, earfcn, optional pci, confirm)
 clear_cell_lock(modem_id, generation, confirm)
@@ -141,6 +149,26 @@ may still be advertised. On the exact allowlisted firmware, `cell_lock_status`
 queries a fixed NVM path asynchronously and exports only `clear`,
 `configured_earfcn`, or `configured_exact`; this status read is not itself a
 serving-cell postcondition.
+
+`get_carrier_info` is a read-only expert method used by Overview. It is exact
+hardware/firmware gated and dispatches only the fixed `AT+GTCAINFO?` command
+through asynchronous ModemManager. It is single-flight and mutually excluded
+with cell scan and mutation, has a 20-second operation deadline around a
+15-second command timeout, and starts a five-second cooldown after every
+terminal completion. Its 4,096-byte/eight-slot parser requires an index-1
+14-field primary record and index-2..8 10-field secondary records, ignores only
+the exact inactive secondary sentinel, and exports only active bands, primary
+and active secondary band/EARFCN/PCI/DL/UL bandwidth, and the normalized active
+carrier count. Both DL and UL EARFCN must fall within the reported band's
+reviewed ranges; a UL value belonging to another band rejects the complete
+response. Active B29/B32 remain fail-closed until their downlink-only
+uplink/sentinel representation is captured live on the allowlisted firmware.
+Raw response and MCC/MNC/TAC/cell ID/signal fields never cross ubus. It performs
+no set, clear, reset, NVM write, or serving-cache mutation.
+Fixtures under `tests/fixtures/ca` cover the sanitized live primary/inactive
+shape, an independent active-secondary shape, and invalid sentinels, band/EARFCN
+mismatch including a mismatched UL band, bandwidth, PCI, counts, field shape,
+indexes, duplicates, and terminal text.
 
 ## Standard scan path
 

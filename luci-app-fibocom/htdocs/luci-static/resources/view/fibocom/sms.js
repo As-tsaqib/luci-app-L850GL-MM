@@ -551,6 +551,13 @@ function messageNumber(message) {
 		message.number : null;
 }
 
+function conversationRecipient(state) {
+	const number = state && typeof state.conversationNumber === 'string' ?
+		state.conversationNumber : '';
+
+	return /^\+?[0-9]{1,20}$/.test(number) ? number : null;
+}
+
 function messagesForView(messages, state) {
 	if (!state.conversationNumber)
 		return messages;
@@ -614,6 +621,13 @@ function openConversation(controller, state, message) {
 	state.loadedFolder = 'all';
 	state.pageCount = 1;
 	restoreDraft(state, state.conversationDrafts[number] || newConversationDraft(number));
+	const recipient = conversationRecipient(state) || '';
+
+	if (state.recipient !== recipient) {
+		state.recipient = recipient;
+		if (state.clientToken && state.tokenRecipient !== recipient)
+			clearRetryToken(state);
+	}
 	state.result = null;
 	controller.redraw();
 	return controller.refresh(true);
@@ -650,10 +664,17 @@ function handleSend(controller, entry, state, event) {
 	if (isMutationBusy(state))
 		return Promise.resolve();
 
-	const recipient = state.recipient.trim();
+	const lockedRecipient = conversationRecipient(state);
+	const recipient = lockedRecipient || state.recipient.trim();
 	const text = state.text;
 	const validationError = validateDraft(recipient, text);
 	const context = mutationContext(entry);
+
+	if (lockedRecipient && state.recipient !== lockedRecipient) {
+		state.recipient = lockedRecipient;
+		if (state.clientToken && state.tokenRecipient !== lockedRecipient)
+			clearRetryToken(state);
+	}
 
 	if (validationError) {
 		state.result = { kind: 'warning', message: validationError };
@@ -1312,6 +1333,19 @@ function renderMessage(controller, entry, state, message) {
 	]);
 }
 
+function renderComposeButton(controller, state) {
+	return E('button', {
+		'class': 'btn cbi-button cbi-button-neutral fibocom-compose-toggle',
+		'type': 'button',
+		'aria-expanded': state.composeOpen ? 'true' : 'false',
+		'disabled': isMutationBusy(state) ? '' : null,
+		'click': function() {
+			state.composeOpen = !state.composeOpen;
+			controller.redraw();
+		}
+	}, [ _('Write SMS') ]);
+}
+
 function renderCompose(controller, entry, state, index) {
 	const busy = isMutationBusy(state);
 	const recipientId = 'fibocom-sms-recipient-' + index;
@@ -1372,20 +1406,42 @@ function renderCompose(controller, entry, state, index) {
 		])
 	];
 
-	return E('details', {
-		'class': 'cbi-section fibocom-panel fibocom-compose',
-		'open': state.composeOpen ? '' : null,
-		'toggle': function(event) {
-			state.composeOpen = event.target.open === true;
+	return E('form', {
+		'class': 'cbi-section fibocom-panel fibocom-compose fibocom-compose-form',
+		'submit': function(event) {
+			return handleSend(controller, entry, state, event);
+		}
+	}, children);
+}
+
+function renderConversationCompose(controller, entry, state, index) {
+	const busy = isMutationBusy(state);
+	const textId = 'fibocom-sms-conversation-text-' + index;
+
+	return E('form', {
+		'class': 'fibocom-compose fibocom-conversation-compose',
+		'submit': function(event) {
+			return handleSend(controller, entry, state, event);
 		}
 	}, [
-		E('summary', { 'class': 'fibocom-compose-summary' }, [ _('Write SMS') ]),
-		E('form', {
-			'class': 'fibocom-compose-form',
-			'submit': function(event) {
-				return handleSend(controller, entry, state, event);
+		E('textarea', {
+			'id': textId,
+			'class': 'cbi-input-textarea fibocom-conversation-input',
+			'rows': 2,
+			'autocomplete': 'off',
+			'placeholder': _('Enter message text'),
+			'aria-label': _('Message'),
+			'disabled': busy ? '' : null,
+			'input': function(event) {
+				updateDraft(state, 'text', event.target.value);
 			}
-		}, children)
+		}, [ state.text ]),
+		E('button', {
+			'class': 'btn cbi-button cbi-button-positive important fibocom-conversation-send',
+			'type': 'submit',
+			'disabled': busy ? '' : null
+		}, [ state.sending ? _('Sending…') :
+			(state.clientToken ? _('Retry SMS send') : _('Send SMS')) ])
 	]);
 }
 
@@ -1410,8 +1466,10 @@ function renderConversationHeader(controller, state, messages) {
 function renderMessageActions(controller, entry, state, messages, hasMore) {
 	const selected = selectedIds(state);
 	const busy = isMutationBusy(state);
-	const children = [
-		E('button', {
+	const children = [];
+
+	if (!state.conversationNumber || state.selectionMode) {
+		children.push(E('button', {
 			'class': 'btn cbi-button cbi-button-negative fibocom-sms-bulk-delete',
 			'type': 'button',
 			'disabled': busy || !messages.length ? '' : null,
@@ -1422,8 +1480,8 @@ function renderMessageActions(controller, entry, state, messages, hasMore) {
 					return prepareDeleteAll(controller, entry, state);
 			}
 		}, [ state.preparingDeleteAll ? _('Loading...') :
-			(state.selectionMode ? _('Delete') : _('Delete all')) ])
-	];
+			(state.selectionMode ? _('Delete') : _('Delete all')) ]));
+	}
 
 	if (state.selectionMode) {
 		children.push(E('span', {
@@ -1450,18 +1508,24 @@ function renderMessageActions(controller, entry, state, messages, hasMore) {
 		}, [ state.loadingMore ? _('Loading...') : _('Load more') ]));
 	}
 
-	return E('div', { 'class': 'cbi-page-actions fibocom-sms-list-actions' }, children);
+	return children.length ?
+		E('div', { 'class': 'cbi-page-actions fibocom-sms-list-actions' }, children) :
+		E([]);
 }
 
-function renderDevice(controller, entry, index) {
+function renderDevice(controller, entry, index, deviceCount) {
 	const summary = widgets.object(entry.summary);
 	const messages = widgets.object(entry.messages);
 	const state = stateFor(summary.modem_id);
 	const error = entry.messagesError || widgets.smsError(entry.messages, summary, 1024);
-	const title = widgets.display(summary.model, _('Fibocom modem'));
-	const children = [ E('h3', { 'class': 'fibocom-device-title' }, [ title ]) ];
+	const children = [];
 
 	if (error) {
+		if (deviceCount > 1) {
+			children.push(E('div', { 'class': 'fibocom-sms-device-label' }, [
+				widgets.display(summary.model, _('Fibocom modem'))
+			]));
+		}
 		children.push(widgets.errorPanel(error));
 		return E('div', { 'class': 'cbi-section fibocom-device' }, children);
 	}
@@ -1480,37 +1544,33 @@ function renderDevice(controller, entry, index) {
 	if (state.conversationNumber)
 		children.push(renderConversationHeader(controller, state, filtered));
 	else
-		children.push(E('div', { 'class': 'cbi-section fibocom-panel' }, [
-		E('div', { 'class': 'cbi-value fibocom-form-row' }, [
-			E('label', {
-				'class': 'cbi-value-title',
-				'for': filterId
-			}, [ _('Folder') ]),
-			E('div', { 'class': 'cbi-value-field' }, [
-				E('select', {
-					'id': filterId,
-					'class': 'cbi-input-select',
-					'change': function(event) {
-						clearSelection(state);
-						state.folder = event.target.value;
-						state.loadedFolder = state.folder;
-						state.pageCount = 1;
-						state.result = null;
-						return controller.refresh(true);
-					}
-				}, folderOptions(state.folder))
-			])
-		]),
-		widgets.keyValueList([
-			[ _('Messaging cache'), widgets.badge(
-				widgets.display(messages.cache_state, _('Unknown')), messages.cache_state) ],
-			[ _('Loaded messages'), list.length ]
-		])
-	]));
+		children.push(E('div', { 'class': 'fibocom-sms-toolbar' }, [
+			deviceCount > 1 ? E('span', {
+				'class': 'fibocom-sms-device-label'
+			}, [ widgets.display(summary.model, _('Fibocom modem')) ]) : E([]),
+			E('select', {
+				'id': filterId,
+				'class': 'cbi-input-select fibocom-sms-filter-select',
+				'aria-label': _('Folder'),
+				'change': function(event) {
+					clearSelection(state);
+					state.folder = event.target.value;
+					state.loadedFolder = state.folder;
+					state.pageCount = 1;
+					state.result = null;
+					return controller.refresh(true);
+				}
+			}, folderOptions(state.folder)),
+			E('span', {
+				'class': 'label notice fibocom-sms-loaded-count',
+				'aria-live': 'polite'
+			}, [ _('%d loaded').format(list.length) ]),
+			renderComposeButton(controller, state)
+		]));
 
-	if (!state.conversationNumber || /^\+?[0-9]{1,20}$/.test(state.conversationNumber))
+	if (!state.conversationNumber && state.composeOpen)
 		children.push(renderCompose(controller, entry, state, index));
-	else
+	else if (!conversationRecipient(state))
 		children.push(E('div', { 'class': 'alert-message notice' }, [
 			_('This sender cannot be used as an SMS recipient.')
 		]));
@@ -1532,10 +1592,61 @@ function renderDevice(controller, entry, index) {
 			state.conversationNumber ? _('No messages with this number are loaded.') :
 				_('No SMS messages are available in this folder.')
 		]),
-		renderMessageActions(controller, entry, state, visible, messages.has_more === true)
+		renderMessageActions(controller, entry, state, visible, messages.has_more === true),
+		state.conversationNumber && conversationRecipient(state) && !state.selectionMode ?
+			renderConversationCompose(controller, entry, state, index) : E([])
 	]));
 
 	return E('div', { 'class': 'cbi-section fibocom-device' }, children);
+}
+
+function smsHeaderStatus(snapshot) {
+	const entries = Array.isArray(snapshot && snapshot.entries) ? snapshot.entries : [];
+	let loading = false;
+	let limited = false;
+
+	if (widgets.listError(snapshot && snapshot.list) || !entries.length)
+		return { state: 'unavailable', label: _('Unavailable') };
+
+	for (let index = 0; index < entries.length; index++) {
+		const entry = widgets.object(entries[index]);
+		const cacheState = widgets.object(entry.messages).cache_state;
+
+		if (entry.messagesError)
+			return { state: 'unavailable', label: _('Unavailable') };
+		if ([ 'ready', 'fresh' ].indexOf(cacheState) !== -1)
+			continue;
+		if (cacheState === 'ready-truncated') {
+			limited = true;
+			continue;
+		}
+		if (cacheState === 'loading') {
+			loading = true;
+			continue;
+		}
+		return { state: 'unavailable', label: _('Unavailable') };
+	}
+
+	if (loading)
+		return { state: 'loading', label: _('Loading...') };
+	if (limited)
+		return { state: 'limited', label: _('Ready') };
+	return { state: 'ready', label: _('Ready') };
+}
+
+function renderSmsHeader(snapshot) {
+	const status = smsHeaderStatus(snapshot);
+
+	return E('div', { 'class': 'fibocom-sms-page-heading' }, [
+		E('h2', {}, [ _('SMS') ]),
+		E('span', {
+			'class': 'fibocom-sms-status-dot is-' + status.state,
+			'role': 'status',
+			'aria-live': 'polite',
+			'aria-label': status.label,
+			'title': status.label
+		}, [])
+	]);
 }
 
 function renderSnapshots(snapshot, controller) {
@@ -1551,7 +1662,7 @@ function renderSnapshots(snapshot, controller) {
 	}
 
 	return E('div', {}, snapshot.entries.map(function(entry, index) {
-		return renderDevice(controller, entry, index);
+		return renderDevice(controller, entry, index, snapshot.entries.length);
 	}));
 }
 
@@ -1583,6 +1694,7 @@ return view.extend({
 
 		render: function(snapshot) {
 		const controller = {
+			header: null,
 			content: null,
 			snapshot: snapshot,
 			refreshEpoch: 0,
@@ -1604,9 +1716,14 @@ return view.extend({
 				}
 				this.longPressTimers = [];
 			},
+			redrawHeader: function() {
+				if (this.header)
+					dom.content(this.header, renderSmsHeader(this.snapshot));
+			},
 			redraw: function() {
 				this.redrawPending = false;
 				this.cancelLongPresses();
+				this.redrawHeader();
 				if (this.content)
 					dom.content(this.content, renderSnapshots(this.snapshot, this));
 			},
@@ -1617,19 +1734,23 @@ return view.extend({
 					if (epoch !== controller.refreshEpoch)
 						return null;
 
-					controller.snapshot = next;
-					if (force || !editorHasFocus(controller.content)) {
-						controller.redraw();
-					}
-					else {
-						controller.redrawPending = true;
-					}
+				controller.snapshot = next;
+				if (force || !editorHasFocus(controller.content)) {
+					controller.redraw();
+				}
+				else {
+					controller.redrawHeader();
+					controller.redrawPending = true;
+				}
 
 					return next;
 				});
 			}
 		};
 
+		controller.header = E('div', { 'id': 'fibocom-sms-header' }, [
+			renderSmsHeader(snapshot)
+		]);
 		controller.content = E('div', {
 			'id': 'fibocom-sms',
 			'focusout': function() {
@@ -1666,7 +1787,7 @@ return view.extend({
 
 		return E('div', { 'class': 'cbi-map fibocom-page fibocom-sms-page' }, [
 			widgets.stylesheet(),
-			E('h2', {}, [ _('SMS') ]),
+			controller.header,
 			E('div', { 'class': 'cbi-map-descr' }, [
 				_('Messages are read, sent, and deleted through ModemManager.')
 			]),

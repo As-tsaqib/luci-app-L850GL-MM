@@ -7,12 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Ownership boundary
 
-Version 0.4.0 is a companion, not a modem connection stack.
+Version 0.5.0 is a companion, not a modem connection stack.
 
 ```text
 LuCI: Overview / Lock / SMS
               |
-              | typed ubus schema 3
+              | typed ubus schema 4
               v
       fibocom-mm-bridge
               |
@@ -45,7 +45,8 @@ Views never declare ad-hoc RPC calls. Every view polls its typed snapshot every
 
 ModemManager remains authoritative for:
 
-- modem identity, state, power, plugin, ports, and composition;
+- modem identity, state, power, plugin, ports, composition, equipment
+  identifier, and own-number properties;
 - SIM presence and lock state;
 - Messaging and Sms objects;
 - supported/current bands and `SetCurrentBands`;
@@ -53,7 +54,7 @@ ModemManager remains authoritative for:
 - standard `GetCellInfo` when the plugin supports it.
 
 netifd remains authoritative for persistent connection settings and runtime
-network orchestration. The 0.4 UI has no Settings page and does not expose APN,
+network orchestration. The 0.5 UI has no Settings page and does not expose APN,
 addresses, routes, gateways, DNS, or credentials. The narrow `set_modes` path
 resolves the unique bound `proto modemmanager` interface from the modem's
 internal Device value, writes only `allowedmode` and `preferredmode`, commits
@@ -81,7 +82,14 @@ and generation.
 Overview reads only normalized properties already owned by ModemManager. SIM,
 bearer, and SMS inventories are obtained asynchronously and retain explicit
 cache states when incomplete. Unknown signal metrics are omitted rather than
-invented. Overview starts only standard asynchronous `GetCellInfo`, with a
+invented. Schema 4 adds a deliberate authenticated-display exception for the
+full IMEI and the ModemManager-provided SIM number, IMSI, and ICCID. Each value
+is sanitized and bounded before serialization, is available only through the
+exact Overview ACL, and is excluded from list results, logs, fixtures, evidence,
+and diagnostics. USB mode is the bridge's normalized, hardware-attested
+composition (`mbim`, `ncm`, or `unknown`), not a browser-provided port value.
+
+Overview starts only standard asynchronous `GetCellInfo`, with a
 30-second retry backoff. A serving cell is cached only when exactly one LTE
 serving record has PCI 0..503, EARFCN-to-supported-band mapping, finite optional
 metrics, the current generation, and bounded freshness. Explicit expert scans
@@ -89,6 +97,24 @@ and verified PCI postconditions update the same cache. Overview never starts
 the XMCI fallback; on the tested L850 firmware, where standard CellInfo is
 unsupported, status stays honestly unavailable until an explicit expert result
 exists.
+
+On an expert build, Overview separately invokes `get_carrier_info` to obtain
+current LTE carrier aggregation state. The method dispatches only the fixed
+`AT+GTCAINFO?` query through asynchronous ModemManager arbitration and is
+admitted only for the exact allowlisted L850 hardware/firmware/composition. A
+20-second operation deadline wraps a 15-second ModemManager command timeout.
+Only one carrier query may run per modem, and it is mutually excluded with an
+expert cell scan or any modem mutation; every terminal completion starts a
+five-second cooldown. The bounded parser accepts at most eight declared slots,
+requires a 14-field index-1 primary record, accepts 10-field index-2..8
+secondary records, ignores only the exact inactive secondary sentinel, and
+requires both DL and UL EARFCN to lie in the reported band's reviewed ranges.
+Active B29/B32 records have no admitted range entry until their live uplink or
+sentinel form is captured and therefore reject the complete response. Output
+contains unique active bands, one primary, active secondaries, a carrier count,
+and per-carrier band/EARFCN/PCI/DL/UL bandwidth. Raw response,
+MCC/MNC/TAC/cell ID, and parsed signal fields are discarded. The base build has
+no such command path or expert object.
 
 SMS initialization uses `Messaging.List`. Added, Deleted, and Sms property
 signals update the cache, and a 30-second asynchronous reconciliation repairs
@@ -116,7 +142,7 @@ secrets. Persistent readback is distinguished from netifd activation, so a
 lost activation response is not blindly retried.
 
 Band Lock validates the complete request before dispatching asynchronous
-`SetCurrentBands`. `["any"]` is the sole automatic request. Schema 3 explicit
+`SetCurrentBands`. `["any"]` is the sole automatic request. Schema 4 explicit
 requests contain LTE bands only; the backend retains every live supported band
 from other currently allowed families before full family validation. Every
 selected LTE band remains canonical, unique, supported, and currently allowed.
@@ -158,7 +184,7 @@ without retaining object paths or indexes as identity.
 
 The base build publishes only `fibocom.mm` with eight methods and is built with
 generic AT-over-D-Bus disabled. Preprocessing removes the expert object,
-method table, scan operations, and PCI runtime state.
+method table, scan/carrier operations, and PCI runtime state.
 
 The explicit expert variant requires both:
 
@@ -167,8 +193,9 @@ CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS=y
 CONFIG_FIBOCOM_MM_BRIDGE_L850_EXPERT=y
 ```
 
-That build publishes `fibocom.mm.l850` under a separate ACL and packages a
-matching ModemManager rebuilt with reviewed command transport. Enabling the
+That build publishes the five-method `fibocom.mm.l850` object under separate
+exact ACL grants and packages a matching ModemManager rebuilt with reviewed
+command transport. Enabling the
 build gate alone does not enable mutation: exact model/plugin/composition,
 `2cb7:0007` attestation, live bands, generation, and the one-entry firmware
 allowlist must all match. The base artifact retains the stock disabled
@@ -176,7 +203,7 @@ transport and has no expert object.
 
 ## Retired architecture
 
-Version 0.4 has no Status or Settings page, old Advanced page, direct radio
+Version 0.5 has no Status or Settings page, old Advanced page, direct radio
 toggle, generic reset, SIM-slot switch, eSIM addon, diagnostic UI, shadow
 daemon, custom netifd protocol, or modem rescan action. The earlier shadow
 implementation remains recoverable through Git history/tag; it is not part of
