@@ -9,8 +9,8 @@ BUILD_DIR=$(mktemp -d)
 trap 'rm -rf "$BUILD_DIR"' EXIT HUP INT TERM
 
 ${CC:-cc} -std=c11 -Wall -Wextra -Werror \
-	-I"$ROOT/fibocom-mm-bridge/src" \
+	-I"$ROOT/l850gl-mm-bridge/src" \
 	"$ROOT/tests/host-sms-dedupe.c" \
-	"$ROOT/fibocom-mm-bridge/src/sms_dedupe_policy.c" \
+	"$ROOT/l850gl-mm-bridge/src/sms_dedupe_policy.c" \
 	-o "$BUILD_DIR/host-sms-dedupe"
 "$BUILD_DIR/host-sms-dedupe"

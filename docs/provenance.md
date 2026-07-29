@@ -81,7 +81,7 @@ Commit IDs are evidence anchors, not source-import points.
 - MBIM is the supported production composition. L850 NCM bearer support is not
   established in ModemManager and is not a companion feature.
 - ModemManager provides typed asynchronous bands, Messaging/Sms, and
-  GetCellInfo APIs used by 0.5.
+  GetCellInfo APIs used by 0.6.
 - The schema-4 base Overview obtains USB composition, equipment identifier,
   OwnNumbers, IMSI, and ICCID only from normalized libmm-glib properties. The
   explicit product-owner identifier disclosure does not authorize logging or
@@ -94,7 +94,7 @@ Commit IDs are evidence anchors, not source-import points.
   evidence only. The 2026-07-27 local target-firmware matrix independently
   proved logical band encoding, PCI wildcard `65535`, clear tuple, NVM state,
   `CFUN=15`, reprobe/registration, and serving-cell postconditions.
-- Stock OpenWrt keeps generic AT-over-D-Bus disabled. The base 0.5 build must
+- Stock OpenWrt keeps generic AT-over-D-Bus disabled. The base 0.6 build must
   keep it disabled and omit the expert object.
 - Firmware `18500.5001.00.05.27.30` is the sole PCI mutation allowlist entry,
   based on the dated local matrix rather than a public post.
@@ -213,6 +213,16 @@ were separate checks.
   the sanitized UI/API, CA admission/cooldown, ownership, privacy, and
   served-asset checks passed. This installed evidence remains distinct from
   the earlier command-level capture.
+- 2026-07-29: version 0.6.0 renames the active repository/application to
+  `luci-app-L850GL-MM`, packages to `luci-app-l850gl-mm` and
+  `l850gl-mm-bridge`, and ubus objects to `l850gl.mm` / `l850gl.mm.l850`.
+  The retired package, service, ACL, and ubus names remain only as migration
+  and historical evidence and are prohibited from coexisting with 0.6.
+- 2026-07-29: version 0.6 adds a strict bounded parser and expert-build
+  asynchronous fixed `AT+CBC` query for nullable Overview voltage in
+  millivolts. The provided response shape and synthetic valid/invalid fixtures
+  establish parser input coverage only; SDK installation and router acceptance
+  remain separate evidence until recorded after they occur.
 
 Historical v0.2 schema-1 results remain explicitly labeled and are not
 rewritten as schema-2 package evidence. Firmware command-level live evidence

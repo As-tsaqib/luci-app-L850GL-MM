@@ -9,9 +9,10 @@ SPDX-License-Identifier: Apache-2.0
 
 The repository separates historical schema-1 v0.2 evidence from 2026-07-19,
 the approved L850 firmware command/recovery matrix and schema-2 package run
-from 2026-07-27, installed schema-3 v0.4 evidence, and schema-4 v0.5 work from
-2026-07-28. Source, fixture, SDK success, firmware-command evidence, and
-installed-package evidence are not interchangeable.
+from 2026-07-27, installed schema-3 v0.4 evidence, schema-4 v0.5 work from
+2026-07-28, and renamed v0.6 source work from 2026-07-29. Source, fixture, SDK
+success, firmware-command evidence, and installed-package evidence are not
+interchangeable.
 
 Never store IMEI, IMSI, ICCID, EID, phone numbers, SMS body, APN credentials,
 PIN/PUK, activation codes, tokens, or assigned IP configuration. Evidence must
@@ -119,7 +120,43 @@ serving EARFCN/PCI postcondition. The local 2026-07-27 matrix supplied that
 missing proof independently; public posts are retained as provenance, not as
 the allowlist authority.
 
-## Current 0.5.0 evidence status
+## Current 0.6.0 evidence status
+
+Implemented in the current source/host/static contract:
+
+- active repository/application name `luci-app-L850GL-MM`, packages
+  `luci-app-l850gl-mm` and `l850gl-mm-bridge`, and ubus objects
+  `l850gl.mm` / optional `l850gl.mm.l850`;
+- migration guards that stop, disable, and remove the retired service/packages
+  before the renamed pair is installed, with no supported coexistence mode;
+- a strict bounded voltage parser and expert-only asynchronous fixed `AT+CBC`
+  refresh that exports only nullable `modem.voltage_mv` and never raw output;
+- generation/freshness checks that make malformed or unavailable voltage data
+  affect only that field rather than the complete Overview response;
+- frontend retention of a bounded generation-matched last-known-good carrier
+  snapshot only across transient `busy`/`rate_limited` polls, while malformed,
+  stale, incompatible, and non-transient failures remain fail-closed.
+
+The supplied `+CBC: <status>,<millivolts>` shape and sanitized fixtures are
+parser input evidence, not an installed-package voltage claim. Record the
+0.6.0-r1 SDK run, checksums, package replacement, exact new service/object
+names, served assets, repeated carrier polling, and live voltage value only
+after those checks complete on the router.
+
+On 2026-07-29, before the renamed build was installed, the existing expert
+bridge was used for a clean read-only `GTCAINFO` parser check. A recently
+started direct-TTY `picocom` reader was first closed so ModemManager again had
+exclusive port ownership; ModemManager itself was not stopped. Three typed
+carrier queries spaced six seconds apart all returned one valid active primary
+and no active secondary. The sanitized live grammar was exactly one header,
+one 14-field primary, and one inactive 10-field secondary sentinel. The sample
+signal codes supplied for review normalize to RSRP `-96 dBm`, RSRQ `-12.0 dB`,
+and SINR `3.0 dB`; bandwidth code 5 normalizes to 20 MHz. No MCC, MNC, TAC,
+cell ID, raw response, or subscriber identifier was retained. An earlier empty
+response during direct-TTY contention is transport evidence only and is not a
+parser defect or an explanation for the older Serving Cell UI flicker.
+
+## Version 0.5.0 evidence status
 
 Implemented in the current source/host/static contract:
 

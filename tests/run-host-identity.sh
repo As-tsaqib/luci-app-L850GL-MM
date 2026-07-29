@@ -9,8 +9,8 @@ repo_root=$(
 	cd -- "$(dirname -- "$0")/.."
 	pwd
 )
-source_dir="$repo_root/fibocom-mm-bridge/src"
-build_dir=$(mktemp -d "${TMPDIR:-/tmp}/fibocom-identity-test.XXXXXX")
+source_dir="$repo_root/l850gl-mm-bridge/src"
+build_dir=$(mktemp -d "${TMPDIR:-/tmp}/l850gl-identity-test.XXXXXX")
 
 cleanup() {
 	rm -rf "$build_dir"

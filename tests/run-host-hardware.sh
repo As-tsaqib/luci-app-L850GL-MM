@@ -9,8 +9,8 @@ repo_root=$(
 	cd -- "$(dirname -- "$0")/.."
 	pwd
 )
-source_dir="$repo_root/fibocom-mm-bridge/src"
-build_dir=$(mktemp -d "${TMPDIR:-/tmp}/fibocom-hardware-test.XXXXXX")
+source_dir="$repo_root/l850gl-mm-bridge/src"
+build_dir=$(mktemp -d "${TMPDIR:-/tmp}/l850gl-hardware-test.XXXXXX")
 
 cleanup() {
 	rm -rf "$build_dir"
@@ -18,7 +18,7 @@ cleanup() {
 trap cleanup EXIT HUP INT TERM
 
 ${CC:-cc} \
-	-std=c11 -D_GNU_SOURCE -DFIBOCOM_HARDWARE_TESTING \
+	-std=c11 -D_GNU_SOURCE -DL850GL_HARDWARE_TESTING \
 	-Wall -Wextra -Werror -Wpedantic \
 	-I"$source_dir" \
 	"$repo_root/tests/host-hardware.c" \

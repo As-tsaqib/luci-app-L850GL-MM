@@ -7,13 +7,13 @@ on:
   push:
     paths:
       - '.github/workflows/openwrt-sdk.yml'
-      - 'fibocom-mm-bridge/**'
-      - 'luci-app-fibocom/**'
+      - 'l850gl-mm-bridge/**'
+      - 'luci-app-l850gl-mm/**'
   pull_request:
     paths:
       - '.github/workflows/openwrt-sdk.yml'
-      - 'fibocom-mm-bridge/**'
-      - 'luci-app-fibocom/**'
+      - 'l850gl-mm-bridge/**'
+      - 'luci-app-l850gl-mm/**'
   workflow_dispatch:
     inputs:
       openwrt_version:
@@ -200,9 +200,9 @@ jobs:
           grep -Fq -- '-Dbuiltin_plugins=true' "${modemmanager_recipe}"
           grep -F -- '-Dbuiltin_plugins=true' "${modemmanager_recipe}" \
             > "${GITHUB_WORKSPACE}/logs/modemmanager-plugin-contract.txt"
-          rm -rf package/fibocom-mm-bridge package/luci-app-fibocom
-          cp -a "${GITHUB_WORKSPACE}/fibocom-mm-bridge" package/
-          cp -a "${GITHUB_WORKSPACE}/luci-app-fibocom" package/
+          rm -rf package/l850gl-mm-bridge package/luci-app-l850gl-mm
+          cp -a "${GITHUB_WORKSPACE}/l850gl-mm-bridge" package/
+          cp -a "${GITHUB_WORKSPACE}/luci-app-l850gl-mm" package/
 
       - name: Configure base build
         shell: bash
@@ -215,18 +215,18 @@ jobs:
           CONFIG_TARGET_ipq40xx=y
           CONFIG_TARGET_ipq40xx_generic=y
           CONFIG_PACKAGE_modemmanager=m
-          CONFIG_PACKAGE_fibocom-mm-bridge=m
-          CONFIG_PACKAGE_luci-app-fibocom=m
+          CONFIG_PACKAGE_l850gl-mm-bridge=m
+          CONFIG_PACKAGE_luci-app-l850gl-mm=m
           CONFIG_MODEMMANAGER_WITH_MBIM=y
           CONFIG_MODEMMANAGER_WITH_NETIFD=y
           # CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS is not set
-          # CONFIG_FIBOCOM_MM_BRIDGE_L850_EXPERT is not set
+          # CONFIG_L850GL_MM_BRIDGE_EXPERT is not set
           EOF
           make defconfig 2>&1 | tee "${GITHUB_WORKSPACE}/logs/defconfig-base.log"
           cp .config "${GITHUB_WORKSPACE}/logs/config-base"
           grep -q '^CONFIG_TARGET_ARCH_PACKAGES="arm_cortex-a7_neon-vfpv4"$' .config
           ! grep -q '^CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS=y$' .config
-          ! grep -q '^CONFIG_FIBOCOM_MM_BRIDGE_L850_EXPERT=y$' .config
+          ! grep -q '^CONFIG_L850GL_MM_BRIDGE_EXPERT=y$' .config
 
       - name: Build and verify base packages
         shell: bash
@@ -236,8 +236,8 @@ jobs:
           set -euo pipefail
           cd "${SDK_ROOT}"
           set +e
-          make -j"$(nproc)" package/fibocom-mm-bridge/compile \
-            package/luci-app-fibocom/compile V=s 2>&1 | \
+          make -j"$(nproc)" package/l850gl-mm-bridge/compile \
+            package/luci-app-l850gl-mm/compile V=s 2>&1 | \
             tee "${GITHUB_WORKSPACE}/logs/build-base.log"
           build_status="${PIPESTATUS[0]}"
           set -e
@@ -247,7 +247,7 @@ jobs:
           fi
           if ! grep -Fq 'libmm-plugin-fibocom.a' \
             "${GITHUB_WORKSPACE}/logs/build-base.log"; then
-            echo 'Fibocom ModemManager plugin was not linked in the base build' >&2
+            echo 'Required ModemManager L850 plugin was not linked in the base build' >&2
             exit 1
           fi
           if ! grep -Fq 'libmm-shared-xmm.a' \
@@ -256,7 +256,7 @@ jobs:
             exit 1
           fi
           mapfile -t binaries < <(find build_dir/target-* \
-            -path '*/fibocom-mm-bridge-0.5.0/.pkgdir/fibocom-mm-bridge/usr/sbin/fibocom-mm-bridge' \
+            -path '*/l850gl-mm-bridge-0.6.0/.pkgdir/l850gl-mm-bridge/usr/sbin/l850gl-mm-bridge' \
             -type f)
           printf 'Base_bridge_binary_count=%s\n' "${#binaries[@]}" | \
             tee "${GITHUB_WORKSPACE}/logs/verify-base.txt"
@@ -265,9 +265,14 @@ jobs:
             echo 'Expected exactly one packaged base bridge binary' >&2
             exit 1
           fi
-          if strings "${binaries[0]}" | grep -Fx 'fibocom.mm.l850' \
+          if strings "${binaries[0]}" | grep -Fx 'l850gl.mm.l850' \
             >> "${GITHUB_WORKSPACE}/logs/verify-base.txt"; then
             echo 'Base bridge unexpectedly contains the expert object name' >&2
+            exit 1
+          fi
+          if strings "${binaries[0]}" | grep -F 'fibocom.mm' \
+            >> "${GITHUB_WORKSPACE}/logs/verify-base.txt"; then
+            echo 'Base bridge unexpectedly contains a retired ubus object name' >&2
             exit 1
           fi
           if strings "${binaries[0]}" | grep -Fx 'AT+GTCAINFO?' \
@@ -275,8 +280,15 @@ jobs:
             echo 'Base bridge unexpectedly contains the expert carrier command' >&2
             exit 1
           fi
+          if strings "${binaries[0]}" | grep -Fx 'AT+CBC' \
+            >> "${GITHUB_WORKSPACE}/logs/verify-base.txt"; then
+            echo 'Base bridge unexpectedly contains the expert voltage command' >&2
+            exit 1
+          fi
           echo 'Expert_Object=absent' >> "${GITHUB_WORKSPACE}/logs/verify-base.txt"
           echo 'Expert_Carrier_Command=absent' \
+            >> "${GITHUB_WORKSPACE}/logs/verify-base.txt"
+          echo 'Expert_Voltage_Command=absent' \
             >> "${GITHUB_WORKSPACE}/logs/verify-base.txt"
 
       - name: Collect base packages
@@ -288,16 +300,24 @@ jobs:
           cd "${SDK_ROOT}"
           mkdir -p "${GITHUB_WORKSPACE}/dist/base"
           mapfile -d '' packages < <(find bin/packages -type f \
-            \( -name 'fibocom-mm-bridge-*.apk' -o -name 'fibocom-mm-bridge_*.ipk' \
-               -o -name 'luci-app-fibocom-[0-9]*.apk' -o -name 'luci-app-fibocom_*_all.ipk' \) \
+            \( -name 'l850gl-mm-bridge-*.apk' -o -name 'l850gl-mm-bridge_*.ipk' \
+               -o -name 'luci-app-l850gl-mm-[0-9]*.apk' -o -name 'luci-app-l850gl-mm_*_all.ipk' \) \
             -print0)
           [ "${#packages[@]}" -eq 2 ]
+          for package in "${packages[@]}"; do
+            case "$(basename "${package}")" in
+              l850gl-mm-bridge-0.6.0-r1.apk|l850gl-mm-bridge_0.6.0-r1_*.ipk|\
+              luci-app-l850gl-mm-0.6.0-r1.apk|luci-app-l850gl-mm_0.6.0-r1_all.ipk) ;;
+              *) echo "Unexpected package release: ${package}" >&2; exit 1 ;;
+            esac
+          done
           cp "${packages[@]}" "${GITHUB_WORKSPACE}/dist/base/"
           {
             echo "OpenWrt=${OPENWRT_VERSION}"
             echo 'Target=ipq40xx/generic'
             echo 'Package_Architecture=arm_cortex-a7_neon-vfpv4'
             echo 'API_Schema=4'
+            echo 'Release=0.6.0-r1'
             echo 'Expert_Object=absent'
             echo 'ModemManager_Recipe=1.24.0-r10'
             echo "Source_Commit=${GITHUB_SHA}"
@@ -317,14 +337,14 @@ jobs:
           set -euo pipefail
           cd "${SDK_ROOT}"
           sed -i '/CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS/d' .config
-          sed -i '/CONFIG_FIBOCOM_MM_BRIDGE_L850_EXPERT/d' .config
+          sed -i '/CONFIG_L850GL_MM_BRIDGE_EXPERT/d' .config
           cat >> .config <<'EOF'
           CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS=y
-          CONFIG_FIBOCOM_MM_BRIDGE_L850_EXPERT=y
+          CONFIG_L850GL_MM_BRIDGE_EXPERT=y
           EOF
           make defconfig 2>&1 | tee "${GITHUB_WORKSPACE}/logs/defconfig-expert.log"
           grep -q '^CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS=y$' .config
-          grep -q '^CONFIG_FIBOCOM_MM_BRIDGE_L850_EXPERT=y$' .config
+          grep -q '^CONFIG_L850GL_MM_BRIDGE_EXPERT=y$' .config
           cp .config "${GITHUB_WORKSPACE}/logs/config-expert"
 
       - name: Build and verify explicit expert package
@@ -335,11 +355,11 @@ jobs:
           set -euo pipefail
           cd "${SDK_ROOT}"
           make package/feeds/packages/modemmanager/clean
-          make package/fibocom-mm-bridge/clean
+          make package/l850gl-mm-bridge/clean
           set +e
           make -j"$(nproc)" \
             package/feeds/packages/modemmanager/compile \
-            package/fibocom-mm-bridge/compile V=s 2>&1 | \
+            package/l850gl-mm-bridge/compile V=s 2>&1 | \
             tee "${GITHUB_WORKSPACE}/logs/build-expert.log"
           build_status="${PIPESTATUS[0]}"
           set -e
@@ -353,7 +373,7 @@ jobs:
             exit 1
           fi
           mapfile -t binaries < <(find build_dir/target-* \
-            -path '*/fibocom-mm-bridge-0.5.0/.pkgdir/fibocom-mm-bridge/usr/sbin/fibocom-mm-bridge' \
+            -path '*/l850gl-mm-bridge-0.6.0/.pkgdir/l850gl-mm-bridge/usr/sbin/l850gl-mm-bridge' \
             -type f)
           printf 'Expert_bridge_binary_count=%s\n' "${#binaries[@]}" | \
             tee "${GITHUB_WORKSPACE}/logs/verify-expert.txt"
@@ -362,9 +382,14 @@ jobs:
             echo 'Expected exactly one packaged expert bridge binary' >&2
             exit 1
           fi
-          if ! strings "${binaries[0]}" | grep -Fx 'fibocom.mm.l850' \
+          if ! strings "${binaries[0]}" | grep -Fx 'l850gl.mm.l850' \
             >> "${GITHUB_WORKSPACE}/logs/verify-expert.txt"; then
             echo 'Expert bridge does not contain the expert object name' >&2
+            exit 1
+          fi
+          if strings "${binaries[0]}" | grep -F 'fibocom.mm' \
+            >> "${GITHUB_WORKSPACE}/logs/verify-expert.txt"; then
+            echo 'Expert bridge unexpectedly contains a retired ubus object name' >&2
             exit 1
           fi
           if ! strings "${binaries[0]}" | grep -Fx 'get_carrier_info' \
@@ -377,9 +402,16 @@ jobs:
             echo 'Expert bridge does not contain the reviewed carrier command' >&2
             exit 1
           fi
-          echo 'Expert_Object=fibocom.mm.l850' \
+          if ! strings "${binaries[0]}" | grep -Fx 'AT+CBC' \
+            >> "${GITHUB_WORKSPACE}/logs/verify-expert.txt"; then
+            echo 'Expert bridge does not contain the reviewed voltage command' >&2
+            exit 1
+          fi
+          echo 'Expert_Object=l850gl.mm.l850' \
             >> "${GITHUB_WORKSPACE}/logs/verify-expert.txt"
           echo 'Expert_Carrier_Method=get_carrier_info' \
+            >> "${GITHUB_WORKSPACE}/logs/verify-expert.txt"
+          echo 'Expert_Voltage_Command=AT+CBC' \
             >> "${GITHUB_WORKSPACE}/logs/verify-expert.txt"
 
       - name: Collect expert package
@@ -391,8 +423,12 @@ jobs:
           cd "${SDK_ROOT}"
           mkdir -p "${GITHUB_WORKSPACE}/dist/expert"
           mapfile -d '' bridge < <(find bin/packages -type f \
-            \( -name 'fibocom-mm-bridge-*.apk' -o -name 'fibocom-mm-bridge_*.ipk' \) -print0)
+            \( -name 'l850gl-mm-bridge-*.apk' -o -name 'l850gl-mm-bridge_*.ipk' \) -print0)
           [ "${#bridge[@]}" -eq 1 ]
+          case "$(basename "${bridge[0]}")" in
+            l850gl-mm-bridge-0.6.0-r1.apk|l850gl-mm-bridge_0.6.0-r1_*.ipk) ;;
+            *) echo "Unexpected expert bridge release: ${bridge[0]}" >&2; exit 1 ;;
+          esac
           cp "${bridge[0]}" "${GITHUB_WORKSPACE}/dist/expert/"
           mapfile -d '' modemmanager < <(find bin/packages -type f \
             \( -name 'modemmanager-[0-9]*.apk' -o -name 'modemmanager_*.ipk' \) -print0)
@@ -400,7 +436,7 @@ jobs:
           cp "${modemmanager[0]}" "${GITHUB_WORKSPACE}/dist/expert/"
           mapfile -d '' luci < <(find "${GITHUB_WORKSPACE}/dist/base" \
             -maxdepth 1 -type f \
-            \( -name 'luci-app-fibocom-*.apk' -o -name 'luci-app-fibocom_*.ipk' \) -print0)
+            \( -name 'luci-app-l850gl-mm-*.apk' -o -name 'luci-app-l850gl-mm_*.ipk' \) -print0)
           [ "${#luci[@]}" -eq 1 ]
           cp "${luci[0]}" "${GITHUB_WORKSPACE}/dist/expert/"
           {
@@ -408,7 +444,8 @@ jobs:
             echo 'Target=ipq40xx/generic'
             echo 'Package_Architecture=arm_cortex-a7_neon-vfpv4'
             echo 'API_Schema=4'
-            echo 'Expert_Object=fibocom.mm.l850'
+            echo 'Release=0.6.0-r1'
+            echo 'Expert_Object=l850gl.mm.l850'
             echo 'ModemManager_AT_Command_Via_DBus=enabled'
             echo 'ModemManager_Package=1.24.0-r10'
             echo 'ModemManager_Recipe_Commit=d011c4fb8af70795928937ad5195479cc4ff6de9'
@@ -425,15 +462,15 @@ jobs:
       - name: Upload base packages
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: fibocom-base-openwrt-${{ env.OPENWRT_VERSION }}-ipq40xx-generic
+          name: l850gl-mm-base-openwrt-${{ env.OPENWRT_VERSION }}-ipq40xx-generic
           path: dist/base/
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload live-validated expert package
+      - name: Upload expert packages
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: fibocom-l850-expert-openwrt-${{ env.OPENWRT_VERSION }}-ipq40xx-generic
+          name: l850gl-mm-expert-openwrt-${{ env.OPENWRT_VERSION }}-ipq40xx-generic
           path: dist/expert/
           if-no-files-found: error
           retention-days: 14
@@ -442,7 +479,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: fibocom-build-logs-openwrt-${{ env.OPENWRT_VERSION }}-ipq40xx-generic
+          name: l850gl-mm-build-logs-openwrt-${{ env.OPENWRT_VERSION }}-ipq40xx-generic
           path: logs/
           if-no-files-found: warn
           retention-days: 14

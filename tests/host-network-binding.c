@@ -90,7 +90,7 @@ memory_contains(const void *memory, size_t memory_length, const char *needle)
 }
 
 static void
-assert_cleared(const struct FibocomNetworkBinding *binding)
+assert_cleared(const struct L850GLNetworkBinding *binding)
 {
 	assert(binding->section[0] == '\0');
 	assert(!binding->has_allowedmode);
@@ -102,14 +102,14 @@ assert_cleared(const struct FibocomNetworkBinding *binding)
 static void
 test_real_libuci_fixture(const char *confdir)
 {
-	struct FibocomNetworkBinding binding;
-	enum FibocomNetworkBindingResult result;
+	struct L850GLNetworkBinding binding;
+	enum L850GLNetworkBindingResult result;
 	char overlong_device[4098];
 
 	memset(&binding, 0xa5, sizeof(binding));
-	result = fibocom_network_binding_lookup_at(
+	result = l850gl_network_binding_lookup_at(
 		confdir, "/sys/devices/l850-a", &binding);
-	assert(result == FIBOCOM_NETWORK_BINDING_UNIQUE);
+	assert(result == L850GL_NETWORK_BINDING_UNIQUE);
 	assert(strcmp(binding.section, "mobile_a") == 0);
 	assert(binding.has_allowedmode);
 	assert(strcmp(binding.allowedmode, "4g|3g") == 0);
@@ -125,87 +125,87 @@ test_real_libuci_fixture(const char *confdir)
 			       "/sys/devices/l850-a"));
 
 	memset(&binding, 0xa5, sizeof(binding));
-	result = fibocom_network_binding_lookup_at(
+	result = l850gl_network_binding_lookup_at(
 		confdir, "/sys/devices/l850-b", &binding);
-	assert(result == FIBOCOM_NETWORK_BINDING_AMBIGUOUS);
+	assert(result == L850GL_NETWORK_BINDING_AMBIGUOUS);
 	assert_cleared(&binding);
 
-	result = fibocom_network_binding_lookup_at(
+	result = l850gl_network_binding_lookup_at(
 		confdir, "/sys/devices/l850-c", &binding);
-	assert(result == FIBOCOM_NETWORK_BINDING_AMBIGUOUS);
+	assert(result == L850GL_NETWORK_BINDING_AMBIGUOUS);
 	assert_cleared(&binding);
 
-	result = fibocom_network_binding_lookup_at(
+	result = l850gl_network_binding_lookup_at(
 		confdir, "/sys/devices/l850-d", &binding);
-	assert(result == FIBOCOM_NETWORK_BINDING_UNIQUE);
+	assert(result == L850GL_NETWORK_BINDING_UNIQUE);
 	assert(strcmp(binding.section, "mobile_d") == 0);
 	assert(!binding.has_allowedmode);
 	assert(!binding.has_preferredmode);
 	assert(binding.disable_modem);
 	assert(!binding.disable_modem_configured);
 
-	result = fibocom_network_binding_lookup_at(
+	result = l850gl_network_binding_lookup_at(
 		confdir, "/sys/devices/l850-a/near-match", &binding);
-	assert(result == FIBOCOM_NETWORK_BINDING_NONE);
+	assert(result == L850GL_NETWORK_BINDING_NONE);
 	assert_cleared(&binding);
 
 	memset(overlong_device, 'x', sizeof(overlong_device));
 	overlong_device[sizeof(overlong_device) - 1U] = '\0';
-	result = fibocom_network_binding_lookup_at(confdir, overlong_device,
+	result = l850gl_network_binding_lookup_at(confdir, overlong_device,
 					   &binding);
-	assert(result == FIBOCOM_NETWORK_BINDING_ERROR);
+	assert(result == L850GL_NETWORK_BINDING_ERROR);
 	assert_cleared(&binding);
 
-	assert(fibocom_network_binding_lookup_at(
+	assert(l850gl_network_binding_lookup_at(
 		       "relative/config", "/sys/devices/l850-a", &binding) ==
-	       FIBOCOM_NETWORK_BINDING_ERROR);
+	       L850GL_NETWORK_BINDING_ERROR);
 	assert_cleared(&binding);
-	assert(fibocom_network_binding_lookup_at(confdir, NULL, &binding) ==
-	       FIBOCOM_NETWORK_BINDING_ERROR);
+	assert(l850gl_network_binding_lookup_at(confdir, NULL, &binding) ==
+	       L850GL_NETWORK_BINDING_ERROR);
 	assert_cleared(&binding);
-	assert(fibocom_network_binding_lookup_at(
+	assert(l850gl_network_binding_lookup_at(
 		       confdir, "/sys/devices/l850-a", NULL) ==
-	       FIBOCOM_NETWORK_BINDING_ERROR);
+	       L850GL_NETWORK_BINDING_ERROR);
 }
 
 static void
 test_mode_updates(const char *confdir, const char *network_path)
 {
-	struct FibocomNetworkBinding binding;
-	enum FibocomNetworkModeUpdateResult result;
+	struct L850GLNetworkBinding binding;
+	enum L850GLNetworkModeUpdateResult result;
 	char contents[8192];
-	char overlong[FIBOCOM_NETWORK_MODE_MAX + 2U];
+	char overlong[L850GL_NETWORK_MODE_MAX + 2U];
 	int fd;
 	ssize_t length;
 
-	assert(fibocom_network_modes_are_valid("3g|4g", "none"));
-	assert(fibocom_network_modes_are_valid("3g|4g", "3g"));
-	assert(fibocom_network_modes_are_valid("3g|4g", "4g"));
-	assert(fibocom_network_modes_are_valid("3g", "none"));
-	assert(fibocom_network_modes_are_valid("4g", "none"));
-	assert(!fibocom_network_modes_are_valid("4g|3g", "4g"));
-	assert(!fibocom_network_modes_are_valid("3g", "3g"));
-	assert(!fibocom_network_modes_are_valid("4g", "4g"));
-	assert(!fibocom_network_modes_are_valid("any", "none"));
-	assert(!fibocom_network_modes_are_valid(NULL, "none"));
+	assert(l850gl_network_modes_are_valid("3g|4g", "none"));
+	assert(l850gl_network_modes_are_valid("3g|4g", "3g"));
+	assert(l850gl_network_modes_are_valid("3g|4g", "4g"));
+	assert(l850gl_network_modes_are_valid("3g", "none"));
+	assert(l850gl_network_modes_are_valid("4g", "none"));
+	assert(!l850gl_network_modes_are_valid("4g|3g", "4g"));
+	assert(!l850gl_network_modes_are_valid("3g", "3g"));
+	assert(!l850gl_network_modes_are_valid("4g", "4g"));
+	assert(!l850gl_network_modes_are_valid("any", "none"));
+	assert(!l850gl_network_modes_are_valid(NULL, "none"));
 
-	result = fibocom_network_modes_update_at(confdir,
+	result = l850gl_network_modes_update_at(confdir,
 		"/sys/devices/l850-a", "3g|4g", "3g", &binding);
-	assert(result == FIBOCOM_NETWORK_MODE_UPDATE_OK);
+	assert(result == L850GL_NETWORK_MODE_UPDATE_OK);
 	assert(strcmp(binding.section, "mobile_a") == 0);
 	assert(binding.has_allowedmode);
 	assert(strcmp(binding.allowedmode, "3g|4g") == 0);
 	assert(binding.has_preferredmode);
 	assert(strcmp(binding.preferredmode, "3g") == 0);
 
-	result = fibocom_network_modes_update_at(confdir,
+	result = l850gl_network_modes_update_at(confdir,
 		"/sys/devices/l850-a", "4g", "none", &binding);
-	assert(result == FIBOCOM_NETWORK_MODE_UPDATE_OK);
+	assert(result == L850GL_NETWORK_MODE_UPDATE_OK);
 	assert(strcmp(binding.allowedmode, "4g") == 0);
 	assert(strcmp(binding.preferredmode, "none") == 0);
-	assert(fibocom_network_binding_lookup_at(confdir,
+	assert(l850gl_network_binding_lookup_at(confdir,
 		"/sys/devices/l850-a", &binding) ==
-		FIBOCOM_NETWORK_BINDING_UNIQUE);
+		L850GL_NETWORK_BINDING_UNIQUE);
 	assert(strcmp(binding.allowedmode, "4g") == 0);
 	assert(strcmp(binding.preferredmode, "none") == 0);
 
@@ -223,34 +223,34 @@ test_mode_updates(const char *confdir, const char *network_path)
 	assert(memory_contains(contents, (size_t)length,
 			       "option preferredmode 'none'"));
 
-	assert(fibocom_network_modes_update_at(confdir,
+	assert(l850gl_network_modes_update_at(confdir,
 		"/sys/devices/l850-b", "3g|4g", "4g", &binding) ==
-		FIBOCOM_NETWORK_MODE_UPDATE_AMBIGUOUS);
+		L850GL_NETWORK_MODE_UPDATE_AMBIGUOUS);
 	assert_cleared(&binding);
-	assert(fibocom_network_modes_update_at(confdir,
+	assert(l850gl_network_modes_update_at(confdir,
 		"/sys/devices/l850-c", "3g|4g", "4g", &binding) ==
-		FIBOCOM_NETWORK_MODE_UPDATE_AMBIGUOUS);
+		L850GL_NETWORK_MODE_UPDATE_AMBIGUOUS);
 	assert_cleared(&binding);
-	assert(fibocom_network_modes_update_at(confdir,
+	assert(l850gl_network_modes_update_at(confdir,
 		"/sys/devices/missing", "3g|4g", "4g", &binding) ==
-		FIBOCOM_NETWORK_MODE_UPDATE_NONE);
+		L850GL_NETWORK_MODE_UPDATE_NONE);
 	assert_cleared(&binding);
-	assert(fibocom_network_modes_update_at(confdir,
+	assert(l850gl_network_modes_update_at(confdir,
 		"/sys/devices/l850-a", "3g", "3g", &binding) ==
-		FIBOCOM_NETWORK_MODE_UPDATE_INVALID);
+		L850GL_NETWORK_MODE_UPDATE_INVALID);
 	assert_cleared(&binding);
 	memset(overlong, 'x', sizeof(overlong));
 	overlong[sizeof(overlong) - 1U] = '\0';
-	assert(fibocom_network_modes_update_at(confdir,
+	assert(l850gl_network_modes_update_at(confdir,
 		"/sys/devices/l850-a", overlong, "none", &binding) ==
-		FIBOCOM_NETWORK_MODE_UPDATE_INVALID);
+		L850GL_NETWORK_MODE_UPDATE_INVALID);
 	assert_cleared(&binding);
 }
 
 static void
 test_scan_safety_rules(void)
 {
-	static const struct FibocomNetworkBindingTestSection unsafe[] = {
+	static const struct L850GLNetworkBindingTestSection unsafe[] = {
 		{
 			.name = "mobile-bad",
 			.type = "interface",
@@ -258,7 +258,7 @@ test_scan_safety_rules(void)
 			.device = "/sys/devices/l850",
 		},
 	};
-	static const struct FibocomNetworkBindingTestSection safe_empty_modes[] = {
+	static const struct L850GLNetworkBindingTestSection safe_empty_modes[] = {
 		{
 			.name = "mobile_2",
 			.type = "interface",
@@ -269,7 +269,7 @@ test_scan_safety_rules(void)
 			.disable_modem = "false",
 		},
 	};
-	static const struct FibocomNetworkBindingTestSection unordered_modes[] = {
+	static const struct L850GLNetworkBindingTestSection unordered_modes[] = {
 		{
 			.name = "mobile_3",
 			.type = "interface",
@@ -280,7 +280,7 @@ test_scan_safety_rules(void)
 			.disable_modem = "1",
 		},
 	};
-	static const struct FibocomNetworkBindingTestSection duplicate_mode[] = {
+	static const struct L850GLNetworkBindingTestSection duplicate_mode[] = {
 		{
 			.name = "mobile_4",
 			.type = "interface",
@@ -289,39 +289,39 @@ test_scan_safety_rules(void)
 			.allowedmode = "4g|4g",
 		},
 	};
-	struct FibocomNetworkBinding binding;
-	enum FibocomNetworkBindingResult result;
+	struct L850GLNetworkBinding binding;
+	enum L850GLNetworkBindingResult result;
 
-	result = fibocom_network_binding_lookup_test_sections(
+	result = l850gl_network_binding_lookup_test_sections(
 		unsafe, sizeof(unsafe) / sizeof(unsafe[0]),
 		"/sys/devices/l850", &binding);
-	assert(result == FIBOCOM_NETWORK_BINDING_AMBIGUOUS);
+	assert(result == L850GL_NETWORK_BINDING_AMBIGUOUS);
 	assert_cleared(&binding);
 
-	result = fibocom_network_binding_lookup_test_sections(
+	result = l850gl_network_binding_lookup_test_sections(
 		safe_empty_modes,
 		sizeof(safe_empty_modes) / sizeof(safe_empty_modes[0]),
 		"/sys/devices/l850", &binding);
-	assert(result == FIBOCOM_NETWORK_BINDING_UNIQUE);
+	assert(result == L850GL_NETWORK_BINDING_UNIQUE);
 	assert(binding.has_allowedmode && binding.allowedmode[0] == '\0');
 	assert(binding.has_preferredmode && binding.preferredmode[0] == '\0');
 	assert(binding.disable_modem_configured);
 	assert(binding.disable_modem);
 
-	result = fibocom_network_binding_lookup_test_sections(
+	result = l850gl_network_binding_lookup_test_sections(
 		unordered_modes,
 		sizeof(unordered_modes) / sizeof(unordered_modes[0]),
 		"/sys/devices/l850", &binding);
-	assert(result == FIBOCOM_NETWORK_BINDING_UNIQUE);
+	assert(result == L850GL_NETWORK_BINDING_UNIQUE);
 	assert(strcmp(binding.allowedmode, "2g|5g|4g") == 0);
 	assert(strcmp(binding.preferredmode, "none") == 0);
 	assert(binding.disable_modem);
 
-	result = fibocom_network_binding_lookup_test_sections(
+	result = l850gl_network_binding_lookup_test_sections(
 		duplicate_mode,
 		sizeof(duplicate_mode) / sizeof(duplicate_mode[0]),
 		"/sys/devices/l850", &binding);
-	assert(result == FIBOCOM_NETWORK_BINDING_UNIQUE);
+	assert(result == L850GL_NETWORK_BINDING_UNIQUE);
 	assert(!binding.has_allowedmode);
 	assert(binding.disable_modem);
 }
@@ -339,7 +339,7 @@ main(void)
 	if (temporary_directory == NULL || temporary_directory[0] == '\0')
 		temporary_directory = "/tmp";
 	assert(snprintf(template, sizeof(template),
-			"%s/fibocom-network-binding-test.XXXXXX",
+			"%s/l850gl-network-binding-test.XXXXXX",
 			temporary_directory) > 0);
 	confdir = mkdtemp(template);
 	assert(confdir != NULL);

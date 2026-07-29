@@ -3,15 +3,17 @@ SPDX-FileCopyrightText: 2026 As Tsaqib
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# luci-app-fibocom
+# luci-app-L850GL-MM
 
-Version 0.5.0 is a small LuCI companion for Fibocom modems already managed by
+Repository: <https://github.com/As-tsaqib/luci-app-L850GL-MM>
+
+Version 0.6.0 is a small LuCI companion for the L850-GL modem already managed by
 ModemManager and OpenWrt netifd. Its public API is schema 4 and its menu is
 exactly:
 
 ```text
 Modem
-`-- Fibocom Modem
+`-- L850GL MM
     |-- Overview
     |-- Lock
     `-- SMS
@@ -45,6 +47,9 @@ Overview never launches an automatic XMCI scan. It never returns raw D-Bus or
 sysfs paths, port tables, IP configuration, credentials, or diagnostic dumps.
 On an expert build, a validated `GTCAINFO` primary carrier also supplies the
 display-only serving EARFCN/PCI fallback when that standard cache is empty.
+The same gated, asynchronous command path parses a fixed `AT+CBC` response into
+a nullable modem-voltage value in millivolts. Invalid or unavailable voltage
+data never hides the rest of Overview, and raw command output is never exposed.
 
 An expert build also adds read-only LTE carrier aggregation details to
 Overview: active LTE bands, primary and secondary LTE bands, active-carrier
@@ -70,7 +75,7 @@ Lock contains:
   exact L850-GL MBIM `2cb7:0007` attestation, confirmation, WAN warning,
   generation checks, timeout, cooldown, and single-flight mutation handling.
 - A build-gated L850 PCI/EARFCN section. The base binary does not contain or
-  publish `fibocom.mm.l850`. An explicit expert build first tries standard
+  publish `l850gl.mm.l850`. An explicit expert build first tries standard
   ModemManager `GetCellInfo`, normalizes at most 64 LTE cells, and validates
   PCI and EARFCN against live supported bands. For the single allowlisted
   firmware `18500.5001.00.05.27.30`, `Core.Unsupported` falls back to a fixed
@@ -99,7 +104,7 @@ post-dispatch send returns `outcome_unknown` and is never resent automatically.
 
 ## API and permissions
 
-The base object `fibocom.mm` exposes exactly eight schema-4 methods:
+The base object `l850gl.mm` exposes exactly eight schema-4 methods:
 
 ```text
 list_modems
@@ -122,10 +127,10 @@ set_cell_lock
 clear_cell_lock
 ```
 
-The five rpcd groups are `luci-app-fibocom-overview`,
-`luci-app-fibocom-sms-read`, `luci-app-fibocom-sms-write`,
-`luci-app-fibocom-lock-band`, and
-`luci-app-fibocom-lock-pci-expert`. They grant exact ubus methods only: no
+The five rpcd groups are `luci-app-l850gl-mm-overview`,
+`luci-app-l850gl-mm-sms-read`, `luci-app-l850gl-mm-sms-write`,
+`luci-app-l850gl-mm-lock-band`, and
+`luci-app-l850gl-mm-lock-pci-expert`. They grant exact ubus methods only: no
 wildcards, filesystem access, shell execution, cgi-io, or UCI writes.
 
 LuCI treats malformed responses and every schema other than 4 as a
@@ -137,21 +142,33 @@ opaque ID, modem generation, and (for SMS) messaging generation are present.
 The built and installed package metadata is:
 
 ```text
-fibocom-mm-bridge   0.5.0-r1 native libmm-glib/GDBus to ubus bridge
-luci-app-fibocom   0.5.0-r1 Overview, Lock, and SMS views
+l850gl-mm-bridge   0.6.0-r1 native libmm-glib/GDBus to ubus bridge
+luci-app-l850gl-mm 0.6.0-r1 Overview, Lock, and SMS views
 ```
 
 The retired Status, old Advanced, Settings, radio toggle, generic reset,
-primary SIM-slot switch, and Fibocom eSIM addon are not part of 0.5.0. APN,
+primary SIM-slot switch, and old eSIM addon are not part of 0.6.0. APN,
 route, DNS, credentials, and all connection settings remain in OpenWrt's
 existing Network / Interfaces UI.
 
 The normal build requires ModemManager with MBIM and netifd support and keeps
-generic AT-over-D-Bus disabled. `CONFIG_FIBOCOM_MM_BRIDGE_L850_EXPERT` is off
+generic AT-over-D-Bus disabled. `CONFIG_L850GL_MM_BRIDGE_EXPERT` is off
 by default and depends on an explicitly enabled
 `MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS` build.
 
 ## Evidence status
+
+Version 0.6.0 renames the active packages, service, ACLs, paths, and ubus
+objects; the retired names are migration/history identifiers only and must not
+coexist with the new pair. It also adds the strict expert-build `AT+CBC`
+voltage parser/cache. To prevent a globally scheduled poll from making a valid
+serving fallback flicker, LuCI may retain one structurally valid carrier
+snapshot for at most 30 seconds across only `busy` or `rate_limited` responses
+from the identical opaque modem ID and generation. Expiry, generation change,
+malformed data, schema mismatch, transport failure, or any non-transient error
+still clears it and fails closed. These 0.6 changes require their own SDK and
+installed-router record; the dated results below remain historical 0.3--0.5
+evidence.
 
 Live testing on 2026-07-27 validated the fixed grammar and recovery matrix on
 an L850-GL MBIM `2cb7:0007` running firmware
@@ -197,8 +214,8 @@ CSPRNG IDs, hardware attestation, band policy, SMS policy and dedupe
 eviction/expiry, malformed ubus blobs, and valid/invalid PCI parser fixtures.
 The SDK workflow builds the base binary and an explicit expert variant
 separately. It verifies that the base binary does not contain the expert object
-name and rebuilds/packages ModemManager with reviewed AT-via-D-Bus transport
-only for the expert artifact.
+name, carrier query, or voltage query and rebuilds/packages ModemManager with
+reviewed AT-via-D-Bus transport only for the expert artifact.
 
 Further design details are in [architecture](docs/architecture.md), the
 [ubus API](docs/ubus-api.md), [threat model](docs/threat-model.md), and

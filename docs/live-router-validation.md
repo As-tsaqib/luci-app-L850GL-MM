@@ -7,8 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 
 > This page separates schema-1 v0.2 testing from 2026-07-19, the approved L850
 > firmware command/recovery matrix from 2026-07-27, and the dated schema-2 and
-> schema-3/schema-4 package acceptances that followed. No live SMS mutation was
-> run.
+> schema-3/schema-4 package acceptances that followed, and the renamed v0.6
+> acceptance boundary. No live SMS mutation was run.
 
 ## Scope
 
@@ -18,6 +18,36 @@ not recorded. The evidence proves the MBIM/ModemManager lifecycle and only the
 listed companion behavior on this hardware; it does not claim every L850
 firmware or OpenWrt release. The historical eSIM probe is retained only as
 provenance for a package retired in 0.3.
+
+## 0.6.0-r1 acceptance record, pending build/install
+
+The active release names are `luci-app-L850GL-MM`, packages
+`luci-app-l850gl-mm` / `l850gl-mm-bridge`, service `l850gl-mm-bridge`, and ubus
+objects `l850gl.mm` / optional `l850gl.mm.l850`. Installation must first stop,
+disable, and remove the retired service and packages. A result is invalid if an
+old and new service, package pair, ACL namespace, or ubus object coexist.
+
+Source and fixture checks cover the strict `AT+CBC` parser, nullable
+`modem.voltage_mv`, and bounded generation-matched reuse of the last valid
+carrier snapshot across only transient `busy`/`rate_limited` polls. They are
+not live evidence. After CI produces 0.6.0-r1 artifacts, record here:
+
+- static and SDK run IDs, source commit, artifact SHA-256 values, and package
+  simulation;
+- absence of retired packages/service/objects and presence of the exact new
+  pair/service/schema-4 8/5 method tables;
+- base-binary absence and expert-binary presence of `l850gl.mm.l850`,
+  `AT+GTCAINFO?`, and `AT+CBC` as appropriate;
+- repeated carrier/Overview polling through at least one completion cooldown,
+  proving no overlap and no transient disappearance of previously validated
+  serving data;
+- a bounded live voltage value when available, while confirming that a missing
+  value leaves every other Overview row usable;
+- installed/served asset hashes, ownership/health, and privacy/log checks.
+
+Until those values are entered, 0.6.0-r1 is implemented but not claimed here as
+installed or live-verified. The following sections are immutable historical
+records for the retired pre-rename packages and objects.
 
 ## Installed 0.5.0-r1 schema-4 acceptance, 2026-07-28
 

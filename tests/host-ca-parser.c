@@ -35,14 +35,14 @@ read_fixture(const char *directory, const char *name, size_t *length)
 	return data;
 }
 
-static enum FibocomL850CaParseResult
+static enum L850GLL850CaParseResult
 parse_fixture(const char *directory, const char *name,
-	      struct FibocomL850CaInfo *info)
+	      struct L850GLL850CaInfo *info)
 {
 	size_t length;
 	char *data = read_fixture(directory, name, &length);
-	enum FibocomL850CaParseResult result =
-		fibocom_l850_ca_parse(data, length, info);
+	enum L850GLL850CaParseResult result =
+		l850gl_l850_ca_parse(data, length, info);
 
 	free(data);
 	return result;
@@ -51,7 +51,7 @@ parse_fixture(const char *directory, const char *name,
 int
 main(int argc, char **argv)
 {
-	struct FibocomL850CaInfo info;
+	struct L850GLL850CaInfo info;
 	char *oversized;
 	const char embedded_nul[] = {
 		'+', 'G', 'T', 'C', 'A', 'I', 'N', 'F', 'O', ':', ' ', '1',
@@ -73,30 +73,30 @@ main(int argc, char **argv)
 		"+GTCAINFO: 1\n+GTCAINFO: 1\n";
 	const struct {
 		const char *name;
-		enum FibocomL850CaParseResult expected;
+		enum L850GLL850CaParseResult expected;
 	} invalid[] = {
-		{ "invalid-band-mismatch.txt", FIBOCOM_L850_CA_PARSE_RANGE },
-		{ "invalid-ul-band-mismatch.txt", FIBOCOM_L850_CA_PARSE_RANGE },
-		{ "invalid-pci-504.txt", FIBOCOM_L850_CA_PARSE_RANGE },
-		{ "invalid-bandwidth.txt", FIBOCOM_L850_CA_PARSE_RANGE },
-		{ "invalid-inactive-sentinel.txt", FIBOCOM_L850_CA_PARSE_SENTINEL },
-		{ "invalid-inactive-earfcn.txt", FIBOCOM_L850_CA_PARSE_SENTINEL },
-		{ "invalid-duplicate-index.txt", FIBOCOM_L850_CA_PARSE_DUPLICATE },
-		{ "invalid-duplicate-carrier.txt", FIBOCOM_L850_CA_PARSE_DUPLICATE },
-		{ "invalid-count-mismatch.txt", FIBOCOM_L850_CA_PARSE_COUNT_MISMATCH },
-		{ "invalid-missing-primary.txt", FIBOCOM_L850_CA_PARSE_MISSING_PRIMARY },
-		{ "invalid-secondary-index-one.txt", FIBOCOM_L850_CA_PARSE_RANGE },
-		{ "invalid-trailing-ok.txt", FIBOCOM_L850_CA_PARSE_MALFORMED },
-		{ "invalid-active-sentinel.txt", FIBOCOM_L850_CA_PARSE_SENTINEL },
+		{ "invalid-band-mismatch.txt", L850GL_L850_CA_PARSE_RANGE },
+		{ "invalid-ul-band-mismatch.txt", L850GL_L850_CA_PARSE_RANGE },
+		{ "invalid-pci-504.txt", L850GL_L850_CA_PARSE_RANGE },
+		{ "invalid-bandwidth.txt", L850GL_L850_CA_PARSE_RANGE },
+		{ "invalid-inactive-sentinel.txt", L850GL_L850_CA_PARSE_SENTINEL },
+		{ "invalid-inactive-earfcn.txt", L850GL_L850_CA_PARSE_SENTINEL },
+		{ "invalid-duplicate-index.txt", L850GL_L850_CA_PARSE_DUPLICATE },
+		{ "invalid-duplicate-carrier.txt", L850GL_L850_CA_PARSE_DUPLICATE },
+		{ "invalid-count-mismatch.txt", L850GL_L850_CA_PARSE_COUNT_MISMATCH },
+		{ "invalid-missing-primary.txt", L850GL_L850_CA_PARSE_MISSING_PRIMARY },
+		{ "invalid-secondary-index-one.txt", L850GL_L850_CA_PARSE_RANGE },
+		{ "invalid-trailing-ok.txt", L850GL_L850_CA_PARSE_MALFORMED },
+		{ "invalid-active-sentinel.txt", L850GL_L850_CA_PARSE_SENTINEL },
 		{ "invalid-active-secondary-ul-sentinel.txt",
-			FIBOCOM_L850_CA_PARSE_SENTINEL },
-		{ "invalid-field-count.txt", FIBOCOM_L850_CA_PARSE_MALFORMED },
+			L850GL_L850_CA_PARSE_SENTINEL },
+		{ "invalid-field-count.txt", L850GL_L850_CA_PARSE_MALFORMED },
 	};
 	size_t index;
 
 	assert(argc == 2);
 	assert(parse_fixture(argv[1], "valid-live-l850.txt", &info) ==
-		FIBOCOM_L850_CA_PARSE_OK);
+		L850GL_L850_CA_PARSE_OK);
 	assert(info.declared_slots == 2U);
 	assert(info.length == 1U);
 	assert(info.carriers[0].index == 1U && info.carriers[0].primary &&
@@ -115,7 +115,7 @@ main(int argc, char **argv)
 	assert(info.carriers[0].ul_bandwidth_tenths_mhz == 200U);
 
 	assert(parse_fixture(argv[1], "valid-rooter-secondary-shape.txt", &info) ==
-		FIBOCOM_L850_CA_PARSE_OK);
+		L850GL_L850_CA_PARSE_OK);
 	assert(info.declared_slots == 3U && info.length == 2U);
 	assert(info.carriers[0].index == 1U && info.carriers[0].primary &&
 		info.carriers[0].band == 3U);
@@ -128,10 +128,10 @@ main(int argc, char **argv)
 	assert(info.carriers[1].dl_bandwidth_tenths_mhz == 100U);
 
 	assert(parse_fixture(argv[1], "valid-max-eight.txt", &info) ==
-		FIBOCOM_L850_CA_PARSE_OK);
-	assert(info.declared_slots == FIBOCOM_L850_CA_MAX_SLOTS);
-	assert(info.length == FIBOCOM_L850_CA_MAX_SLOTS);
-	assert(info.length <= FIBOCOM_L850_CA_MAX_SLOTS);
+		L850GL_L850_CA_PARSE_OK);
+	assert(info.declared_slots == L850GL_L850_CA_MAX_SLOTS);
+	assert(info.length == L850GL_L850_CA_MAX_SLOTS);
+	assert(info.length <= L850GL_L850_CA_MAX_SLOTS);
 	assert(info.carriers[1].index == 2U &&
 		info.carriers[1].pci == 0U && info.carriers[1].rsrp_dbm == -141 &&
 		info.carriers[1].rsrq_tenths_db == -195 &&
@@ -145,8 +145,8 @@ main(int argc, char **argv)
 		info.carriers[7].dl_bandwidth_tenths_mhz == 200U &&
 		info.carriers[7].ul_bandwidth_tenths_mhz == 200U);
 
-	assert(fibocom_l850_ca_parse(valid_crlf, strlen(valid_crlf), &info) ==
-		FIBOCOM_L850_CA_PARSE_OK);
+	assert(l850gl_l850_ca_parse(valid_crlf, strlen(valid_crlf), &info) ==
+		L850GL_L850_CA_PARSE_OK);
 	assert(info.length == 1U && info.carriers[0].pci == 0U);
 	assert(info.carriers[0].sinr_tenths_db == -20);
 	assert(info.carriers[0].dl_bandwidth_tenths_mhz == 14U);
@@ -158,54 +158,54 @@ main(int argc, char **argv)
 		assert(info.length == 0U && info.declared_slots == 0U);
 	}
 	memset(&info, 0xa5, sizeof(info));
-	assert(fibocom_l850_ca_parse("", 0U, &info) ==
-		FIBOCOM_L850_CA_PARSE_EMPTY);
+	assert(l850gl_l850_ca_parse("", 0U, &info) ==
+		L850GL_L850_CA_PARSE_EMPTY);
 	assert(info.length == 0U && info.declared_slots == 0U);
 	memset(&info, 0xa5, sizeof(info));
-	assert(fibocom_l850_ca_parse(NULL, 1U, &info) ==
-		FIBOCOM_L850_CA_PARSE_EMPTY);
+	assert(l850gl_l850_ca_parse(NULL, 1U, &info) ==
+		L850GL_L850_CA_PARSE_EMPTY);
 	assert(info.length == 0U && info.declared_slots == 0U);
-	assert(fibocom_l850_ca_parse("x", 1U, NULL) ==
-		FIBOCOM_L850_CA_PARSE_MALFORMED);
-	assert(fibocom_l850_ca_parse(" \r\n\t", strlen(" \r\n\t"), &info) ==
-		FIBOCOM_L850_CA_PARSE_EMPTY);
-	assert(fibocom_l850_ca_parse("+GTCAINFO: 9\n",
+	assert(l850gl_l850_ca_parse("x", 1U, NULL) ==
+		L850GL_L850_CA_PARSE_MALFORMED);
+	assert(l850gl_l850_ca_parse(" \r\n\t", strlen(" \r\n\t"), &info) ==
+		L850GL_L850_CA_PARSE_EMPTY);
+	assert(l850gl_l850_ca_parse("+GTCAINFO: 9\n",
 		strlen("+GTCAINFO: 9\n"), &info) ==
-		FIBOCOM_L850_CA_PARSE_TOO_MANY);
-	assert(fibocom_l850_ca_parse(embedded_nul, sizeof(embedded_nul), &info) ==
-		FIBOCOM_L850_CA_PARSE_MALFORMED);
-	assert(fibocom_l850_ca_parse(invalid_hex, strlen(invalid_hex), &info) ==
-		FIBOCOM_L850_CA_PARSE_MALFORMED);
-	assert(fibocom_l850_ca_parse(invalid_unsigned_sign,
+		L850GL_L850_CA_PARSE_TOO_MANY);
+	assert(l850gl_l850_ca_parse(embedded_nul, sizeof(embedded_nul), &info) ==
+		L850GL_L850_CA_PARSE_MALFORMED);
+	assert(l850gl_l850_ca_parse(invalid_hex, strlen(invalid_hex), &info) ==
+		L850GL_L850_CA_PARSE_MALFORMED);
+	assert(l850gl_l850_ca_parse(invalid_unsigned_sign,
 		strlen(invalid_unsigned_sign), &info) ==
-		FIBOCOM_L850_CA_PARSE_MALFORMED);
-	assert(fibocom_l850_ca_parse(duplicate_header,
+		L850GL_L850_CA_PARSE_MALFORMED);
+	assert(l850gl_l850_ca_parse(duplicate_header,
 		strlen(duplicate_header), &info) ==
-		FIBOCOM_L850_CA_PARSE_MALFORMED);
-	oversized = malloc(FIBOCOM_L850_CA_MAX_RESPONSE + 2U);
+		L850GL_L850_CA_PARSE_MALFORMED);
+	oversized = malloc(L850GL_L850_CA_MAX_RESPONSE + 2U);
 	assert(oversized != NULL);
-	memset(oversized, '0', FIBOCOM_L850_CA_MAX_RESPONSE + 1U);
+	memset(oversized, '0', L850GL_L850_CA_MAX_RESPONSE + 1U);
 	memset(&info, 0xa5, sizeof(info));
-	assert(fibocom_l850_ca_parse(oversized,
-		FIBOCOM_L850_CA_MAX_RESPONSE + 1U, &info) ==
-		FIBOCOM_L850_CA_PARSE_OVERSIZED);
+	assert(l850gl_l850_ca_parse(oversized,
+		L850GL_L850_CA_MAX_RESPONSE + 1U, &info) ==
+		L850GL_L850_CA_PARSE_OVERSIZED);
 	assert(info.length == 0U && info.declared_slots == 0U);
 	free(oversized);
 
-	assert(strcmp(fibocom_l850_ca_query_command(), "AT+GTCAINFO?") == 0);
-	assert(strcmp(fibocom_l850_ca_parse_result_name(
-		FIBOCOM_L850_CA_PARSE_COUNT_MISMATCH), "count_mismatch") == 0);
-	assert(strcmp(fibocom_l850_ca_parse_result_name(
-		(enum FibocomL850CaParseResult)999), "unknown") == 0);
-	assert(FIBOCOM_L850_CA_QUERY_COOLDOWN_SECONDS == 5U);
-	assert(fibocom_l850_ca_retry_after_ms(1000000, 0) == 0U);
-	assert(fibocom_l850_ca_retry_after_ms(1000000, 1000000) == 5000U);
-	assert(fibocom_l850_ca_retry_after_ms(1000001, 1000000) == 5000U);
-	assert(fibocom_l850_ca_retry_after_ms(1001000, 1000000) == 4999U);
-	assert(fibocom_l850_ca_retry_after_ms(5999999, 1000000) == 1U);
-	assert(fibocom_l850_ca_retry_after_ms(6000000, 1000000) == 0U);
-	assert(fibocom_l850_ca_retry_after_ms(999999, 1000000) == 5000U);
-	assert(fibocom_l850_ca_retry_after_ms(INT64_MAX,
+	assert(strcmp(l850gl_l850_ca_query_command(), "AT+GTCAINFO?") == 0);
+	assert(strcmp(l850gl_l850_ca_parse_result_name(
+		L850GL_L850_CA_PARSE_COUNT_MISMATCH), "count_mismatch") == 0);
+	assert(strcmp(l850gl_l850_ca_parse_result_name(
+		(enum L850GLL850CaParseResult)999), "unknown") == 0);
+	assert(L850GL_L850_CA_QUERY_COOLDOWN_SECONDS == 5U);
+	assert(l850gl_l850_ca_retry_after_ms(1000000, 0) == 0U);
+	assert(l850gl_l850_ca_retry_after_ms(1000000, 1000000) == 5000U);
+	assert(l850gl_l850_ca_retry_after_ms(1000001, 1000000) == 5000U);
+	assert(l850gl_l850_ca_retry_after_ms(1001000, 1000000) == 4999U);
+	assert(l850gl_l850_ca_retry_after_ms(5999999, 1000000) == 1U);
+	assert(l850gl_l850_ca_retry_after_ms(6000000, 1000000) == 0U);
+	assert(l850gl_l850_ca_retry_after_ms(999999, 1000000) == 5000U);
+	assert(l850gl_l850_ca_retry_after_ms(INT64_MAX,
 		INT64_MAX - INT64_C(1000)) == 4999U);
 
 	puts("L850 carrier aggregation parser tests passed");

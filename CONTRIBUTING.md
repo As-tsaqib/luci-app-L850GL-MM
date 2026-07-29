@@ -16,14 +16,14 @@ The browser must never submit raw AT, a D-Bus/sysfs/device path, or an arbitrary
 ubus method. Prefer typed asynchronous libmm-glib and fail closed when the
 standard capability is absent.
 
-## Keep the 0.5 surface small
+## Keep the 0.6 surface small
 
-The menu is exactly Overview, Lock, and SMS. The base `fibocom.mm` object is
+The menu is exactly Overview, Lock, and SMS. The base `l850gl.mm` object is
 exactly eight schema-4 methods. Do not restore Status, Settings, old Advanced,
 radio toggle, generic reset, SIM-slot switching, eSIM, rescan, diagnostic dump,
 or connection controls without a new product decision.
 
-The expert object remains behind `FIBOCOM_MM_L850_EXPERT` and a separate ACL.
+The expert object remains behind `L850GL_MM_EXPERT` and a separate ACL.
 The base binary must not contain its object name. Enabling the build gate is
 not permission to populate a firmware allowlist.
 
@@ -94,6 +94,12 @@ bounded typed output. Active B29/B32 must remain rejected until an allowlisted
 firmware capture establishes their real uplink/sentinel representation. Never
 return raw command output, MCC/MNC/TAC/cell ID, or accept any command text from
 a client.
+
+The expert voltage query follows the same arbitration and identity rules. Keep
+its command fixed to `AT+CBC`, its response bounded, and its output limited to
+a validated nullable millivolt value. Malformed or unavailable voltage data
+must not make the rest of Overview unavailable, and raw responses must never
+cross the ubus boundary.
 
 ## Development flow
 

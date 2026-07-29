@@ -3,10 +3,10 @@ SPDX-FileCopyrightText: 2026 As Tsaqib
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Ubus API 0.5.0
+# Ubus API 0.6.0
 
-The public contract is schema 4. `fibocom.mm` has exactly eight methods. The
-optional `fibocom.mm.l850` object has five expert methods and is absent from a
+The public contract is schema 4. `l850gl.mm` has exactly eight methods. The
+optional `l850gl.mm.l850` object has five expert methods and is absent from a
 base build.
 
 ## Common rules
@@ -49,7 +49,7 @@ D-Bus paths and must not be parsed. A modem-scoped success also contains the
 current `modem_id` and `generation`. SMS writes additionally require the
 current `messaging_generation`.
 
-## Base object: `fibocom.mm`
+## Base object: `l850gl.mm`
 
 ### `list_modems()`
 
@@ -61,9 +61,9 @@ No product arguments. Returns `modems`, newest live inventory only:
   "generated_at": 1780000000,
   "ok": true,
   "modems": [{
-    "modem_id": "fibocom-<opaque>",
+    "modem_id": "l850gl-<opaque>",
     "generation": 7,
-    "manufacturer": "Fibocom Wireless Inc.",
+    "manufacturer": "sanitized manufacturer text",
     "model": "L850-GL",
     "revision": "sanitized firmware text",
     "state": "connected",
@@ -80,7 +80,7 @@ Returns a compact snapshot with these top-level objects:
 - `identity.imei`: full ModemManager equipment identifier, sanitized to at most
   64 Unicode code points;
 - `usb_mode`: normalized `mbim`, `ncm`, or `unknown` composition;
-- `modem`: normalized `state` and `power`;
+- `modem`: normalized `state` and `power`, plus nullable typed `voltage_mv`;
 - `sim`: boolean `present`, normalized `lock`, full `number` selected
   deterministically from at most 16 ModemManager OwnNumbers entries, and full
   cached `imsi`/`iccid`; number is bounded to 32 code points and identifiers to
@@ -99,6 +99,10 @@ and are disclosed only by this authenticated Overview method. They must never
 be logged, stored in fixtures/evidence, copied into list results, or exposed by
 diagnostics. The response does not contain raw ports or paths, IP addresses,
 gateway, DNS, APN, credentials, raw modem output, or a diagnostic dump.
+`voltage_mv` is populated only from a valid, generation-bound expert-build
+`AT+CBC` cache entry. A base build, missing cache, timeout, or malformed reply
+serializes it as null without invalidating the rest of Overview; raw command
+text is never returned.
 
 ### `get_lock_status(modem_id)`
 
@@ -217,10 +221,10 @@ resend.
 inventory and must not be in `sending` state. The asynchronous
 Messaging.Delete success contains `sms_id` and `deleted: true`.
 
-## Expert object: `fibocom.mm.l850`
+## Expert object: `l850gl.mm.l850`
 
-The object exists only when `FIBOCOM_MM_L850_EXPERT` is compiled. All methods
-require exact current L850-GL/Fibocom/MBIM/`2cb7:0007` attestation and reject
+The object exists only when `L850GL_MM_EXPERT` is compiled. All methods
+require exact current L850-GL/upstream-plugin/MBIM/`2cb7:0007` attestation and reject
 stale identity or generation.
 
 ### `cell_lock_status(modem_id, generation)`
@@ -301,13 +305,13 @@ fallback.
 ### `get_carrier_info(modem_id, generation)`
 
 This read-only expert method is absent from a base build. It requires exact
-L850-GL/Fibocom/MBIM/`2cb7:0007` attestation, the sole allowlisted firmware,
+L850-GL/upstream-plugin/MBIM/`2cb7:0007` attestation, the sole allowlisted firmware,
 live supported LTE bands, and the current generation. It dispatches only the
 compiled-in `AT+GTCAINFO?` query through asynchronous ModemManager; no request
 field can select or alter a command.
 
 Only one carrier query may run per modem and it is mutually excluded with a
-cell scan or any modem mutation. An overlap returns retryable `busy` without a
+cell scan, voltage refresh, or any modem mutation. An overlap returns retryable `busy` without a
 guessed duration. The operation timeout is 20 seconds and the ModemManager
 command timeout is 15 seconds. Every terminal completion starts a five-second
 cooldown. During cooldown, retryable `rate_limited` includes an accurate,
@@ -322,7 +326,7 @@ Success is bounded typed data only:
   "schema": 4,
   "generated_at": 1780000000,
   "ok": true,
-  "modem_id": "fibocom-<opaque>",
+  "modem_id": "l850gl-<opaque>",
   "generation": 7,
   "state": "available",
   "source": "modemmanager",
@@ -430,11 +434,11 @@ coordinator can establish all postconditions.
 
 | ACL | Access |
 |---|---|
-| `luci-app-fibocom-overview` | read base `list_modems`, `get_overview`, `get_lock_status`; read expert `get_carrier_info` when that object exists |
-| `luci-app-fibocom-sms-read` | read `list_sms` |
-| `luci-app-fibocom-sms-write` | write `send_sms`, `delete_sms` |
-| `luci-app-fibocom-lock-band` | write `set_bands`, `set_modes` |
-| `luci-app-fibocom-lock-pci-expert` | read `cell_scan`, `get_carrier_info`, `cell_lock_status`; write `set_cell_lock`, `clear_cell_lock` |
+| `luci-app-l850gl-mm-overview` | read base `list_modems`, `get_overview`, `get_lock_status`; read expert `get_carrier_info` when that object exists |
+| `luci-app-l850gl-mm-sms-read` | read `list_sms` |
+| `luci-app-l850gl-mm-sms-write` | write `send_sms`, `delete_sms` |
+| `luci-app-l850gl-mm-lock-band` | write `set_bands`, `set_modes` |
+| `luci-app-l850gl-mm-lock-pci-expert` | read `cell_scan`, `get_carrier_info`, `cell_lock_status`; write `set_cell_lock`, `clear_cell_lock` |
 
 There are no wildcard, file, filesystem, shell, cgi-io, or UCI permissions.
 

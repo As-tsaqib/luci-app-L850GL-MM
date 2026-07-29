@@ -23,7 +23,7 @@ topology, WAN availability, and the integrity of ModemManager/netifd ownership.
 browser (untrusted values)
   -> LuCI rpc + rpcd ACL
   -> libubox request parser
-  -> fibocom-mm-bridge policy/cache
+  -> l850gl-mm-bridge policy/cache
   -> asynchronous typed libmm-glib
   -> ModemManager/plugins
   -> modem hardware
@@ -58,6 +58,8 @@ routes, addresses, DNS, PIN, and credentials are outside the API.
 17. A carrier-status poll overlaps a scan/mutation, injects command text, leaks
     raw cellular identity, or mistakes an inactive sentinel for an active
     secondary carrier.
+18. A voltage response is malformed or stale and either escapes as raw modem
+    output or incorrectly makes the entire Overview unavailable.
 
 ## Controls
 
@@ -112,13 +114,14 @@ length, bad name termination, duplicate fields, and malformed session data.
   state.
 - SMS, band, and expert PCI mutations share one per-modem single-flight lock.
   The PCI coordinator preserves hardware-slot exclusion across reset/reprobe.
-- Cell scan is blocked while a per-modem mutation is active, and only one scan
+- Cell scan is blocked while a per-modem mutation, carrier query, or voltage
+  refresh is active, and only one scan
   may be active per modem. An overlapping request fails as `busy` without a
   guessed retry duration. Every terminal scan completion starts a five-second
   cooldown; cooldown rejection reports the ceil-rounded remaining
   `retry_after_ms` without extending the deadline.
 - The expert carrier query is single-flight per modem and mutually excluded
-  with scans and mutations. Its 20-second operation/15-second command timeouts
+  with scans, voltage refresh, and mutations. Its 20-second operation/15-second command timeouts
   are cancellable, and every terminal completion starts a separate five-second
   cooldown with accurate `retry_after_ms`.
 - Band Lock uses only standard `SetCurrentBands`, exact supported/current-mode
@@ -126,7 +129,7 @@ length, bad name termination, duplicate fields, and malformed session data.
 
 ### Hardware and PCI gates
 
-- Mutations require exact live L850-GL, Fibocom plugin, MBIM composition, and
+- Mutations require exact live L850-GL, upstream plugin, MBIM composition, and
   USB `2cb7:0007` attestation.
 - The expert object is absent from base binaries and has a separate ACL.
 - Standard GetCellInfo is tried asynchronously before any fallback.
@@ -156,6 +159,11 @@ length, bad name termination, duplicate fields, and malformed session data.
   only the exact inactive sentinel, and exports no raw output or
   MCC/MNC/TAC/cell ID/signal fields. Active B29/B32 fail closed until their
   allowlisted-firmware uplink/sentinel shape has live evidence.
+- Modem voltage uses only the expert-build fixed `AT+CBC` query. The parser
+  bounds and validates its status/millivolt pair, raw output never crosses
+  ubus, cache entries remain generation-bound and time-bounded, and a missing
+  or malformed value affects only the nullable voltage field. Its refresh is
+  mutually excluded with every scan, carrier query, and modem mutation.
 
 ### SMS safety and privacy
 
@@ -187,6 +195,10 @@ length, bad name termination, duplicate fields, and malformed session data.
 
 - LuCI requires schema 4 and complete typed success objects. Unknown schema or
   malformed data disables every mutation.
+- LuCI's carrier presentation cache is limited to 30 seconds and may bridge
+  only structurally valid `busy`/`rate_limited` results for the identical
+  opaque modem ID and generation. Every other error, expiry, or identity change
+  clears it.
 - Cell records are structurally validated again before rendering.
 - DOM nodes are built without `innerHTML`; private data is not written to
   localStorage or console output.

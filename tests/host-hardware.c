@@ -61,7 +61,7 @@ make_device(const char *root, const char *name, const char *vendor,
 static bool
 attest(int root_fd, const char *physdev)
 {
-	return fibocom_hardware_attest_l850_mbim_at(root_fd, physdev);
+	return l850gl_hardware_attest_l850_mbim_at(root_fd, physdev);
 }
 
 int
@@ -79,7 +79,7 @@ main(void)
 	if (temporary_directory == NULL || temporary_directory[0] == '\0')
 		temporary_directory = ".";
 	assert(snprintf(template, sizeof(template),
-			"%s/fibocom-hardware-test.XXXXXX",
+			"%s/l850gl-hardware-test.XXXXXX",
 			temporary_directory) > 0);
 	root = mkdtemp(template);
 	assert(root != NULL);

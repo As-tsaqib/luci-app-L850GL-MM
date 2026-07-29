@@ -7,8 +7,8 @@ const fs = require('fs');
 const path = require('path');
 
 const root = path.resolve(__dirname, '..');
-const appRoot = path.join(root, 'luci-app-fibocom');
-const outputPath = path.join(appRoot, 'po/templates/fibocom.pot');
+const appRoot = path.join(root, 'luci-app-l850gl-mm');
+const outputPath = path.join(appRoot, 'po/templates/l850gl-mm.pot');
 const messages = new Map();
 
 function filesUnder(directory) {
@@ -49,11 +49,11 @@ filesUnder(path.join(appRoot, 'htdocs/luci-static/resources')).filter(function(f
 });
 
 const menuFile = path.join(
-	appRoot, 'root/usr/share/luci/menu.d/luci-app-fibocom.json');
+	appRoot, 'root/usr/share/luci/menu.d/luci-app-l850gl-mm.json');
 const menu = JSON.parse(fs.readFileSync(menuFile, 'utf8'));
 Object.keys(menu).forEach(function(key) {
 	if (typeof menu[key].title === 'string')
-		add(menu[key].title, 'root/usr/share/luci/menu.d/luci-app-fibocom.json');
+		add(menu[key].title, 'root/usr/share/luci/menu.d/luci-app-l850gl-mm.json');
 });
 
 function quote(value) {
@@ -67,7 +67,7 @@ const lines = [
 	'#',
 	'msgid ""',
 	'msgstr ""',
-	'"Project-Id-Version: luci-app-fibocom 0.5.0\\n"',
+	'"Project-Id-Version: luci-app-L850GL-MM 0.6.0\\n"',
 	'"Report-Msgid-Bugs-To: \\n"',
 	'"POT-Creation-Date: 2026-07-27 00:00+0800\\n"',
 	'"MIME-Version: 1.0\\n"',
@@ -88,7 +88,7 @@ Array.from(messages.keys()).sort(function(left, right) {
 const generated = lines.join('\n');
 if (process.argv.includes('--check')) {
 	if (!fs.existsSync(outputPath) || fs.readFileSync(outputPath, 'utf8') !== generated) {
-		process.stderr.write('fibocom.pot is not synchronized; run node tests/generate-pot.js\n');
+		process.stderr.write('l850gl-mm.pot is not synchronized; run node tests/generate-pot.js\n');
 		process.exit(1);
 	}
 }

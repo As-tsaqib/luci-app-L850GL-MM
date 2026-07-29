@@ -1,0 +1,40 @@
+{
+	"admin/modem": {
+		"title": "Modem",
+		"order": 25,
+		"action": { "type": "firstchild" },
+		"depends": {}
+	},
+	"admin/modem/l850gl-mm": {
+		"title": "L850GL MM",
+		"order": 10,
+		"action": { "type": "firstchild" },
+		"depends": {
+			"acl": [ "luci-app-l850gl-mm-overview" ]
+		}
+	},
+	"admin/modem/l850gl-mm/overview": {
+		"title": "Overview",
+		"order": 10,
+		"action": { "type": "view", "path": "l850gl-mm/overview" }
+	},
+	"admin/modem/l850gl-mm/lock": {
+		"title": "Lock",
+		"order": 20,
+		"action": { "type": "view", "path": "l850gl-mm/lock" },
+		"depends": {
+			"acl": [
+				"luci-app-l850gl-mm-overview",
+				"luci-app-l850gl-mm-lock-band"
+			]
+		}
+	},
+	"admin/modem/l850gl-mm/sms": {
+		"title": "SMS",
+		"order": 30,
+		"action": { "type": "view", "path": "l850gl-mm/sms" },
+		"depends": {
+			"acl": [ "luci-app-l850gl-mm-sms-read" ]
+		}
+	}
+}

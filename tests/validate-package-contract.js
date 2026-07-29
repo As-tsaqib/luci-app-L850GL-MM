@@ -35,12 +35,17 @@ for (const retired of [
 	'luci-app-fibocom-esim'
 ]) {
 	assert.deepStrictEqual(filesUnder(retired), [],
-		`${retired} must remain retired from the 0.5 product tree`);
+		`${retired} must remain retired from the 0.6 product tree`);
 }
 
-const bridgeMakefile = read('fibocom-mm-bridge/Makefile');
-assert.match(bridgeMakefile, /^PKG_VERSION:=0\.5\.0$/m);
+const bridgeMakefile = read('l850gl-mm-bridge/Makefile');
+assert.match(bridgeMakefile, /^PKG_NAME:=l850gl-mm-bridge$/m);
+assert.match(bridgeMakefile, /^PKG_VERSION:=0\.6\.0$/m);
 assert.match(bridgeMakefile, /^PKG_RELEASE:=1$/m);
+assert.match(bridgeMakefile,
+	/^\s*URL:=https:\/\/github\.com\/As-tsaqib\/luci-app-L850GL-MM$/m);
+assert.match(bridgeMakefile, /^\s*CONFLICTS:=fibocom-mm-bridge$/m,
+	'the renamed backend package must conflict with the retired bridge');
 assert.match(bridgeMakefile, /PKG_BUILD_DEPENDS:=modemmanager\b/);
 assert.match(bridgeMakefile, /PKG_LICENSE:=GPL-2\.0-or-later/);
 for (const dependency of [ 'modemmanager', 'glib2', 'libubox', 'libubus', 'libuci' ])
@@ -52,43 +57,63 @@ for (const forbidden of [
 		new RegExp(`\\+${forbidden.replaceAll('-', '\\-')}\\b`),
 		`bridge must not depend on ${forbidden}`);
 }
-assert.match(bridgeMakefile, /FIBOCOM_MM_L850_EXPERT/,
+assert.match(bridgeMakefile, /^\s*config L850GL_MM_BRIDGE_EXPERT$/m,
 	'expert PCI support must require an explicit build option');
+assert.match(bridgeMakefile,
+	/L850GL_MM_EXPERT="\$\(if \$\(CONFIG_L850GL_MM_BRIDGE_EXPERT\),1,\)"/,
+	'the package Kconfig symbol must enable only the reviewed source macro');
 assert.match(bridgeMakefile, /default n/,
 	'expert PCI support must be disabled by default');
 
-const sourceFiles = filesUnder('fibocom-mm-bridge/src').filter(function(file) {
+const sourceFiles = filesUnder('l850gl-mm-bridge/src').filter(function(file) {
 	return /\.[ch]$/.test(file);
 });
 const bridgeSource = sourceFiles.map(read).join('\n');
 const sourceWithoutNetworkBinding = sourceFiles.filter(function(file) {
 	return path.basename(file) !== 'network_binding.c';
 }).map(read).join('\n');
-const l850CellSource = read('fibocom-mm-bridge/src/l850_cell.c');
-const l850CellHeader = read('fibocom-mm-bridge/src/l850_cell.h');
-const l850CaSource = read('fibocom-mm-bridge/src/l850_ca.c');
-const l850CaHeader = read('fibocom-mm-bridge/src/l850_ca.h');
+const l850CellSource = read('l850gl-mm-bridge/src/l850_cell.c');
+const l850CellHeader = read('l850gl-mm-bridge/src/l850_cell.h');
+const l850CaSource = read('l850gl-mm-bridge/src/l850_ca.c');
+const l850CaHeader = read('l850gl-mm-bridge/src/l850_ca.h');
+const l850VoltageSource = read('l850gl-mm-bridge/src/l850_voltage.c');
+const l850VoltageHeader = read('l850gl-mm-bridge/src/l850_voltage.h');
 const sourceWithoutL850Grammar = sourceFiles.filter(function(file) {
-	return ![ 'l850_cell.c', 'l850_ca.c' ].includes(path.basename(file));
+	return ![ 'l850_cell.c', 'l850_ca.c', 'l850_voltage.c' ]
+		.includes(path.basename(file));
 }).map(read).join('\n');
-const bridgeHeader = read('fibocom-mm-bridge/src/bridge.h');
-const bridgeInventorySource = read('fibocom-mm-bridge/src/bridge.c');
-const ubusSource = read('fibocom-mm-bridge/src/ubus_glib.c');
-const requestSource = read('fibocom-mm-bridge/src/ubus_request.c');
+const bridgeHeader = read('l850gl-mm-bridge/src/bridge.h');
+const bridgeInventorySource = read('l850gl-mm-bridge/src/bridge.c');
+const ubusSource = read('l850gl-mm-bridge/src/ubus_glib.c');
+const requestSource = read('l850gl-mm-bridge/src/ubus_request.c');
 const hostBlobSource = read('tests/host-ubus-blob.c');
-const dedupeSource = read('fibocom-mm-bridge/src/sms_dedupe_policy.c');
-const dedupeHeader = read('fibocom-mm-bridge/src/sms_dedupe_policy.h');
-const sourceMakefile = read('fibocom-mm-bridge/src/Makefile');
+const identityHeader = read('l850gl-mm-bridge/src/identity.h');
+const smsPolicySource = read('l850gl-mm-bridge/src/sms_policy.c');
+const dedupeSource = read('l850gl-mm-bridge/src/sms_dedupe_policy.c');
+const dedupeHeader = read('l850gl-mm-bridge/src/sms_dedupe_policy.h');
+const sourceMakefile = read('l850gl-mm-bridge/src/Makefile');
 const widgetsSource = read(
-	'luci-app-fibocom/htdocs/luci-static/resources/fibocom/widgets.js');
+	'luci-app-l850gl-mm/htdocs/luci-static/resources/l850gl-mm/widgets.js');
 
-assert.match(bridgeHeader, /#define FIBOCOM_MM_API_SCHEMA 4U/);
-assert.match(bridgeHeader, /#define FIBOCOM_MM_BRIDGE_VERSION "0\.5\.0"/);
-assert.match(sourceMakefile, /FIBOCOM_MM_L850_EXPERT/);
+assert.match(bridgeHeader, /#define L850GL_MM_API_SCHEMA 4U/);
+assert.match(bridgeHeader, /#define L850GL_MM_BRIDGE_VERSION "0\.6\.0"/);
+assert.match(sourceMakefile, /L850GL_MM_EXPERT/);
+assert.match(sourceMakefile, /^TARGET := l850gl-mm-bridge$/m);
+assert.match(identityHeader, /#define L850GL_ID_PREFIX "l850gl-"/,
+	'opaque modem IDs must use the rebranded namespace');
+assert.match(smsPolicySource,
+	/static const gchar domain\[\] = "l850gl-mm-send-sms-v1"/,
+	'SMS request digests must use the rebranded domain separator');
+const sourceWithoutRequiredUpstreamBrand = bridgeSource
+	.replaceAll('"fibocom"', '"upstream-plugin-or-manufacturer"')
+	.replaceAll('"fibocomwireless"', '"upstream-manufacturer"')
+	.replaceAll('"fibocomwirelessinc"', '"upstream-manufacturer-inc"');
+assert.doesNotMatch(sourceWithoutRequiredUpstreamBrand, /fibocom/i,
+	'legacy branding may remain only in required upstream plugin/manufacturer literals');
 
 const baseTable = ubusSource.match(
-	/static const struct ubus_method fibocom_methods\[\][\s\S]*?\n\};/);
-assert.ok(baseTable, 'the base fibocom.mm method table must exist');
+	/static const struct ubus_method l850gl_methods\[\][\s\S]*?\n\};/);
+assert.ok(baseTable, 'the base l850gl.mm method table must exist');
 for (const method of [
 	'list_modems', 'get_overview', 'get_lock_status', 'set_bands', 'set_modes',
 	'list_sms', 'send_sms', 'delete_sms'
@@ -96,7 +121,7 @@ for (const method of [
 	assert.match(baseTable[0], new RegExp(`UBUS_METHOD(?:_NOARG)?\\("${method}"`));
 }
 assert.strictEqual((baseTable[0].match(/UBUS_METHOD(?:_NOARG)?\(/g) || []).length, 8,
-	'fibocom.mm must expose exactly the eight schema-4 base methods');
+	'l850gl.mm must expose exactly the eight schema-4 base methods');
 for (const retired of [
 	'get_status', 'get_capabilities', 'set_radio', 'reset', 'set_primary_sim_slot'
 ]) {
@@ -107,7 +132,7 @@ for (const retired of [
 
 const expertTable = ubusSource.match(
 	/static const struct ubus_method l850_methods\[\][\s\S]*?\n\};/);
-assert.ok(expertTable, 'the build-gated fibocom.mm.l850 method table must exist');
+assert.ok(expertTable, 'the build-gated l850gl.mm.l850 method table must exist');
 for (const method of [
 	'cell_scan', 'get_carrier_info', 'cell_lock_status', 'set_cell_lock',
 	'clear_cell_lock'
@@ -115,13 +140,15 @@ for (const method of [
 	assert.match(expertTable[0], new RegExp(`UBUS_METHOD\\("${method}"`));
 }
 assert.strictEqual((expertTable[0].match(/UBUS_METHOD\(/g) || []).length, 5,
-	'fibocom.mm.l850 must expose exactly five expert methods');
+	'l850gl.mm.l850 must expose exactly five expert methods');
 assert.match(ubusSource,
-	/#ifdef FIBOCOM_MM_L850_EXPERT[\s\S]*?static const struct ubus_method l850_methods/,
+	/#ifdef L850GL_MM_EXPERT[\s\S]*?static const struct ubus_method l850_methods/,
 	'the expert object must not be compiled into the base build');
 assert.match(ubusSource,
-	/#ifdef FIBOCOM_MM_L850_EXPERT[\s\S]*?\.name\s*=\s*"fibocom\.mm\.l850"/,
+	/#ifdef L850GL_MM_EXPERT[\s\S]*?\.name\s*=\s*"l850gl\.mm\.l850"/,
 	'the expert object name must only exist inside the explicit build gate');
+assert.doesNotMatch(ubusSource, /fibocom\.mm/i,
+	'the retired ubus object namespace must not be published or logged');
 const overviewMethod = ubusSource.match(
 	/static int\s+method_get_overview\([^;]*?\)\s*\{[\s\S]*?\n\}/);
 assert.ok(overviewMethod, 'the compact Overview method must exist');
@@ -139,10 +166,15 @@ assert.match(ubusSource, /mm_modem_get_cell_info\s*\(/,
 assert.match(ubusSource, /SERVING_CELL_FRESH_SECONDS/);
 assert.match(ubusSource, /serving_cell_generation/);
 assert.match(ubusSource, /serving_cell_cache_store[\s\S]*pci\s*>\s*503U/);
+assert.match(overviewMethod[0], /add_modem_voltage\(&buffer, ubus, modem\)/,
+	'Overview must serialize the generation-bound voltage cache');
+assert.match(ubusSource,
+	/blobmsg_add_field\(buffer, BLOBMSG_TYPE_UNSPEC, "voltage_mv",[\s\S]*?NULL, 0U\)/,
+	'Unavailable voltage must remain an explicit typed null');
 assert.match(ubusSource,
 	/add_safe_string\(&buffer, "imei",[\s\S]*?mm_modem_get_equipment_identifier\(modem->modem\)/,
 	'Overview must source IMEI from the bounded ModemManager equipment identifier');
-assert.match(ubusSource, /blobmsg_add_string\(&buffer, "usb_mode",[\s\S]*?fibocom_modem_composition\(modem\)/,
+assert.match(ubusSource, /blobmsg_add_string\(&buffer, "usb_mode",[\s\S]*?l850gl_modem_composition\(modem\)/,
 	'Overview must expose the bounded MBIM, NCM, or unknown composition enum');
 assert.match(ubusSource, /add_safe_string\(buffer, "imsi",[\s\S]*?mm_sim_get_imsi\(cached_sim\)/,
 	'Overview must source IMSI only from the asynchronously cached MMSim');
@@ -188,11 +220,11 @@ for (const forbidden of [
 assert.doesNotMatch(sourceWithoutNetworkBinding,
 	/\buci_(?:add|commit|delete|rename|reorder|save|set)\s*\(/,
 	'only the internally resolved netifd mode-policy writer may mutate UCI');
-const networkBindingSource = read('fibocom-mm-bridge/src/network_binding.c');
+const networkBindingSource = read('l850gl-mm-bridge/src/network_binding.c');
 assert.match(networkBindingSource, /"allowedmode"/);
 assert.match(networkBindingSource, /"preferredmode"/);
 assert.match(networkBindingSource, /uci_commit\s*\(/);
-assert.match(networkBindingSource, /fibocom_network_modes_are_valid/);
+assert.match(networkBindingSource, /l850gl_network_modes_are_valid/);
 assert.match(networkBindingSource, /find_exact_section/);
 assert.doesNotMatch(networkBindingSource,
 	/["'](?:apn|pincode|username|password)["']\s*,\s*[^)]*uci_set/,
@@ -209,8 +241,19 @@ for (const exactCommand of [
 }
 assert.ok(l850CaSource.includes('AT+GTCAINFO?'),
 	'the carrier query must remain one reviewed fixed L850 command');
+assert.ok(l850VoltageSource.includes('AT+CBC'),
+	'the voltage query must remain one reviewed fixed L850 command');
 assert.match(sourceMakefile, /\bl850_ca\.c\b/,
 	'the bounded L850 carrier parser must be built into the bridge');
+assert.match(sourceMakefile, /\bl850_voltage\.c\b/,
+	'the bounded L850 voltage parser must be built into the bridge');
+assert.match(l850VoltageHeader,
+	/#define L850GL_L850_VOLTAGE_MAX_RESPONSE 128U/,
+	'the voltage response must remain tightly bounded');
+assert.match(l850VoltageHeader,
+	/#define L850GL_L850_VOLTAGE_MIN_MV 2500U/);
+assert.match(l850VoltageHeader,
+	/#define L850GL_L850_VOLTAGE_MAX_MV 5000U/);
 const backendCaRangeTable = l850CaSource.match(
 	/static const struct CaBandRange ca_band_ranges\[\]\s*=\s*\{([\s\S]*?)\n\};/);
 const frontendCaRangeTable = widgetsSource.match(
@@ -233,7 +276,7 @@ assert.match(l850CellSource,
 assert.doesNotMatch(l850CellSource, /%s/,
 	'the reviewed command builder must never interpolate browser strings');
 const expertImplementation = ubusSource.match(
-	/#ifdef FIBOCOM_MM_L850_EXPERT\s+static gboolean\s+l850_modem_has_active_mutation[\s\S]*?\n#endif\s+\nstatic gboolean reconnect_cb/);
+	/#ifdef L850GL_MM_EXPERT\s+static gboolean\s+l850_modem_has_active_mutation[\s\S]*?\n#endif\s+\nstatic gboolean reconnect_cb/);
 assert.ok(expertImplementation,
 	'the command transport implementation must be enclosed by the expert build gate');
 assert.doesNotMatch(ubusSource.replace(expertImplementation[0], ''),
@@ -243,7 +286,7 @@ assert.match(expertImplementation[0], /mm_modem_command\s*\(/,
 	'the reviewed expert path must use ModemManager command serialization');
 
 assert.match(bridgeSource, /SYS_getrandom/);
-assert.match(bridgeSource, /FIBOCOM_ID_RANDOM_LEN\s+16U/);
+assert.match(bridgeSource, /L850GL_ID_RANDOM_LEN\s+16U/);
 assert.match(bridgeSource, /g_cancellable_cancel\(modem->cancellable\)/);
 assert.match(bridgeSource, /G_DBUS_OBJECT_MANAGER_CLIENT_FLAGS_DO_NOT_AUTO_START/);
 assert.doesNotMatch(bridgeSource, /mm_modem_get_device_identifier\s*\(/);
@@ -254,10 +297,10 @@ assert.match(bridgeInventorySource, /G_CALLBACK\(connection_closed\)/,
 	'the bridge must recover when its system D-Bus connection closes');
 assert.match(bridgeInventorySource, /connect->serial\s*!=\s*bridge->connect_serial/,
 	'stale asynchronous reconnect attempts must be rejected');
-assert.match(bridgeInventorySource, /fibocom_hardware_attest_l850_mbim\s*\(/,
+assert.match(bridgeInventorySource, /l850gl_hardware_attest_l850_mbim\s*\(/,
 	'mutations must fail closed on exact live USB hardware');
 
-assert.match(ubusSource, /fibocom_modem_attest_mutation_target\s*\(/);
+assert.match(ubusSource, /l850gl_modem_attest_mutation_target\s*\(/);
 assert.match(ubusSource, /mm_modem_set_current_bands\s*\(/,
 	'band lock must use the standard asynchronous ModemManager method');
 assert.match(ubusSource, /mm_modem_get_cell_info\s*\(/,
@@ -267,7 +310,7 @@ assert.match(ubusSource, /l850_scan_stale_code\s*\(/,
 	'expert scan callbacks must reject a removed or stale modem generation');
 assert.match(ubusSource, /L850_SCAN_OPERATION_TIMEOUT_SECONDS/);
 assert.match(l850CellHeader,
-	/#define FIBOCOM_L850_CELL_SCAN_COOLDOWN_SECONDS 5U/,
+	/#define L850GL_L850_CELL_SCAN_COOLDOWN_SECONDS 5U/,
 	'expert cell scan cooldown must be exactly five seconds');
 assert.match(ubusSource,
 	/operation->modem->l850_last_scan_completed_at\s*=\s*\n?\s*g_get_monotonic_time\(\)/,
@@ -275,8 +318,8 @@ assert.match(ubusSource,
 assert.match(ubusSource, /l850_modem_has_active_scan\s*\(/,
 	'expert cell scan must enforce one active scan per modem');
 assert.match(ubusSource, /standard-modemmanager-get-cell-info/);
-assert.match(ubusSource, /fibocom_l850_nvm_parse\s*\(/);
-assert.match(ubusSource, /FIBOCOM_L850_STATE_APPLIED_VERIFIED|applied_verified/);
+assert.match(ubusSource, /l850gl_l850_nvm_parse\s*\(/);
+assert.match(ubusSource, /L850GL_L850_STATE_APPLIED_VERIFIED|applied_verified/);
 assert.match(ubusSource, /cleared_verified/);
 assert.match(ubusSource, /reprobe_timeout/);
 assert.match(ubusSource, /registration_timeout/);
@@ -299,16 +342,29 @@ assert.doesNotMatch(scanMethod,
 assert.doesNotMatch(scanMethod, /l850_firmware_allowed\s*\(/,
 	'standard GetCellInfo must be attempted before any unavailable vendor fallback');
 assert.match(l850CaHeader,
-	/#define FIBOCOM_L850_CA_QUERY_COOLDOWN_SECONDS 5U/,
+	/#define L850GL_L850_CA_QUERY_COOLDOWN_SECONDS 5U/,
 	'expert carrier reads must have an exact five-second cooldown');
 assert.match(ubusSource,
 	/operation->modem->l850_last_carrier_query_completed_at\s*=\s*\n?\s*g_get_monotonic_time\(\)/,
 	'carrier cooldown must start from common async completion');
 assert.match(ubusSource,
-	/mm_modem_command\(operation->modem->modem,\s*\n?\s*fibocom_l850_ca_query_command\(\)/,
+	/mm_modem_command\(operation->modem->modem,\s*\n?\s*l850gl_l850_ca_query_command\(\)/,
 	'carrier info must dispatch only the compiled-in command via ModemManager');
-assert.match(ubusSource, /fibocom_l850_ca_parse\s*\(/,
+assert.match(ubusSource, /l850gl_l850_ca_parse\s*\(/,
 	'carrier info must pass the bounded response through its typed parser');
+assert.match(ubusSource,
+	/mm_modem_command\(modem->modem, l850gl_l850_voltage_query_command\(\)/,
+	'Overview voltage refresh must dispatch only the compiled-in command');
+assert.match(ubusSource, /l850gl_l850_voltage_parse\s*\(/,
+	'Overview voltage refresh must pass the bounded response through its parser');
+assert.match(ubusSource,
+	/l850_voltage_generation\s*==\s*modem->generation/,
+	'cached voltage must be bound to the current modem generation');
+assert.match(ubusSource, /L850_VOLTAGE_RETRY_SECONDS 10U/,
+	'failed or pending Overview polls must not create an AT command storm');
+assert.match(ubusSource,
+	/l850_voltage_refresh[\s\S]*?l850_modem_has_active_scan\(ubus, modem\)[\s\S]*?l850_modem_has_active_carrier_query\(ubus, modem\)/,
+	'voltage refresh must not overlap a PCI scan or carrier command');
 assert.match(ubusSource,
 	/L850_CARRIER_OPERATION_TIMEOUT_MS 20000U/,
 	'carrier info async work must be bounded to twenty seconds');
@@ -319,13 +375,15 @@ for (const resolver of [
 	'sms_mutation_modem', 'advanced_mutation_modem', 'l850_requested_modem'
 ]) {
 	const body = ubusSource.match(new RegExp(
-		`static FibocomModem\\s*\\*\\s*${resolver}\\s*\\([^;]*?\\)\\s*\\{[\\s\\S]*?\\n\\}`));
+		`static L850GLModem\\s*\\*\\s*${resolver}\\s*\\([^;]*?\\)\\s*\\{[\\s\\S]*?\\n\\}`));
 
 	assert.ok(body, `${resolver} must remain structurally discoverable`);
 	assert.match(body[0], /l850_modem_has_active_scan\(ubus, modem\)/,
 		`${resolver} must reject mutation admission during an expert scan`);
 	assert.match(body[0], /l850_modem_has_active_carrier_query\(ubus, modem\)/,
 		`${resolver} must reject mutation admission during a carrier query`);
+	assert.match(body[0], /l850_voltage_refresh_pending/,
+		`${resolver} must reject admission during a voltage query`);
 }
 assert.match(ubusSource,
 	/for \(index = 0U; index < info\.length; index\+\+\)[\s\S]*?l850_band_is_supported/,
@@ -341,23 +399,23 @@ assert.match(ubusSource, /operation->dispatched\s*=\s*TRUE/,
 	'mutations must distinguish uncertainty after dispatch');
 assert.match(ubusSource, /advanced_operation_outcome_is_unknown\s*\(/);
 assert.match(ubusSource, /advanced_operation_stale_code\s*\(/);
-assert.match(ubusSource, /FIBOCOM_MUTATION_ADVANCED/,
+assert.match(ubusSource, /L850GL_MUTATION_ADVANCED/,
 	'band and SMS mutations must share the per-modem lock');
 
 assert.match(requestSource, /blobmsg_check_attr_len\s*\(/,
 	'every untrusted blob attribute must be structurally validated');
 for (const parser of [
-	'fibocom_ubus_message_is_empty', 'fibocom_ubus_parse_exact'
+	'l850gl_ubus_message_is_empty', 'l850gl_ubus_parse_exact'
 ]) {
 	const body = requestSource.match(new RegExp(
 		`${parser}\\s*\\([\\s\\S]*?\\n\\}`));
-	assert.ok(body && body[0].includes('fibocom_ubus_blob_attr_is_valid'),
+	assert.ok(body && body[0].includes('l850gl_ubus_blob_attr_is_valid'),
 		`${parser} must structurally validate each attribute before reading it`);
-	assert.ok(body && body[0].includes('fibocom_ubus_rpc_session_is_valid'),
+	assert.ok(body && body[0].includes('l850gl_ubus_rpc_session_is_valid'),
 		`${parser} must support one canonical rpcd session transport field`);
 }
 assert.match(requestSource,
-	/session_seen\s*\|\|[\s\S]*?!fibocom_ubus_rpc_session_is_valid/,
+	/session_seen\s*\|\|[\s\S]*?!l850gl_ubus_rpc_session_is_valid/,
 	'duplicate or malformed rpcd session fields must fail closed');
 assert.doesNotMatch(requestSource, /blobmsg_for_each_attr/,
 	'malformed trailing request attributes must not be hidden by an iterator stop');
@@ -365,11 +423,11 @@ assert.doesNotMatch(ubusSource, /blobmsg_for_each_attr/,
 	'malformed trailing array items must not be hidden by an iterator stop');
 assert.match(hostBlobSource, /malformed trailing attribute/);
 
-assert.match(dedupeHeader, /#define FIBOCOM_SMS_DEDUPE_SECONDS 300U/);
-assert.match(dedupeHeader, /#define FIBOCOM_SMS_DEDUPE_MAX 64U/);
+assert.match(dedupeHeader, /#define L850GL_SMS_DEDUPE_SECONDS 300U/);
+assert.match(dedupeHeader, /#define L850GL_SMS_DEDUPE_MAX 64U/);
 assert.match(ubusSource, /sms_dedupe_prune\s*\(/);
-assert.match(dedupeSource, /fibocom_sms_dedupe_is_expired\s*\(/);
-assert.match(dedupeSource, /fibocom_sms_dedupe_evictions_required\s*\(/);
+assert.match(dedupeSource, /l850gl_sms_dedupe_is_expired\s*\(/);
+assert.match(dedupeSource, /l850gl_sms_dedupe_evictions_required\s*\(/);
 assert.match(ubusSource, /g_queue_pop_head\s*\(modem->sms_dedupe\)/,
 	'the documented capacity contract must match oldest-entry eviction');
 assert.match(ubusSource, /dedupe_capacity/);
@@ -382,12 +440,13 @@ assert.match(ubusSource, /MM_MESSAGE_ERROR_NETWORK_TIMEOUT/);
 for (const requiredTest of [
 	'tests/host-ubus-blob.c', 'tests/run-host-ubus-blob.sh',
 	'tests/host-sms-dedupe.c', 'tests/run-host-sms-dedupe.sh',
-	'tests/host-cell-parser.c', 'tests/run-host-cell-parser.sh'
+	'tests/host-cell-parser.c', 'tests/run-host-cell-parser.sh',
+	'tests/host-voltage-parser.c', 'tests/run-host-voltage-parser.sh'
 ]) {
 	assert.ok(fs.existsSync(absolute(requiredTest)), `${requiredTest} must exist`);
 }
 
-const cellSource = read('fibocom-mm-bridge/src/l850_cell.c');
+const cellSource = read('l850gl-mm-bridge/src/l850_cell.c');
 for (const state of [
 	'available', 'unsupported_build', 'unsupported_firmware', 'scan_ready',
 	'lock_applied_reset_required', 'resetting', 'applied_verified',
@@ -399,23 +458,24 @@ for (const state of [
 assert.match(cellSource, /pci\s*>\s*503/);
 assert.match(cellSource, /type\s*!=\s*4[Uu]?\s*&&\s*type\s*!=\s*5[Uu]?/,
 	'cell parsing must accept LTE records of type 4 and 5 only');
-assert.match(cellSource, /FIBOCOM_L850_CELL_MAX_RESULTS/,
+assert.match(cellSource, /L850GL_L850_CELL_MAX_RESULTS/,
 	'cell scan output must be bounded');
-assert.match(cellSource, /fibocom_l850_earfcn_to_band/,
+assert.match(cellSource, /l850gl_l850_earfcn_to_band/,
 	'EARFCN must be mapped to a supported LTE band before mutation');
 
-const init = read('fibocom-mm-bridge/files/etc/init.d/fibocom-mm-bridge');
+const init = read('l850gl-mm-bridge/files/etc/init.d/l850gl-mm-bridge');
 assert.match(init, /^USE_PROCD=1$/m);
 assert.match(init, /^START=75$/m);
+assert.match(init, /^PROG=\/usr\/sbin\/l850gl-mm-bridge$/m);
 assert.match(init, /command "\$PROG" --foreground/);
 
-const luciMakefile = read('luci-app-fibocom/Makefile');
-assert.match(luciMakefile, /^PKG_VERSION:=0\.5\.0$/m);
+const luciMakefile = read('luci-app-l850gl-mm/Makefile');
+assert.match(luciMakefile, /^PKG_VERSION:=0\.6\.0$/m);
 assert.match(luciMakefile, /^PKG_RELEASE:=1$/m);
-assert.match(luciMakefile, /^LUCI_URL:=https:\/\/github\.com\/As-tsaqib\/luci-app-fibocom$/m);
+assert.match(luciMakefile, /^LUCI_URL:=https:\/\/github\.com\/As-tsaqib\/luci-app-L850GL-MM$/m);
 assert.match(luciMakefile, /^LUCI_MAINTAINER:=As Tsaqib <[^>]+>$/m);
 for (const dependency of [
-	'+luci-base', '+fibocom-mm-bridge', '+modemmanager', '+luci-proto-modemmanager',
+	'+luci-base', '+l850gl-mm-bridge', '+modemmanager', '+luci-proto-modemmanager',
 	'+kmod-usb-acm', '+kmod-usb-net-cdc-mbim', '+kmod-usb-wdm'
 ]) {
 	assert.ok(luciMakefile.includes(dependency), `LuCI Makefile must include ${dependency}`);
@@ -430,38 +490,38 @@ for (const forbidden of [
 }
 
 const acl = JSON.parse(read(
-	'luci-app-fibocom/root/usr/share/rpcd/acl.d/luci-app-fibocom.json'
+	'luci-app-l850gl-mm/root/usr/share/rpcd/acl.d/luci-app-l850gl-mm.json'
 ));
 assert.deepStrictEqual(Object.keys(acl).sort(), [
-	'luci-app-fibocom-lock-band',
-	'luci-app-fibocom-lock-pci-expert',
-	'luci-app-fibocom-overview',
-	'luci-app-fibocom-sms-read',
-	'luci-app-fibocom-sms-write'
+	'luci-app-l850gl-mm-lock-band',
+	'luci-app-l850gl-mm-lock-pci-expert',
+	'luci-app-l850gl-mm-overview',
+	'luci-app-l850gl-mm-sms-read',
+	'luci-app-l850gl-mm-sms-write'
 ]);
-assert.deepStrictEqual(acl['luci-app-fibocom-overview'].read.ubus['fibocom.mm'], [
+assert.deepStrictEqual(acl['luci-app-l850gl-mm-overview'].read.ubus['l850gl.mm'], [
 	'list_modems', 'get_overview', 'get_lock_status'
 ]);
 assert.deepStrictEqual(
-	acl['luci-app-fibocom-overview'].read.ubus['fibocom.mm.l850'],
+	acl['luci-app-l850gl-mm-overview'].read.ubus['l850gl.mm.l850'],
 	[ 'get_carrier_info' ]);
-assert.deepStrictEqual(acl['luci-app-fibocom-sms-read'].read.ubus['fibocom.mm'], [
+assert.deepStrictEqual(acl['luci-app-l850gl-mm-sms-read'].read.ubus['l850gl.mm'], [
 	'list_sms'
 ]);
-assert.deepStrictEqual(acl['luci-app-fibocom-sms-write'].write.ubus['fibocom.mm'], [
+assert.deepStrictEqual(acl['luci-app-l850gl-mm-sms-write'].write.ubus['l850gl.mm'], [
 	'send_sms', 'delete_sms'
 ]);
-assert.deepStrictEqual(acl['luci-app-fibocom-lock-band'].write.ubus['fibocom.mm'], [
+assert.deepStrictEqual(acl['luci-app-l850gl-mm-lock-band'].write.ubus['l850gl.mm'], [
 	'set_bands', 'set_modes'
 ]);
 assert.deepStrictEqual(
-	acl['luci-app-fibocom-lock-pci-expert'].read.ubus['fibocom.mm.l850'],
+	acl['luci-app-l850gl-mm-lock-pci-expert'].read.ubus['l850gl.mm.l850'],
 	[ 'cell_scan', 'get_carrier_info', 'cell_lock_status' ]);
 assert.deepStrictEqual(
-	acl['luci-app-fibocom-lock-pci-expert'].write.ubus['fibocom.mm.l850'],
+	acl['luci-app-l850gl-mm-lock-pci-expert'].write.ubus['l850gl.mm.l850'],
 	[ 'set_cell_lock', 'clear_cell_lock' ]);
 const aclSource = read(
-	'luci-app-fibocom/root/usr/share/rpcd/acl.d/luci-app-fibocom.json');
+	'luci-app-l850gl-mm/root/usr/share/rpcd/acl.d/luci-app-l850gl-mm.json');
 for (const forbidden of [ '"*"', '"cgi-io"', '"file"', '"uci"', '"exec"' ])
 	assert.ok(!aclSource.includes(forbidden), `ACL must not contain ${forbidden}`);
 
@@ -470,10 +530,11 @@ assert.match(staticWorkflow, /run-host-ubus-blob\.sh/);
 assert.match(staticWorkflow, /run-host-sms-dedupe\.sh/);
 assert.match(staticWorkflow, /run-host-cell-parser\.sh/);
 assert.match(staticWorkflow, /run-host-ca-parser\.sh/);
+assert.match(staticWorkflow, /run-host-voltage-parser\.sh/);
 assert.match(staticWorkflow, /make check/);
 const sdkWorkflow = read('.github/workflows/openwrt-sdk.yml');
 assert.ok(sdkWorkflow.includes("grep -Fq -- '-Dbuiltin_plugins=true'"));
-assert.ok(sdkWorkflow.includes('CONFIG_FIBOCOM_MM_BRIDGE_L850_EXPERT=y'),
+assert.ok(sdkWorkflow.includes('CONFIG_L850GL_MM_BRIDGE_EXPERT=y'),
 	'SDK CI must exercise the explicit expert build separately');
 assert.ok(sdkWorkflow.includes('CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS=y'));
 assert.ok(sdkWorkflow.includes('package/feeds/packages/modemmanager/compile'),
@@ -484,6 +545,8 @@ assert.ok(sdkWorkflow.includes("grep -Fx 'get_carrier_info'"),
 	'expert SDK verification must retain the typed carrier method');
 assert.ok(sdkWorkflow.includes("grep -Fx 'AT+GTCAINFO?'"),
 	'base/expert SDK verification must gate the reviewed carrier command');
+assert.ok(sdkWorkflow.includes("grep -Fx 'AT+CBC'"),
+	'base/expert SDK verification must gate the reviewed voltage command');
 assert.strictEqual((sdkWorkflow.match(/API_Schema=4/g) || []).length, 2,
 	'both SDK artifact manifests must identify schema 4');
 assert.ok(!sdkWorkflow.includes('API_Schema=2'));

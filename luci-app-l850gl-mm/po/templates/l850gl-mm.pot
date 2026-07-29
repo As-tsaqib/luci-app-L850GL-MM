@@ -1,0 +1,1075 @@
+# SPDX-FileCopyrightText: 2026 As Tsaqib
+# SPDX-License-Identifier: Apache-2.0
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: luci-app-L850GL-MM 0.6.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-27 00:00+0800\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: htdocs/luci-static/resources/l850gl-mm/widgets.js:455
+msgid "(active)"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1567
+msgid "%d loaded"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1461
+msgid "%d messages"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1490
+msgid "%d selected"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:958
+msgid "%d SMS messages deleted; %d were already absent."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:960
+msgid "%d SMS messages deleted."
+msgstr ""
+
+#: htdocs/luci-static/resources/l850gl-mm/widgets.js:432
+msgid "%d%% signal quality"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:284
+msgid "%s failed: %s"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:270
+msgid "%s may have completed, but its outcome is unknown. Refresh and do not retry until the live modem state confirms that a new request is safe."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:431
+msgid "3G / 4G"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:432
+msgid "3G only"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:433
+msgid "4G only"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:440
+msgid "A concise ModemManager snapshot. Network configuration and connection intent remain owned by netifd."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:355
+msgid "Access technology"
+msgstr ""
+
+#: htdocs/luci-static/resources/l850gl-mm/widgets.js:440
+msgid "Action required"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:252
+msgid "Active LTE Bands"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:255
+msgid "Active LTE Carriers"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:209
+msgid "All messages"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:441
+msgid "Allowed and preferred mode"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:453
+msgid "Allowed mode"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:675
+msgid "Any supported band (automatic)"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:572
+msgid "Any Supported bands"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:190 htdocs/luci-static/resources/view/l850gl-mm/overview.js:204
+msgid "any(automatic)"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:712 htdocs/luci-static/resources/view/l850gl-mm/lock.js:718
+msgid "Apply band selection"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:714
+msgid "Apply bands"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:1034 htdocs/luci-static/resources/view/l850gl-mm/lock.js:1042
+msgid "Apply cell lock"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:494 htdocs/luci-static/resources/view/l850gl-mm/lock.js:500
+msgid "Apply mode selection"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:496
+msgid "Apply modes"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:1032
+msgid "Apply PCI/EARFCN lock"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:1033
+msgid "Applying a cell lock is disruptive and can interrupt WAN service. Verification requires reset, reprobe, registration, and a matching serving cell."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:500 htdocs/luci-static/resources/view/l850gl-mm/lock.js:718
+msgid "Applying…"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:511 htdocs/luci-static/resources/view/l850gl-mm/lock.js:543
+msgid "Automatic"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:285
+msgid "Available"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:241
+msgid "B%d, EARFCN %d, PCI %d, DL/UL %s/%s MHz"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1455
+msgid "Back"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:897
+msgid "Band"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:398
+msgid "Band and Cell Status"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:314
+msgid "Band change"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:317
+msgid "Band change accepted."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:304
+msgid "Band change in progress…"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:641
+msgid "Band Lock"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:1171
+msgid "Band Lock uses ModemManager"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:650
+msgid "Band mutation is unavailable for this snapshot. The bridge will not use a vendor-command fallback."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1156
+msgid "Binary SMS payload (not displayed)"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:943
+msgid "Bulk deletion stopped: %d deleted, %d already absent, %d not attempted. The current result was not confirmed: %s"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:390 htdocs/luci-static/resources/view/l850gl-mm/sms.js:1022 htdocs/luci-static/resources/view/l850gl-mm/sms.js:1499 htdocs/luci-static/resources/view/l850gl-mm/sms.js:860
+msgid "Cancel"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:1036
+msgid "Cell lock"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:932
+msgid "Cell scan"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:244
+msgid "Cell scan available"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:936
+msgid "Cell scan completed."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:945
+msgid "Cell scan failed: %s"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:237 htdocs/luci-static/resources/view/l850gl-mm/lock.js:922
+msgid "Cell scan in progress…"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:241
+msgid "Cell scan temporarily unavailable"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:233
+msgid "Cell scan unavailable"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:773
+msgid "Cell-lock reset, reprobe, registration, and verification are in progress…"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:495
+msgid "Changing allowed or preferred modes is persistent and reloads the netifd network configuration. Mobile WAN may disconnect while the modem re-registers. Keep an alternate management path available."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:713
+msgid "Changing bands can immediately detach the mobile network and interrupt this router’s WAN connection. Keep an alternate management path available."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:1049 htdocs/luci-static/resources/view/l850gl-mm/lock.js:1051 htdocs/luci-static/resources/view/l850gl-mm/lock.js:1057
+msgid "Clear cell lock"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:1047
+msgid "Clear PCI/EARFCN lock"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:1048
+msgid "Clearing a cell lock is disruptive and requires the same postcondition verification."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:258
+msgid "Clipboard access is unavailable."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:281
+msgid "Clipboard access was denied."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1457 htdocs/luci-static/resources/view/l850gl-mm/sms.js:1580
+msgid "Conversation"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:324 htdocs/luci-static/resources/view/l850gl-mm/sms.js:325
+msgid "Copy number"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:643 htdocs/luci-static/resources/view/l850gl-mm/overview.js:373
+msgid "Current bands"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:356
+msgid "Data interface"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1030 htdocs/luci-static/resources/view/l850gl-mm/sms.js:1483 htdocs/luci-static/resources/view/l850gl-mm/sms.js:868
+msgid "Delete"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1483
+msgid "Delete all"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1011
+msgid "Delete all %d SMS messages in this view permanently? This action cannot be undone."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1042 htdocs/luci-static/resources/view/l850gl-mm/sms.js:1079
+msgid "Delete all is unavailable because the SMS inventory exceeds the 1,024-message safety bound."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1009
+msgid "Delete all SMS"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1009
+msgid "Delete selected SMS"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1302 htdocs/luci-static/resources/view/l850gl-mm/sms.js:1303 htdocs/luci-static/resources/view/l850gl-mm/sms.js:854
+msgid "Delete SMS"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1013
+msgid "Delete the %d selected SMS messages permanently? This action cannot be undone."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:855
+msgid "Delete this SMS permanently? This action cannot be undone."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:924
+msgid "Deleting %d SMS messages one at a time..."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1303
+msgid "Deleting SMS"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:989
+msgid "Deleting SMS messages: %d of %d complete..."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:805
+msgid "Deleting SMS…"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:996
+msgid "Deletion could not be confirmed because the RPC connection failed: %s"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:296
+msgid "Device removed"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:242
+msgid "Draft"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:212
+msgid "Drafts"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:834 htdocs/luci-static/resources/view/l850gl-mm/lock.js:898 htdocs/luci-static/resources/view/l850gl-mm/lock.js:994
+msgid "EARFCN"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:727
+msgid "EARFCN must be an unsigned LTE channel number."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1157
+msgid "Empty text message"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:380
+msgid "Enter a recipient containing 1–%d digits, with an optional leading +."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1387 htdocs/luci-static/resources/view/l850gl-mm/sms.js:1432
+msgid "Enter message text"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:385
+msgid "Enter the SMS text."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:688
+msgid "Explicit LTE bands"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:346
+msgid "Firmware"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1554
+msgid "Folder"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1151
+msgid "From"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1584
+msgid "Hold a message to select it."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:371
+msgid "ICCID"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:348
+msgid "IMEI"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:210
+msgid "Inbox"
+msgstr ""
+
+#: htdocs/luci-static/resources/l850gl-mm/widgets.js:64
+msgid "Incompatible API schema. This interface requires schema 4."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:704
+msgid "Invert"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:319 htdocs/luci-static/resources/view/l850gl-mm/sms.js:1526 htdocs/luci-static/resources/view/l850gl-mm/sms.js:1550
+msgid "L850-GL modem"
+msgstr ""
+
+#: root/usr/share/luci/menu.d/luci-app-l850gl-mm.json
+msgid "L850GL MM"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1508
+msgid "Load more"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1114
+msgid "Loading older SMS messages…"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1056
+msgid "Loading the complete SMS list..."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1482 htdocs/luci-static/resources/view/l850gl-mm/sms.js:1508 htdocs/luci-static/resources/view/l850gl-mm/sms.js:1631
+msgid "Loading..."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:1169 root/usr/share/luci/menu.d/luci-app-l850gl-mm.json
+msgid "Lock"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:829
+msgid "LOCK"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:819 htdocs/luci-static/resources/view/l850gl-mm/lock.js:849
+msgid "Lock status"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:256
+msgid "LTE CA Details"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:400
+msgid "LTE Carrier Aggregation"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:292
+msgid "Malformed CellInfo rejected"
+msgstr ""
+
+#: htdocs/luci-static/resources/l850gl-mm/widgets.js:268
+msgid "Malformed Lock data in the schema 4 response."
+msgstr ""
+
+#: htdocs/luci-static/resources/l850gl-mm/widgets.js:217 htdocs/luci-static/resources/l850gl-mm/widgets.js:231 htdocs/luci-static/resources/l850gl-mm/widgets.js:240 htdocs/luci-static/resources/l850gl-mm/widgets.js:245
+msgid "Malformed LTE carrier data in the schema 4 response."
+msgstr ""
+
+#: htdocs/luci-static/resources/l850gl-mm/widgets.js:104
+msgid "Malformed modem inventory in the schema 4 response."
+msgstr ""
+
+#: htdocs/luci-static/resources/l850gl-mm/widgets.js:165
+msgid "Malformed Overview data in the schema 4 response."
+msgstr ""
+
+#: htdocs/luci-static/resources/l850gl-mm/widgets.js:84
+msgid "Malformed response from the L850GL MM bridge."
+msgstr ""
+
+#: htdocs/luci-static/resources/l850gl-mm/widgets.js:71
+msgid "Malformed schema 4 error response from the L850GL MM bridge."
+msgstr ""
+
+#: htdocs/luci-static/resources/l850gl-mm/widgets.js:66
+msgid "Malformed schema 4 response from the L850GL MM bridge."
+msgstr ""
+
+#: htdocs/luci-static/resources/l850gl-mm/widgets.js:309
+msgid "Malformed SMS data in the schema 4 response."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:344
+msgid "Manufacturer"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1394
+msgid "Maximum %d Unicode characters and %d UTF-8 bytes."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1323 htdocs/luci-static/resources/view/l850gl-mm/sms.js:1380 htdocs/luci-static/resources/view/l850gl-mm/sms.js:1433
+msgid "Message"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1580
+msgid "Messages"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1792
+msgid "Messages are read, sent, and deleted through ModemManager."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:361
+msgid "Mode policy change"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:347
+msgid "Mode policy change in progress…"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:365
+msgid "Mode policy saved and netifd reload completed."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:367
+msgid "Mode policy was saved, but netifd reload is pending."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:369
+msgid "Mode policy was saved, but the netifd activation result is not confirmed. Refresh before retrying."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:345
+msgid "Model"
+msgstr ""
+
+#: root/usr/share/luci/menu.d/luci-app-l850gl-mm.json
+msgid "Modem"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:391
+msgid "Modem Info"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:351
+msgid "Modem state"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:392
+msgid "Modem Status"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:362
+msgid "Modem voltage"
+msgstr ""
+
+#: htdocs/luci-static/resources/l850gl-mm/widgets.js:42
+msgid "No"
+msgstr ""
+
+#: htdocs/luci-static/resources/l850gl-mm/widgets.js:371 htdocs/luci-static/resources/l850gl-mm/widgets.js:401
+msgid "No information is available."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:1094 htdocs/luci-static/resources/view/l850gl-mm/overview.js:419 htdocs/luci-static/resources/view/l850gl-mm/sms.js:1660
+msgid "No L850-GL modem is currently exported by ModemManager."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1592
+msgid "No messages with this number are loaded."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:436
+msgid "No preference"
+msgstr ""
+
+#: htdocs/luci-static/resources/l850gl-mm/widgets.js:80
+msgid "No response was received from the L850GL MM bridge."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1593
+msgid "No SMS messages are available in this folder."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:277
+msgid "None"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1150
+msgid "Number"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:302
+msgid "Number copied."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1133
+msgid "Older SMS messages loaded."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1279
+msgid "Open conversation with %s"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:364
+msgid "Operator"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1367
+msgid "Optional +, followed by up to 20 digits"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:518
+msgid "Other bands"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:211
+msgid "Outbox"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:438 root/usr/share/luci/menu.d/luci-app-l850gl-mm.json
+msgid "Overview"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:840 htdocs/luci-static/resources/view/l850gl-mm/lock.js:899
+msgid "PCI"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:1003
+msgid "PCI (optional)"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:969
+msgid "PCI lock is absent from this base build. Install an explicitly reviewed expert build to expose the typed expert object."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:729 htdocs/luci-static/resources/view/l850gl-mm/lock.js:731
+msgid "PCI must be empty or an integer from 0 through 503."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:963
+msgid "PCI/EARFCN Lock"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:446
+msgid "Persistent mode selection is unavailable: %s"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:352
+msgid "Power"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:437
+msgid "Prefer 3G"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:438
+msgid "Prefer 4G"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:473
+msgid "Preferred mode"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:253
+msgid "Primary LTE Band"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1633 htdocs/luci-static/resources/view/l850gl-mm/sms.js:1634
+msgid "Ready"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:233
+msgid "Received"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1358
+msgid "Recipient"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:288
+msgid "Refresh pending"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:365
+msgid "Registration"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:657
+msgid "Requested bands"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1405 htdocs/luci-static/resources/view/l850gl-mm/sms.js:1444
+msgid "Retry SMS send"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:366
+msgid "Roaming"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:17 htdocs/luci-static/resources/view/l850gl-mm/overview.js:18 htdocs/luci-static/resources/view/l850gl-mm/sms.js:25
+msgid "RPC transport failure"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:900 htdocs/luci-static/resources/view/l850gl-mm/overview.js:379
+msgid "RSRP"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:901 htdocs/luci-static/resources/view/l850gl-mm/overview.js:380
+msgid "RSRQ"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:982
+msgid "Scan cells"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:982
+msgid "Scanning…"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:269
+msgid "Secondary carrier #%d"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:254
+msgid "Secondary LTE Bands"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:404
+msgid "Secure random generation is unavailable in this browser."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:221
+msgid "Select to copy"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1296 htdocs/luci-static/resources/view/l850gl-mm/sms.js:1297
+msgid "Selected"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:871
+msgid "Selected cell (EARFCN %s, PCI %s). Review the values before applying the lock."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1277
+msgid "Selected SMS; tap to deselect"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1405 htdocs/luci-static/resources/view/l850gl-mm/sms.js:1444
+msgid "Send SMS"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:726
+msgid "Sending SMS…"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1404 htdocs/luci-static/resources/view/l850gl-mm/sms.js:1443
+msgid "Sending…"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:238
+msgid "Sent"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:374
+msgid "Serving cell status"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:385
+msgid "Serving EARFCN"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:386
+msgid "Serving PCI"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:354
+msgid "SIM lock"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:370
+msgid "SIM Number"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:353
+msgid "SIM present"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:394
+msgid "SIMs"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:381
+msgid "SINR"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1641 root/usr/share/luci/menu.d/luci-app-l850gl-mm.json
+msgid "SMS"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:836
+msgid "SMS deleted."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:774
+msgid "SMS send confirmed; the existing request was safely reused."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:759
+msgid "SMS send was not confirmed: %s. Review the message list before retrying. Retry without editing to reuse the same request token."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:775
+msgid "SMS sent successfully."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:393
+msgid "SMS text is limited to %d Unicode characters and %d UTF-8 bytes."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1278
+msgid "SMS; hold to select"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1277
+msgid "SMS; tap to select"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:294
+msgid "Stale"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:290
+msgid "Standard CellInfo unavailable"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1165
+msgid "State"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:240
+msgid "Status report"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:893 htdocs/luci-static/resources/view/l850gl-mm/lock.js:984
+msgid "Tap line to use"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:324
+msgid "The band-change outcome is unknown because RPC failed: %s. Refresh and do not retry until the live modem state confirms the result."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:140
+msgid "The bearer snapshot is still loading. Check again after the next refresh."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:148
+msgid "The bridge reported an unrecognized warning."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:431
+msgid "The bridge retains at most %d recent request tokens for up to %d seconds. Heavy request volume can evict an older token sooner; after eviction or a bridge restart, do not assume a retry is duplicate-safe."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:311
+msgid "The bridge returned an incomplete band mutation response."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:358
+msgid "The bridge returned an incomplete mode-policy mutation response."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:821 htdocs/luci-static/resources/view/l850gl-mm/sms.js:897
+msgid "The bridge returned an incomplete SMS delete response."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:745
+msgid "The bridge returned an incomplete SMS send response."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:784
+msgid "The cell lock was applied and verified against post-reset NVM and serving-cell state."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:783
+msgid "The cell lock was cleared and its post-reset NVM state was verified."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:916
+msgid "The cell-scan capability or modem generation changed. Refresh before scanning."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:153
+msgid "The complete SMS inventory contained a duplicate message identity."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:146
+msgid "The exact L850-GL 2cb7:0007 hardware could not be attested; mutations are disabled."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:744 htdocs/luci-static/resources/view/l850gl-mm/lock.js:753
+msgid "The expert bridge returned an incomplete schema 4 response."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:765
+msgid "The expert capability or modem generation is not current. Refresh before applying a cell lock."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:791
+msgid "The expert mutation outcome is unknown: %s. Refresh and do not retry until the live state is known."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:376
+msgid "The mode-policy response was interrupted during network reload: %s. Refresh before retrying because the persistent intent may already be saved."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:798 htdocs/luci-static/resources/view/l850gl-mm/sms.js:913
+msgid "The modem changed or its messaging generation is unavailable. Refresh before deleting."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:688
+msgid "The modem changed or its messaging generation is unavailable. Refresh before sending."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:298
+msgid "The modem generation or band capability changed. Refresh before applying bands."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:341
+msgid "The modem generation or mode-policy capability changed. Refresh before applying modes."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:278
+msgid "The modem identity or generation changed during %s. Review the refreshed modem before trying again."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:701
+msgid "The modem messaging generation changed after an uncertain send. Review the message list, then send again only if a new request is intended."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:142
+msgid "The netifd ModemManager protocol was not found; verify the modemmanager netifd package."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:137
+msgid "The paginated SMS response exceeded the 1,024-message safety bound."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:265
+msgid "The request failed."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:387
+msgid "The request is bound to the currently displayed opaque modem identity and generation."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:862
+msgid "The selected scan result is malformed and was not copied."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:783
+msgid "The send result is unknown because the RPC connection failed: %s. Retry without editing the recipient or text to reuse the same request token."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:138
+msgid "The SIM snapshot is still loading. Check again after the next refresh."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:129
+msgid "The SMS inventory changed while loading pages. Refresh and try again."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:111
+msgid "The SMS inventory changed while paging. Older pages were reset; use Load more again if needed."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:105
+msgid "The SMS inventory changed while preparing the complete folder. Refresh and try again."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:390
+msgid "The SMS text contains invalid Unicode."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1090
+msgid "There are no deletable SMS messages in this view."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:970
+msgid "This firmware is not in the live-validated mutation allowlist. Standard ModemManager cell scan may still be attempted when advertised, but no vendor fallback, lock tuple, or reset sequence will be guessed."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:144
+msgid "This modem is not in the supported MBIM composition; mutations are disabled."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1328
+msgid "This received message was truncated by the bridge safety limit."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1575
+msgid "This sender cannot be used as an SMS recipient."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1331
+msgid "This SMS contains binary data. Its raw payload is intentionally not exposed or displayed."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1167
+msgid "Timestamp"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1151
+msgid "To"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:842
+msgid "Unable to confirm whether the SMS was deleted: %s"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:305
+msgid "Unable to copy the number. Select it manually instead."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:827
+msgid "Unable to delete SMS: %s"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1064 htdocs/luci-static/resources/view/l850gl-mm/sms.js:1101
+msgid "Unable to load all SMS messages before deletion: %s"
+msgstr ""
+
+#: htdocs/luci-static/resources/l850gl-mm/widgets.js:449
+msgid "Unable to load L850-GL modem information:"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1127
+msgid "Unable to load the next SMS page."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:760
+msgid "Unable to send SMS: %s. Edit the recipient or text to start a new request, or retry unchanged with the same request token."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:852 htdocs/luci-static/resources/view/l850gl-mm/overview.js:185 htdocs/luci-static/resources/view/l850gl-mm/overview.js:187 htdocs/luci-static/resources/view/l850gl-mm/overview.js:190 htdocs/luci-static/resources/view/l850gl-mm/overview.js:193 htdocs/luci-static/resources/view/l850gl-mm/overview.js:202 htdocs/luci-static/resources/view/l850gl-mm/overview.js:207 htdocs/luci-static/resources/view/l850gl-mm/overview.js:216 htdocs/luci-static/resources/view/l850gl-mm/overview.js:261 htdocs/luci-static/resources/view/l850gl-mm/overview.js:298 htdocs/luci-static/resources/view/l850gl-mm/sms.js:1609 htdocs/luci-static/resources/view/l850gl-mm/sms.js:1616 htdocs/luci-static/resources/view/l850gl-mm/sms.js:1627
+msgid "Unavailable"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:232 htdocs/luci-static/resources/view/l850gl-mm/sms.js:213 htdocs/luci-static/resources/view/l850gl-mm/sms.js:244
+msgid "Unknown"
+msgstr ""
+
+#: htdocs/luci-static/resources/l850gl-mm/widgets.js:450
+msgid "Unknown error"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:447
+msgid "unknown reason"
+msgstr ""
+
+#: htdocs/luci-static/resources/l850gl-mm/widgets.js:82 htdocs/luci-static/resources/l850gl-mm/widgets.js:86 htdocs/luci-static/resources/view/l850gl-mm/lock.js:325 htdocs/luci-static/resources/view/l850gl-mm/lock.js:377 htdocs/luci-static/resources/view/l850gl-mm/lock.js:792 htdocs/luci-static/resources/view/l850gl-mm/lock.js:946 htdocs/luci-static/resources/view/l850gl-mm/sms.js:1102 htdocs/luci-static/resources/view/l850gl-mm/sms.js:784 htdocs/luci-static/resources/view/l850gl-mm/sms.js:843 htdocs/luci-static/resources/view/l850gl-mm/sms.js:997
+msgid "Unknown transport error"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:822
+msgid "UNLOCK"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/overview.js:347
+msgid "USB Mode"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1346
+msgid "Write SMS"
+msgstr ""
+
+#: htdocs/luci-static/resources/l850gl-mm/widgets.js:40
+msgid "Yes"
+msgstr ""

@@ -12,11 +12,11 @@ mkdir -p "$BUILD_DIR/include"
 ln -s "$LIBUBOX_SOURCE_DIR" "$BUILD_DIR/include/libubox"
 
 ${CC:-cc} -std=gnu11 -Wall -Wextra -Werror \
-	-I"$ROOT/fibocom-mm-bridge/src" -I"$BUILD_DIR/include" \
+	-I"$ROOT/l850gl-mm-bridge/src" -I"$BUILD_DIR/include" \
 	-c "$ROOT/tests/host-ubus-blob.c" -o "$BUILD_DIR/host-ubus-blob.o"
 ${CC:-cc} -std=gnu11 -Wall -Wextra -Werror \
-	-I"$ROOT/fibocom-mm-bridge/src" -I"$BUILD_DIR/include" \
-	-c "$ROOT/fibocom-mm-bridge/src/ubus_request.c" \
+	-I"$ROOT/l850gl-mm-bridge/src" -I"$BUILD_DIR/include" \
+	-c "$ROOT/l850gl-mm-bridge/src/ubus_request.c" \
 	-o "$BUILD_DIR/ubus-request.o"
 ${CC:-cc} -std=gnu11 -I"$BUILD_DIR/include" \
 	-c "$LIBUBOX_SOURCE_DIR/blob.c" -o "$BUILD_DIR/blob.o"

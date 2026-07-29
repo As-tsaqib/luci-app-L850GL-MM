@@ -1,0 +1,56 @@
+{
+	"luci-app-l850gl-mm-overview": {
+		"description": "Grant read-only access to the L850GL MM schema 4 overview and lock snapshots",
+		"read": {
+			"ubus": {
+				"l850gl.mm": [
+					"list_modems",
+					"get_overview",
+					"get_lock_status"
+				],
+				"l850gl.mm.l850": [ "get_carrier_info" ]
+			}
+		}
+	},
+	"luci-app-l850gl-mm-sms-read": {
+		"description": "Grant access to read paginated SMS through ModemManager",
+		"read": {
+			"ubus": {
+				"l850gl.mm": [ "list_sms" ]
+			}
+		}
+	},
+	"luci-app-l850gl-mm-sms-write": {
+		"description": "Grant access to send and delete SMS through ModemManager",
+		"write": {
+			"ubus": {
+				"l850gl.mm": [ "send_sms", "delete_sms" ]
+			}
+		}
+	},
+	"luci-app-l850gl-mm-lock-band": {
+		"description": "Grant access to capability-gated standard band lock",
+		"write": {
+			"ubus": {
+				"l850gl.mm": [ "set_bands", "set_modes" ]
+			}
+		}
+	},
+	"luci-app-l850gl-mm-lock-pci-expert": {
+		"description": "Grant exact access to the build-gated L850 PCI/EARFCN expert object",
+		"read": {
+			"ubus": {
+				"l850gl.mm.l850": [
+					"cell_scan",
+					"get_carrier_info",
+					"cell_lock_status"
+				]
+			}
+		},
+		"write": {
+			"ubus": {
+				"l850gl.mm.l850": [ "set_cell_lock", "clear_cell_lock" ]
+			}
+		}
+	}
+}

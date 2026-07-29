@@ -2,17 +2,18 @@
 # SPDX-License-Identifier: Apache-2.0
 
 version = 1
-SPDX-PackageName = "luci-app-fibocom"
+SPDX-PackageName = "luci-app-L850GL-MM"
 SPDX-PackageSupplier = "As Tsaqib"
-SPDX-PackageDownloadLocation = "NOASSERTION"
+SPDX-PackageDownloadLocation = "https://github.com/As-tsaqib/luci-app-L850GL-MM"
 
 [[annotations]]
 path = [
   "tests/fixtures/live/l850-mbim-connected.json",
   "tests/fixtures/ca/*.txt",
   "tests/fixtures/pci/*.txt",
-  "luci-app-fibocom/root/usr/share/luci/menu.d/luci-app-fibocom.json",
-  "luci-app-fibocom/root/usr/share/rpcd/acl.d/luci-app-fibocom.json"
+  "tests/fixtures/voltage/*.txt",
+  "luci-app-l850gl-mm/root/usr/share/luci/menu.d/luci-app-l850gl-mm.json",
+  "luci-app-l850gl-mm/root/usr/share/rpcd/acl.d/luci-app-l850gl-mm.json"
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 As Tsaqib"

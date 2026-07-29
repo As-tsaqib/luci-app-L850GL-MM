@@ -11,7 +11,7 @@
 .vscode/
 build/
 dist/
-fibocom-mm-bridge/src/fibocom-mm-bridge
+l850gl-mm-bridge/src/l850gl-mm-bridge
 tests/tmp/
 
 # Local project context; never publish these files.

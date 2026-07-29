@@ -35,46 +35,46 @@ fill_failure(uint8_t *buffer, size_t length, void *user_data)
 int
 main(void)
 {
-	char ids[128][FIBOCOM_ID_BUFSIZE];
-	char deterministic[FIBOCOM_ID_BUFSIZE];
-	char sms_id[FIBOCOM_SMS_ID_BUFSIZE];
-	char invalid[FIBOCOM_ID_BUFSIZE];
+	char ids[128][L850GL_ID_BUFSIZE];
+	char deterministic[L850GL_ID_BUFSIZE];
+	char sms_id[L850GL_SMS_ID_BUFSIZE];
+	char invalid[L850GL_ID_BUFSIZE];
 	uint8_t start = 0;
 	size_t i;
 	size_t j;
 
-	assert(fibocom_identity_generate_with(deterministic, fill_sequence, &start));
+	assert(l850gl_identity_generate_with(deterministic, fill_sequence, &start));
 	assert(strcmp(deterministic,
-		      "fibocom-000102030405060708090a0b0c0d0e0f") == 0);
-	assert(fibocom_identity_is_valid(deterministic));
+		      "l850gl-000102030405060708090a0b0c0d0e0f") == 0);
+	assert(l850gl_identity_is_valid(deterministic));
 
 	strcpy(invalid, deterministic);
 	invalid[8] = 'A';
-	assert(!fibocom_identity_is_valid(invalid));
-	assert(!fibocom_identity_is_valid("fibocom-short"));
-	assert(!fibocom_identity_is_valid(NULL));
+	assert(!l850gl_identity_is_valid(invalid));
+	assert(!l850gl_identity_is_valid("l850gl-short"));
+	assert(!l850gl_identity_is_valid(NULL));
 
 	start = 0;
-	assert(fibocom_sms_identity_generate_with(sms_id, fill_sequence, &start));
+	assert(l850gl_sms_identity_generate_with(sms_id, fill_sequence, &start));
 	assert(strcmp(sms_id, "sms-000102030405060708090a0b0c0d0e0f") == 0);
-	assert(fibocom_sms_identity_is_valid(sms_id));
-	assert(!fibocom_sms_identity_is_valid(deterministic));
-	assert(fibocom_sms_operation_token_is_valid(
+	assert(l850gl_sms_identity_is_valid(sms_id));
+	assert(!l850gl_sms_identity_is_valid(deterministic));
+	assert(l850gl_sms_operation_token_is_valid(
 		"smsop-000102030405060708090a0b0c0d0e0f"));
-	assert(!fibocom_sms_operation_token_is_valid(
+	assert(!l850gl_sms_operation_token_is_valid(
 		"smsop-000102030405060708090a0b0c0d0e0G"));
 
 	memset(deterministic, 'x', sizeof(deterministic));
-	assert(!fibocom_identity_generate_with(deterministic, fill_failure, NULL));
+	assert(!l850gl_identity_generate_with(deterministic, fill_failure, NULL));
 	assert(deterministic[0] == '\0');
-	assert(!fibocom_identity_generate_with(deterministic, NULL, NULL));
+	assert(!l850gl_identity_generate_with(deterministic, NULL, NULL));
 	memset(sms_id, 'x', sizeof(sms_id));
-	assert(!fibocom_sms_identity_generate_with(sms_id, fill_failure, NULL));
+	assert(!l850gl_sms_identity_generate_with(sms_id, fill_failure, NULL));
 	assert(sms_id[0] == '\0');
 
 	for (i = 0; i < sizeof(ids) / sizeof(ids[0]); i++) {
-		assert(fibocom_identity_generate(ids[i]));
-		assert(fibocom_identity_is_valid(ids[i]));
+		assert(l850gl_identity_generate(ids[i]));
+		assert(l850gl_identity_is_valid(ids[i]));
 		for (j = 0; j < i; j++)
 			assert(strcmp(ids[i], ids[j]) != 0);
 	}

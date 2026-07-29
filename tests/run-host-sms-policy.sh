@@ -9,8 +9,8 @@ repo_root=$(
 	cd -- "$(dirname -- "$0")/.."
 	pwd
 )
-source_dir="$repo_root/fibocom-mm-bridge/src"
-build_dir=$(mktemp -d "${TMPDIR:-/tmp}/fibocom-sms-policy-test.XXXXXX")
+source_dir="$repo_root/l850gl-mm-bridge/src"
+build_dir=$(mktemp -d "${TMPDIR:-/tmp}/l850gl-sms-policy-test.XXXXXX")
 pkg_config=${PKG_CONFIG:-pkg-config}
 glib_cflags=$($pkg_config --cflags glib-2.0)
 glib_libs=$($pkg_config --libs glib-2.0)

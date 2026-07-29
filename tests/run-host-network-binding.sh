@@ -9,9 +9,9 @@ repo_root=$(
 	cd -- "$(dirname -- "$0")/.."
 	pwd
 )
-source_dir="$repo_root/fibocom-mm-bridge/src"
+source_dir="$repo_root/l850gl-mm-bridge/src"
 tmp_root=${TMPDIR:-${RUNNER_TEMP:-$repo_root}}
-build_dir=$(mktemp -d "$tmp_root/fibocom-network-binding-test.XXXXXX")
+build_dir=$(mktemp -d "$tmp_root/l850gl-network-binding-test.XXXXXX")
 
 cleanup() {
 	rm -rf "$build_dir"
@@ -56,7 +56,7 @@ fi
 # Word splitting is intentional for compiler and pkg-config flag lists.
 # shellcheck disable=SC2086
 ${CC:-cc} \
-	-std=gnu11 -D_GNU_SOURCE -DFIBOCOM_NETWORK_BINDING_TESTING \
+	-std=gnu11 -D_GNU_SOURCE -DL850GL_NETWORK_BINDING_TESTING \
 	-Wall -Wextra -Werror -Wpedantic \
 	-I"$source_dir" $uci_cflags \
 	"$repo_root/tests/host-network-binding.c" \

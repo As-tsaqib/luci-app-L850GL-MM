@@ -7,14 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Ownership boundary
 
-Version 0.5.0 is a companion, not a modem connection stack.
+Version 0.6.0 is a companion, not a modem connection stack.
 
 ```text
 LuCI: Overview / Lock / SMS
               |
               | typed ubus schema 4
               v
-      fibocom-mm-bridge
+      l850gl-mm-bridge
               |
               | asynchronous libmm-glib
               v
@@ -30,11 +30,11 @@ browser cannot submit an AT command, D-Bus path, sysfs path, or device path.
 
 ## Components
 
-`fibocom-mm-bridge` observes ModemManager's object manager without auto-starting
-it. It admits live Fibocom modem objects, allocates CSPRNG opaque IDs, caches
+`l850gl-mm-bridge` observes ModemManager's object manager without auto-starting
+it. It admits live L850-GL modem objects, allocates CSPRNG opaque IDs, caches
 the small amount of state required by the UI, and publishes one base ubus
 object. The optional expert object is compiled and registered only behind
-`FIBOCOM_MM_L850_EXPERT`.
+`L850GL_MM_EXPERT`.
 
 The LuCI package contains three views, one shared RPC/validation module, and
 one scoped responsive stylesheet. Each view renders a single native LuCI
@@ -54,7 +54,7 @@ ModemManager remains authoritative for:
 - standard `GetCellInfo` when the plugin supports it.
 
 netifd remains authoritative for persistent connection settings and runtime
-network orchestration. The 0.5 UI has no Settings page and does not expose APN,
+network orchestration. The 0.6 UI has no Settings page and does not expose APN,
 addresses, routes, gateways, DNS, or credentials. The narrow `set_modes` path
 resolves the unique bound `proto modemmanager` interface from the modem's
 internal Device value, writes only `allowedmode` and `preferredmode`, commits
@@ -99,6 +99,13 @@ unsupported, the base build stays honestly unavailable until an explicit
 expert result exists. On an expert build, the frontend may instead display the
 already validated `GTCAINFO` primary carrier as a serving EARFCN/PCI fallback;
 it does not write that observation into the generation-bound CellInfo cache.
+LuCI keeps at most one structurally valid carrier snapshot for 30 seconds and
+reuses it only when a subsequent query for the identical opaque modem ID and
+generation is transiently `busy` or `rate_limited`. It discards the snapshot
+on expiry, identity/generation change, malformed/schema-incompatible data,
+transport failure, or any non-transient error. This bounded presentation cache
+prevents expected command cooldown from making Serving Cell flicker without
+turning stale or incompatible data into success.
 
 On an expert build, Overview separately invokes `get_carrier_info` to obtain
 current LTE carrier aggregation state. The method dispatches only the fixed
@@ -117,6 +124,15 @@ contains unique active bands, one primary, active secondaries, a carrier count,
 and per-carrier band/EARFCN/PCI/DL/UL bandwidth. Raw response,
 MCC/MNC/TAC/cell ID, and parsed signal fields are discarded. The base build has
 no such command path or expert object.
+
+The same expert-only arbitration path refreshes modem voltage with the fixed
+`AT+CBC` query. Its strict bounded parser accepts one status and millivolt pair,
+caches only a generation-matched valid value, and publishes that value as a
+nullable typed Overview field. A malformed response, timeout, or unavailable
+cache leaves only the voltage field unavailable; it does not invalidate the
+rest of the Overview snapshot. The refresh is mutually excluded with scan,
+carrier, and mutation operations on the same modem. Raw command output is
+discarded.
 
 SMS initialization uses `Messaging.List`. Added, Deleted, and Sms property
 signals update the cache, and a 30-second asynchronous reconciliation repairs
@@ -184,18 +200,18 @@ without retaining object paths or indexes as identity.
 
 ## Build boundary
 
-The base build publishes only `fibocom.mm` with eight methods and is built with
+The base build publishes only `l850gl.mm` with eight methods and is built with
 generic AT-over-D-Bus disabled. Preprocessing removes the expert object,
-method table, scan/carrier operations, and PCI runtime state.
+method table, scan/carrier/voltage operations, and PCI runtime state.
 
 The explicit expert variant requires both:
 
 ```text
 CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS=y
-CONFIG_FIBOCOM_MM_BRIDGE_L850_EXPERT=y
+CONFIG_L850GL_MM_BRIDGE_EXPERT=y
 ```
 
-That build publishes the five-method `fibocom.mm.l850` object under separate
+That build publishes the five-method `l850gl.mm.l850` object under separate
 exact ACL grants and packages a matching ModemManager rebuilt with reviewed
 command transport. Enabling the
 build gate alone does not enable mutation: exact model/plugin/composition,
@@ -205,7 +221,7 @@ transport and has no expert object.
 
 ## Retired architecture
 
-Version 0.5 has no Status or Settings page, old Advanced page, direct radio
+Version 0.6 has no Status or Settings page, old Advanced page, direct radio
 toggle, generic reset, SIM-slot switch, eSIM addon, diagnostic UI, shadow
 daemon, custom netifd protocol, or modem rescan action. The earlier shadow
 implementation remains recoverable through Git history/tag; it is not part of

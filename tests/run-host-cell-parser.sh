@@ -9,8 +9,8 @@ BUILD_DIR=$(mktemp -d)
 trap 'rm -rf "$BUILD_DIR"' EXIT HUP INT TERM
 
 ${CC:-cc} -std=c11 -Wall -Wextra -Werror \
-	-I"$ROOT/fibocom-mm-bridge/src" \
+	-I"$ROOT/l850gl-mm-bridge/src" \
 	"$ROOT/tests/host-cell-parser.c" \
-	"$ROOT/fibocom-mm-bridge/src/l850_cell.c" \
+	"$ROOT/l850gl-mm-bridge/src/l850_cell.c" \
 	-o "$BUILD_DIR/host-cell-parser"
 "$BUILD_DIR/host-cell-parser" "$ROOT/tests/fixtures/pci"

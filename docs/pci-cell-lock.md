@@ -7,12 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Current verdict
 
-Version 0.5.0 retains the PCI expert contract, build/ACL gates, standard
+Version 0.6.0 retains the PCI expert contract, build/ACL gates, standard
 GetCellInfo-first scan path, bounded XMCI and NVM parsers, typed command
 builders, rate limiting, cancellation, timeout, shared mutation locking, and
 the reset/reprobe/registration/postcondition state machine. It adds the
-read-only `get_carrier_info` sibling method described below; PCI mutation
-grammar, allowlist, recovery sequence, and postconditions are unchanged.
+read-only `get_carrier_info` sibling method described below. Version 0.6 also
+adds an expert-only fixed `AT+CBC` Overview voltage refresh, which does not
+change this object or the PCI mutation grammar, allowlist, recovery sequence,
+or postconditions.
 
 Firmware `18500.5001.00.05.27.30` completed the approved live matrix on
 2026-07-27 and is the only allowlist entry. Exact and EARFCN-only set, clear,
@@ -95,7 +97,7 @@ The expert path is:
 
 ```text
 LuCI Lock
-  -> typed fibocom.mm.l850
+  -> typed l850gl.mm.l850
   -> opaque ID + generation + exact hardware gate
   -> asynchronous libmm-glib / ModemManager queue
   -> bounded normalized result
@@ -109,11 +111,11 @@ publish the expert object. The object exists only with both:
 
 ```text
 CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS=y
-CONFIG_FIBOCOM_MM_BRIDGE_L850_EXPERT=y
+CONFIG_L850GL_MM_BRIDGE_EXPERT=y
 ```
 
 PCI scan/status/mutation is protected by
-`luci-app-fibocom-lock-pci-expert`, separate from Band Lock. Read-only carrier
+`luci-app-l850gl-mm-lock-pci-expert`, separate from Band Lock. Read-only carrier
 status is additionally granted by the exact Overview ACL for its Overview
 panel.
 SMS, Band Lock, and PCI operations share the existing per-modem mutation lock;
@@ -131,7 +133,8 @@ clear_cell_lock(modem_id, generation, confirm)
 ```
 
 Every method resolves the exact current opaque modem and generation and
-attests L850-GL, Fibocom plugin, MBIM composition, and USB `2cb7:0007`.
+attests L850-GL, the required upstream plugin, MBIM composition, and USB
+`2cb7:0007`.
 The in-flight reset coordinator may observe and verify a replacement at the
 same internal hardware slot. Its final response carries the replacement's new
 opaque ID and generation. No subsequent write is retargeted; a new mutation
@@ -320,7 +323,7 @@ opened. Stock ModemManager required temporary debug mode for discovery. The
 production expert artifact instead rebuilds ModemManager with the reviewed
 AT-via-D-Bus build option and returns normal logging to INFO.
 
-Completed on `18500.5001.00.05.27.30` / L850-GL / Fibocom plugin / MBIM
+Completed on `18500.5001.00.05.27.30` / L850-GL / upstream plugin / MBIM
 `2cb7:0007`:
 
 1. Sanitized XMCI serving and neighbor scan, including real quote/blank-line/
