@@ -147,12 +147,12 @@ opaque ID, modem generation, and (for SMS) messaging generation are present.
 
 ## Packaging
 
-The current source and installed router use the following accepted r4 package
-metadata:
+The current source uses the following r5 package metadata. The router retains
+the accepted r4 pair plus the equivalent CSS hot patch until r5 is installed:
 
 ```text
-l850gl-mm-bridge   0.6.0-r4 native libmm-glib/GDBus to ubus bridge
-luci-app-l850gl-mm 0.6.0-r4 Overview, Lock, and SMS views
+l850gl-mm-bridge   0.6.0-r5 native libmm-glib/GDBus to ubus bridge
+luci-app-l850gl-mm 0.6.0-r5 Overview, Lock, and SMS views
 ```
 
 The retired Status, old Advanced, Settings, radio toggle, generic reset,
@@ -194,7 +194,7 @@ was exact, and the actual LuCI validator/renderer displayed B5+B3+B1 plus the
 serving-cell fallback without an unavailable CA row. See the dated validation
 document for hashes and bounded test details.
 
-Final release r4 fixes CA presentation cache eviction for the reviewed
+Release r4 fixes CA presentation cache eviction for the reviewed
 retryable radio states and makes valid 3CA/2CA/1CA responses replace each other
 without a page reload. It also updates the PCI Apply button directly on every
 input event without a DOM redraw, bounds EARFCN to 0..70545, retains optional
@@ -204,6 +204,12 @@ checksum-verified r4 bridge/LuCI pair was installed while the byte-identical
 ModemManager process was preserved. Runtime schema/method, served-asset,
 cooldown, stale-identity, process-ownership, bearer, and repeated-carrier
 checks passed without a live mutation.
+
+Release r5 is a presentation-only hotfix: the compact loaded-message badge no
+longer overrides the LuCI theme's foreground color, so its text remains
+readable in both light and dark themes. A static regression prevents a future
+theme-contrast override. Backend behavior, API schema 4, and modem mutations
+are unchanged.
 
 Live testing on 2026-07-27 validated the fixed grammar and recovery matrix on
 an L850-GL MBIM `2cb7:0007` running firmware

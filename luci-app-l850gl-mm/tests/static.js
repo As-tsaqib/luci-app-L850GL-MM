@@ -3359,6 +3359,12 @@ assert.match(uiCss,
 assert.match(uiCss,
 	/\.l850gl-mm-page \.l850gl-mm-compose-toggle\s*\{[\s\S]*?white-space:\s*nowrap/,
 	'Write SMS must remain a compact control in the filter toolbar');
+const loadedCountRule = uiCss.match(
+	/\.l850gl-mm-page \.l850gl-mm-sms-loaded-count\s*\{([^}]*)\}/);
+
+assert.ok(loadedCountRule, 'the compact loaded-message badge must retain its shared styling');
+assert.doesNotMatch(loadedCountRule[1], /(?:^|[;\s])color\s*:/,
+	'the loaded-message badge must inherit the LuCI theme contrast color');
 assert.match(uiCss,
 	/\.l850gl-mm-page \.l850gl-mm-sms-status-dot\.is-ready,\s*\.l850gl-mm-page \.l850gl-mm-scan-status-dot\.is-ready\s*\{[\s\S]*?background:[\s\S]*?animation:/,
 	'the ready SMS cache and cell scan must use the dynamic green status dot');
@@ -3434,7 +3440,7 @@ assert.ok(read('htdocs/luci-static/resources/l850gl-mm/widgets.js').includes(
 
 const makefile = read('Makefile');
 assert.ok(makefile.includes('PKG_VERSION:=0.6.0'));
-assert.ok(makefile.includes('PKG_RELEASE:=4'));
+assert.ok(makefile.includes('PKG_RELEASE:=5'));
 assert.ok(makefile.includes(
 	'LUCI_TITLE:=LuCI companion for the L850-GL modem managed by ModemManager'));
 assert.ok(makefile.includes(

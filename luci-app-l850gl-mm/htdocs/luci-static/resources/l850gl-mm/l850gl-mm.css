@@ -692,7 +692,6 @@
 .l850gl-mm-page .l850gl-mm-sms-loaded-count {
 	margin: 0;
 	font-weight: 600;
-	color: var(--primary-color, var(--link-color, #337ab7));
 }
 
 .l850gl-mm-page .l850gl-mm-sms-device-label {
