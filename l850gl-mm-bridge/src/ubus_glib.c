@@ -8,6 +8,7 @@
 #include "identity.h"
 #include "l850_ca.h"
 #include "l850_cell.h"
+#include "l850_mutation_policy.h"
 #include "l850_voltage.h"
 #include "network_binding.h"
 #include "radio_policy.h"
@@ -46,6 +47,9 @@
 #define L850_VOLTAGE_RETRY_SECONDS 10U
 #define L850_MUTATION_OPERATION_TIMEOUT_SECONDS 130U
 #define L850_COMMAND_TIMEOUT_SECONDS 30U
+#define L850_NVM_COMMAND_TIMEOUT_SECONDS 5U
+#define L850_NVM_VERIFY_TIMEOUT_SECONDS 10U
+#define L850_NVM_VERIFY_POLL_MS 1000U
 #define L850_REPROBE_TIMEOUT_SECONDS 45U
 #define L850_REGISTRATION_TIMEOUT_SECONDS 60U
 #define L850_REPROBE_POLL_MS 500U
@@ -195,6 +199,7 @@ typedef enum {
 
 typedef enum {
 	L850_MUTATION_PHASE_SET_COMMAND,
+	L850_MUTATION_PHASE_PRE_RESET_NVM_VERIFY,
 	L850_MUTATION_PHASE_RESET_COMMAND,
 	L850_MUTATION_PHASE_REPROBE,
 	L850_MUTATION_PHASE_REGISTRATION,
@@ -220,6 +225,8 @@ typedef struct {
 	guint32 earfcn;
 	guint16 pci;
 	guint16 band;
+	L850GLNvmVerifier nvm_verifier;
+	const gchar *verification_stage;
 	gboolean has_pci;
 	gboolean timed_out;
 	gboolean transport_lost;
@@ -3848,7 +3855,7 @@ l850_error_message(const gchar *code)
 	if (g_str_equal(code, "registration_timeout"))
 		return "The replacement modem did not register before the deadline";
 	if (g_str_equal(code, "verification_mismatch"))
-		return "The post-reset NVM or serving-cell state does not match the request";
+		return "The persisted NVM or post-reset state does not match the request";
 	if (g_str_equal(code, "operation_failed"))
 		return "The reviewed firmware command was rejected before verification";
 	return "The expert command transport is unavailable";
@@ -5059,6 +5066,9 @@ l850_mutation_complete_failure(L850MutationOperation *operation,
 	blobmsg_add_string(&buffer, "state", state);
 	blobmsg_add_u8(&buffer, "configuration_acknowledged",
 		operation->configuration_acknowledged);
+	if (operation->verification_stage != NULL)
+		blobmsg_add_string(&buffer, "verification_stage",
+			operation->verification_stage);
 	error = blobmsg_open_table(&buffer, "error");
 	blobmsg_add_string(&buffer, "code", code);
 	blobmsg_add_string(&buffer, "message", l850_error_message(code));
@@ -5111,6 +5121,22 @@ l850_mutation_error_is_uncertain(L850MutationOperation *operation,
 	return operation->timed_out || operation->transport_lost ||
 		advanced_error_has_unknown_outcome(error, remote) ||
 		remote_error_has_suffix(remote, ".Core.Cancelled");
+}
+
+static gboolean
+l850_mutation_original_is_valid(L850MutationOperation *operation,
+				GObject *source)
+{
+	const gchar *physdev;
+
+	if (operation->original == NULL || !operation->original->live ||
+	    operation->original->generation != operation->original_generation ||
+	    source != G_OBJECT(operation->original->modem) ||
+	    !l850gl_modem_attest_mutation_target(operation->original) ||
+	    !l850_firmware_allowed(operation->original))
+		return FALSE;
+	physdev = mm_modem_get_physdev(operation->original->modem);
+	return physdev != NULL && g_str_equal(physdev, operation->physdev);
 }
 
 static gboolean
@@ -5184,11 +5210,8 @@ l850_mutation_reset_ready(GObject *source, GAsyncResult *result,
 static void
 l850_mutation_start_reset(L850MutationOperation *operation)
 {
-	const gchar *physdev = mm_modem_get_physdev(operation->original->modem);
-
-	if (!operation->original->live ||
-	    !l850gl_modem_attest_mutation_target(operation->original) ||
-	    physdev == NULL || !g_str_equal(physdev, operation->physdev)) {
+	if (!l850_mutation_original_is_valid(operation,
+		G_OBJECT(operation->original->modem))) {
 		l850_mutation_complete_failure(operation,
 			"lock_applied_reset_required", "device_gone", FALSE);
 		return;
@@ -5200,6 +5223,38 @@ l850_mutation_start_reset(L850MutationOperation *operation)
 	mm_modem_command(operation->original->modem,
 		l850gl_l850_reset_command(), L850_COMMAND_TIMEOUT_SECONDS,
 		operation->cancellable, l850_mutation_reset_ready, operation);
+}
+
+static void l850_mutation_nvm_ready(GObject *source, GAsyncResult *result,
+				    gpointer user_data);
+
+static void
+l850_mutation_start_nvm_command(L850MutationOperation *operation)
+{
+	L850GLModem *modem = operation->phase ==
+		L850_MUTATION_PHASE_PRE_RESET_NVM_VERIFY ?
+		operation->original : operation->replacement;
+
+	operation->command_pending = TRUE;
+	l850_mutation_replace_cancellable(operation);
+	mm_modem_command(modem->modem, l850gl_l850_nvm_query_command(),
+		L850_NVM_COMMAND_TIMEOUT_SECONDS, operation->cancellable,
+		l850_mutation_nvm_ready, operation);
+}
+
+static void
+l850_mutation_start_nvm_verification(L850MutationOperation *operation,
+				     L850GLNvmVerifyStage stage)
+{
+	operation->phase = stage == L850GL_NVM_VERIFY_PRE_RESET ?
+		L850_MUTATION_PHASE_PRE_RESET_NVM_VERIFY :
+		L850_MUTATION_PHASE_NVM_VERIFY;
+	operation->phase_deadline = g_get_monotonic_time() +
+		((gint64)L850_NVM_VERIFY_TIMEOUT_SECONDS * G_USEC_PER_SEC);
+	operation->verification_stage = stage == L850GL_NVM_VERIFY_PRE_RESET ?
+		"pre_reset_nvm" : "post_reset_nvm";
+	l850gl_nvm_verifier_init(&operation->nvm_verifier, stage);
+	l850_mutation_start_nvm_command(operation);
 }
 
 static void
@@ -5235,7 +5290,8 @@ l850_mutation_set_ready(GObject *source, GAsyncResult *result,
 		return;
 	}
 	operation->configuration_acknowledged = TRUE;
-	l850_mutation_start_reset(operation);
+	l850_mutation_start_nvm_verification(operation,
+		L850GL_NVM_VERIFY_PRE_RESET);
 }
 
 static gboolean
@@ -5250,20 +5306,6 @@ l850_modem_is_registered(L850GLModem *modem)
 	default:
 		return FALSE;
 	}
-}
-
-static void l850_mutation_nvm_ready(GObject *source, GAsyncResult *result,
-				    gpointer user_data);
-
-static void
-l850_mutation_start_nvm_verification(L850MutationOperation *operation)
-{
-	operation->phase = L850_MUTATION_PHASE_NVM_VERIFY;
-	operation->command_pending = TRUE;
-	l850_mutation_replace_cancellable(operation);
-	mm_modem_command(operation->replacement->modem,
-		l850gl_l850_nvm_query_command(), L850_COMMAND_TIMEOUT_SECONDS,
-		operation->cancellable, l850_mutation_nvm_ready, operation);
 }
 
 static L850GLModem *
@@ -5306,8 +5348,38 @@ l850_mutation_poll(gpointer user_data)
 	if (operation->timed_out || operation->transport_lost ||
 	    operation->ubus->stopping) {
 		operation->poll_source = 0U;
-		l850_mutation_complete_failure(operation, "outcome_unknown",
+		l850_mutation_complete_failure(operation,
+			operation->phase ==
+			L850_MUTATION_PHASE_PRE_RESET_NVM_VERIFY ?
+			"lock_applied_reset_required" : "outcome_unknown",
 			"outcome_unknown", FALSE);
+		return G_SOURCE_REMOVE;
+	}
+	if (operation->phase == L850_MUTATION_PHASE_PRE_RESET_NVM_VERIFY ||
+	    operation->phase == L850_MUTATION_PHASE_NVM_VERIFY) {
+		gboolean pre_reset = operation->phase ==
+			L850_MUTATION_PHASE_PRE_RESET_NVM_VERIFY;
+		GObject *source = pre_reset ?
+			G_OBJECT(operation->original->modem) :
+			G_OBJECT(operation->replacement->modem);
+
+		operation->poll_source = 0U;
+		if (now >= operation->phase_deadline) {
+			l850_mutation_complete_failure(operation,
+				pre_reset ? "lock_applied_reset_required" :
+				"verification_mismatch",
+				"verification_mismatch", FALSE);
+			return G_SOURCE_REMOVE;
+		}
+		if ((pre_reset && !l850_mutation_original_is_valid(operation,
+			source)) || (!pre_reset &&
+			!l850_mutation_replacement_is_valid(operation, source))) {
+			l850_mutation_complete_failure(operation,
+				pre_reset ? "lock_applied_reset_required" :
+				"outcome_unknown", "outcome_unknown", FALSE);
+			return G_SOURCE_REMOVE;
+		}
+		l850_mutation_start_nvm_command(operation);
 		return G_SOURCE_REMOVE;
 	}
 	if (operation->phase == L850_MUTATION_PHASE_REPROBE) {
@@ -5342,7 +5414,8 @@ l850_mutation_poll(gpointer user_data)
 				 G_USEC_PER_SEC);
 			operation->poll_source = 0U;
 			if (l850_modem_is_registered(replacement))
-				l850_mutation_start_nvm_verification(operation);
+				l850_mutation_start_nvm_verification(operation,
+					L850GL_NVM_VERIFY_POST_RESET);
 			else
 				operation->poll_source = g_timeout_add(
 					L850_REGISTRATION_POLL_MS,
@@ -5367,7 +5440,8 @@ l850_mutation_poll(gpointer user_data)
 		}
 		if (l850_modem_is_registered(operation->replacement)) {
 			operation->poll_source = 0U;
-			l850_mutation_start_nvm_verification(operation);
+			l850_mutation_start_nvm_verification(operation,
+				L850GL_NVM_VERIFY_POST_RESET);
 			return G_SOURCE_REMOVE;
 		}
 		if (now >= operation->phase_deadline) {
@@ -5450,24 +5524,61 @@ l850_mutation_nvm_ready(GObject *source, GAsyncResult *result,
 	g_autofree gchar *response = NULL;
 	struct L850GLL850LockState lock_state;
 	enum L850GLL850CellParseResult parse_result;
+	L850GLNvmDecision decision;
+	gboolean matches;
+	gboolean pre_reset = operation->phase ==
+		L850_MUTATION_PHASE_PRE_RESET_NVM_VERIFY;
 
 	response = mm_modem_command_finish(MM_MODEM(source), result, &error);
 	operation->command_pending = FALSE;
-	if (!l850_mutation_replacement_is_valid(operation, source) ||
+	if ((operation->phase != L850_MUTATION_PHASE_PRE_RESET_NVM_VERIFY &&
+	     operation->phase != L850_MUTATION_PHASE_NVM_VERIFY) ||
+	    (pre_reset && !l850_mutation_original_is_valid(operation, source)) ||
+	    (!pre_reset &&
+	     !l850_mutation_replacement_is_valid(operation, source)) ||
 	    l850_mutation_error_is_uncertain(operation, error) ||
 	    error != NULL || response == NULL) {
-		l850_mutation_complete_failure(operation, "outcome_unknown",
-			"outcome_unknown", FALSE);
+		l850_mutation_complete_failure(operation,
+			pre_reset ? "lock_applied_reset_required" :
+			"outcome_unknown", "outcome_unknown", FALSE);
 		return;
 	}
 	parse_result = l850gl_l850_nvm_parse(response, strlen(response),
 		&lock_state);
-	if (parse_result != L850GL_L850_CELL_PARSE_OK ||
-	    !l850gl_l850_lock_state_matches(&lock_state,
-		operation->type == L850_MUTATION_CLEAR, operation->earfcn,
-		operation->has_pci, operation->pci)) {
+	if (parse_result != L850GL_L850_CELL_PARSE_OK) {
+		(void)l850gl_nvm_verifier_observe(&operation->nvm_verifier,
+			L850GL_NVM_OBSERVATION_INVALID);
 		l850_mutation_complete_failure(operation,
+			pre_reset ? "lock_applied_reset_required" :
+			"verification_mismatch", "malformed_response", FALSE);
+		return;
+	}
+	matches = l850gl_l850_lock_state_matches(&lock_state,
+		operation->type == L850_MUTATION_CLEAR, operation->earfcn,
+		operation->has_pci, operation->pci);
+	decision = l850gl_nvm_verifier_observe(&operation->nvm_verifier,
+		matches ? L850GL_NVM_OBSERVATION_MATCH :
+		L850GL_NVM_OBSERVATION_MISMATCH);
+	if (decision == L850GL_NVM_DECISION_FAIL_INVALID) {
+		l850_mutation_complete_failure(operation,
+			pre_reset ? "lock_applied_reset_required" :
+			"verification_mismatch", "malformed_response", FALSE);
+		return;
+	}
+	if (g_get_monotonic_time() >= operation->phase_deadline) {
+		l850_mutation_complete_failure(operation,
+			pre_reset ? "lock_applied_reset_required" :
 			"verification_mismatch", "verification_mismatch", FALSE);
+		return;
+	}
+	if (decision == L850GL_NVM_DECISION_RETRY) {
+		operation->poll_source = g_timeout_add(L850_NVM_VERIFY_POLL_MS,
+			l850_mutation_poll, operation);
+		return;
+	}
+	operation->verification_stage = NULL;
+	if (pre_reset) {
+		l850_mutation_start_reset(operation);
 		return;
 	}
 	if (operation->type == L850_MUTATION_CLEAR) {

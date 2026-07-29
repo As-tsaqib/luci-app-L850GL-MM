@@ -266,12 +266,16 @@ state query: AT@NVM:DYN_CPS.NAS_ASM.FREQ_LOCK_PARAMS.*??
 
 Set and clear require the exact response
 `Frequency Lock Configuration Success CPS_MSG_TYPE_ASM_EM_CTRL_CNF`; a bare
-`OK` is rejected. `CFUN=15` normally completes with `Core.Cancelled` after
-dispatch because the modem object disappears. The coordinator retains only
-internal hardware-slot correlation data, observes the new attested object,
-waits for registered/connected state, then queries NVM. Set additionally runs
-XMCI and matches the serving EARFCN and, when requested, PCI. Clear succeeds
-only when the five-field NVM clear sentinel is exact.
+`OK` is rejected. Acknowledgement does not immediately trigger reset. The
+coordinator queries the bounded NVM state once per second for at most ten
+seconds and requires two consecutive exact matches. It then sends one
+`CFUN=15`, which normally completes with `Core.Cancelled` because the modem
+object disappears. The coordinator retains only internal hardware-slot
+correlation data, observes the new attested object, waits for
+registered/connected state, then polls NVM for at most ten seconds. A valid
+but not-yet-converged state repeats only the read-only query. Set additionally
+runs XMCI and matches the serving EARFCN and, when requested, PCI. Clear
+succeeds only when the five-field NVM clear sentinel is exact.
 
 The observed target-firmware NVM invariants are:
 
@@ -283,8 +287,10 @@ inter_freq_lock_support=0 and frequency/PCI=65535 when clear
 ```
 
 Unexpected response shape, state, replacement identity, attestation, NVM, or
-serving cell fails closed. Timeout or transport loss after dispatch becomes
-`outcome_unknown` and is never retried automatically.
+serving cell fails closed. A verification failure identifies
+`pre_reset_nvm` or `post_reset_nvm`. Timeout or transport loss after dispatch
+becomes `outcome_unknown`; set, clear, and reset are never retried
+automatically.
 
 ## State policy
 
@@ -309,9 +315,11 @@ The transition policy allows a reviewed flow from available to scan-ready,
 then dispatch/reset, and finally only a verified or explicit failure state.
 The runtime revalidates immediately before dispatch, marks post-dispatch
 uncertainty, observes object replacement read-only, waits for registration,
-and compares NVM plus serving-cell postconditions. `applied_verified` requires
-matching NVM and serving EARFCN/PCI; `cleared_verified` requires the exact NVM
-clear sentinel. Neither state is inferred from command acknowledgement alone.
+requires the pre-reset persistence barrier, and compares bounded post-reset
+NVM plus serving-cell postconditions. `applied_verified` requires matching NVM
+and serving EARFCN/PCI; `cleared_verified` requires the exact NVM clear
+sentinel. Neither state nor reset dispatch is inferred from command
+acknowledgement alone.
 
 ## Why the previous implementation is not copied
 

@@ -190,12 +190,15 @@ immediate blind resend.
 
 PCI mutation exists only for exact firmware `18500.5001.00.05.27.30`. Typed
 integers build one reviewed set tuple or the fixed clear tuple; exact command
-acknowledgement is followed by fixed `CFUN=15`. The coordinator keeps the
-hardware-slot mutation exclusion across object replacement, waits for
-registration, and parses a fixed NVM query. Set additionally requires a
-matching XMCI serving EARFCN/PCI; clear requires the exact NVM clear sentinel.
-Unexpected state and post-dispatch transport uncertainty fail closed without
-automatic retry.
+acknowledgement starts a ten-second read-only persistence barrier. Reset is
+dispatched only after two matching NVM reads one second apart, then exactly one
+fixed `CFUN=15` is sent. The coordinator keeps the hardware-slot mutation
+exclusion across object replacement, waits for registration, and polls the
+fixed NVM query for at most ten seconds to tolerate bounded post-reset
+convergence. Set additionally requires a matching XMCI serving EARFCN/PCI;
+clear requires the exact NVM clear sentinel. Only NVM reads are repeated;
+set, clear, and reset are never resent automatically. Unexpected state and
+post-dispatch transport uncertainty fail closed.
 
 ## Asynchronous lifetime
 

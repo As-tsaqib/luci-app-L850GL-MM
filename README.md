@@ -88,9 +88,11 @@ Lock contains:
   PCI and EARFCN against live supported bands. For the single allowlisted
   firmware `18500.5001.00.05.27.30`, `Core.Unsupported` falls back to a fixed
   XMCI query through ModemManager. Scans are single-flight per modem and have
-  a five-second cooldown measured from completion. Set/clear use fixed typed tuples, `CFUN=15`,
-  exact hardware-slot reprobe correlation, registration wait, NVM verification,
-  and serving-cell verification. Every other firmware fails closed.
+  a five-second cooldown measured from completion. Set/clear use fixed typed
+  tuples and require two matching NVM reads one second apart before the single
+  fixed `CFUN=15`. The coordinator then performs exact hardware-slot reprobe
+  correlation, registration wait, bounded post-reset NVM polling, and
+  serving-cell verification. Every other firmware fails closed.
 
 SMS uses ModemManager Messaging/Sms only. The cache consumes Added, Deleted,
 and property-change signals, reconciles every 30 seconds, keeps the newest
@@ -147,12 +149,13 @@ opaque ID, modem generation, and (for SMS) messaging generation are present.
 
 ## Packaging
 
-The current source uses the following r5 package metadata. The router retains
-the accepted r4 pair plus the equivalent CSS hot patch until r5 is installed:
+The current source uses the following r6 package metadata. The router retains
+the installed r5 pair until the checksum-verified r6 candidate passes SDK and
+live mutation acceptance:
 
 ```text
-l850gl-mm-bridge   0.6.0-r5 native libmm-glib/GDBus to ubus bridge
-luci-app-l850gl-mm 0.6.0-r5 Overview, Lock, and SMS views
+l850gl-mm-bridge   0.6.0-r6 native libmm-glib/GDBus to ubus bridge
+luci-app-l850gl-mm 0.6.0-r6 Overview, Lock, and SMS views
 ```
 
 The retired Status, old Advanced, Settings, radio toggle, generic reset,
@@ -210,6 +213,12 @@ longer overrides the LuCI theme's foreground color, so its text remains
 readable in both light and dark themes. A static regression prevents a future
 theme-contrast override. Backend behavior, API schema 4, and modem mutations
 are unchanged.
+
+Release r6 hardens PCI set/clear persistence around the single reset. It
+requires two consecutive exact pre-reset NVM observations, polls a valid
+post-reset mismatch for a bounded window, reports the failing verification
+stage, and never resends the write or reset. Its pure policy tests model
+delayed commit, streak reset, malformed input, and post-reset convergence.
 
 Live testing on 2026-07-27 validated the fixed grammar and recovery matrix on
 an L850-GL MBIM `2cb7:0007` running firmware

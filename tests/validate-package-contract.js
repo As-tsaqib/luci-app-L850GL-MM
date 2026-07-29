@@ -14,7 +14,7 @@ function absolute(relativePath) {
 }
 
 function read(relativePath) {
-	return fs.readFileSync(absolute(relativePath), 'utf8');
+	return fs.readFileSync(absolute(relativePath), 'utf8').replace(/\r\n/g, '\n');
 }
 
 function filesUnder(relativePath) {
@@ -41,7 +41,7 @@ for (const retired of [
 const bridgeMakefile = read('l850gl-mm-bridge/Makefile');
 assert.match(bridgeMakefile, /^PKG_NAME:=l850gl-mm-bridge$/m);
 assert.match(bridgeMakefile, /^PKG_VERSION:=0\.6\.0$/m);
-assert.match(bridgeMakefile, /^PKG_RELEASE:=5$/m);
+assert.match(bridgeMakefile, /^PKG_RELEASE:=6$/m);
 assert.match(bridgeMakefile,
 	/^\s*URL:=https:\/\/github\.com\/As-tsaqib\/luci-app-L850GL-MM$/m);
 assert.match(bridgeMakefile, /^\s*CONFLICTS:=fibocom-mm-bridge$/m,
@@ -372,6 +372,58 @@ assert.match(ubusSource, /l850_modem_has_active_scan\s*\(/,
 	'expert cell scan must enforce one active scan per modem');
 assert.match(ubusSource, /standard-modemmanager-get-cell-info/);
 assert.match(ubusSource, /l850gl_l850_nvm_parse\s*\(/);
+assert.match(ubusSource,
+	/#define L850_NVM_COMMAND_TIMEOUT_SECONDS 5U/,
+	'NVM verification reads must use a short bounded command timeout');
+assert.match(ubusSource,
+	/#define L850_NVM_VERIFY_TIMEOUT_SECONDS 10U/,
+	'each NVM verification stage must have a bounded ten-second window');
+assert.match(ubusSource, /#define L850_NVM_VERIFY_POLL_MS 1000U/,
+	'NVM verification retries must be spaced by one second');
+assert.match(l850MutationPolicyHeader,
+	/#define L850GL_NVM_PRE_RESET_REQUIRED_MATCHES 2U/,
+	'pre-reset persistence requires two consecutive exact NVM reads');
+assert.match(l850MutationPolicyHeader,
+	/#define L850GL_NVM_POST_RESET_REQUIRED_MATCHES 1U/,
+	'post-reset persistence requires one exact fresh NVM read');
+const mutationSetReadyStart = ubusSource.indexOf(
+	'\nstatic void\nl850_mutation_set_ready(');
+const mutationSetReadyEnd = ubusSource.indexOf(
+	'\nstatic gboolean\nl850_modem_is_registered(', mutationSetReadyStart);
+assert.ok(mutationSetReadyStart > 0 &&
+	mutationSetReadyEnd > mutationSetReadyStart,
+	'the PCI command acknowledgement callback must be discoverable');
+const mutationSetReady = ubusSource.slice(mutationSetReadyStart,
+	mutationSetReadyEnd);
+assert.match(mutationSetReady,
+	/operation->configuration_acknowledged\s*=\s*TRUE;[\s\S]*?L850GL_NVM_VERIFY_PRE_RESET/,
+	'exact acknowledgement must enter pre-reset NVM verification');
+assert.doesNotMatch(mutationSetReady, /l850_mutation_start_reset\s*\(/,
+	'acknowledgement alone must never dispatch reset');
+const mutationNvmReadyStart = ubusSource.lastIndexOf(
+	'\nstatic void\nl850_mutation_nvm_ready(');
+const mutationNvmReadyEnd = ubusSource.indexOf(
+	'\nstatic gboolean\nl850_mutation_timeout(', mutationNvmReadyStart);
+assert.ok(mutationNvmReadyStart > 0 &&
+	mutationNvmReadyEnd > mutationNvmReadyStart,
+	'the concrete NVM verification callback must be discoverable');
+const mutationNvmReady = ubusSource.slice(mutationNvmReadyStart,
+	mutationNvmReadyEnd);
+assert.match(mutationNvmReady, /l850gl_nvm_verifier_observe\s*\(/);
+assert.match(mutationNvmReady,
+	/g_timeout_add\(L850_NVM_VERIFY_POLL_MS,[\s\S]*?l850_mutation_poll/,
+	'valid NVM mismatch must use the bounded coordinator poll');
+assert.match(mutationNvmReady,
+	/decision == L850GL_NVM_DECISION_RETRY[\s\S]*?return;/,
+	'NVM mismatch must retry only the read-only verification query');
+assert.match(mutationNvmReady,
+	/operation->verification_stage = NULL;[\s\S]*?if \(pre_reset\)[\s\S]*?l850_mutation_start_reset/,
+	'reset may start only after the pre-reset verifier is ready');
+assert.strictEqual((ubusSource.match(
+	/l850_mutation_start_reset\(operation\);/g) || []).length, 1,
+	'the coordinator must have exactly one reset transition and no fallback');
+assert.match(ubusSource, /"pre_reset_nvm"\s*:\s*"post_reset_nvm"/,
+	'failures must identify the bounded NVM verification stage');
 assert.match(ubusSource, /L850GL_L850_STATE_APPLIED_VERIFIED|applied_verified/);
 assert.match(ubusSource, /cleared_verified/);
 assert.match(ubusSource, /reprobe_timeout/);
@@ -526,7 +578,7 @@ assert.match(init, /command "\$PROG" --foreground/);
 
 const luciMakefile = read('luci-app-l850gl-mm/Makefile');
 assert.match(luciMakefile, /^PKG_VERSION:=0\.6\.0$/m);
-assert.match(luciMakefile, /^PKG_RELEASE:=5$/m);
+assert.match(luciMakefile, /^PKG_RELEASE:=6$/m);
 assert.match(luciMakefile, /^LUCI_URL:=https:\/\/github\.com\/As-tsaqib\/luci-app-L850GL-MM$/m);
 assert.match(luciMakefile, /^LUCI_MAINTAINER:=As Tsaqib <[^>]+>$/m);
 for (const dependency of [
@@ -584,6 +636,7 @@ const staticWorkflow = read('.github/workflows/static.yml');
 assert.match(staticWorkflow, /run-host-ubus-blob\.sh/);
 assert.match(staticWorkflow, /run-host-sms-dedupe\.sh/);
 assert.match(staticWorkflow, /run-host-cell-parser\.sh/);
+assert.match(staticWorkflow, /run-host-cell-mutation-policy\.sh/);
 assert.match(staticWorkflow, /run-host-ca-parser\.sh/);
 assert.match(staticWorkflow, /run-host-voltage-parser\.sh/);
 assert.match(staticWorkflow, /make check/);
@@ -604,10 +657,10 @@ assert.ok(sdkWorkflow.includes("grep -Fx 'AT+CBC'"),
 	'base/expert SDK verification must gate the reviewed voltage command');
 assert.strictEqual((sdkWorkflow.match(/API_Schema=4/g) || []).length, 2,
 	'both SDK artifact manifests must identify schema 4');
-assert.strictEqual((sdkWorkflow.match(/Release=0\.6\.0-r5/g) || []).length, 2,
-	'both SDK artifact manifests must identify release 0.6.0-r5');
-assert.ok(!sdkWorkflow.includes('0.6.0-r4'),
-	'the final SDK workflow must not rebuild a different r4 payload');
+assert.strictEqual((sdkWorkflow.match(/Release=0\.6\.0-r6/g) || []).length, 2,
+	'both SDK artifact manifests must identify release 0.6.0-r6');
+assert.ok(!sdkWorkflow.includes('0.6.0-r5'),
+	'the final SDK workflow must not rebuild a different r5 payload');
 assert.ok(!sdkWorkflow.includes('API_Schema=2'));
 assert.ok(!sdkWorkflow.includes('API_Schema=3'));
 assert.ok(!sdkWorkflow.includes('luci-app-fibocom-esim'));

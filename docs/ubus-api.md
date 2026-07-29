@@ -396,10 +396,13 @@ fixtures; no value is guessed from 3GPP tables or reference-project code.
 Confirmation is mandatory. EARFCN must map to a live supported band; optional
 PCI is 0..503. The implementation validates typed input, exact hardware,
 firmware, cooldown, and the shared mutation lock, then dispatches only the
-compiled-in set or clear tuple. Exact command acknowledgement is followed by
-fixed reset, hardware-slot replacement correlation, and registration. NVM is
-always verified; set additionally verifies the serving EARFCN and optional
-PCI.
+compiled-in set or clear tuple. Exact command acknowledgement starts a
+ten-second pre-reset persistence barrier: two consecutive matching NVM reads
+one second apart are required before one fixed reset. Hardware-slot
+replacement correlation and registration follow. NVM is then polled for at
+most ten seconds; set additionally verifies the serving EARFCN and optional
+PCI. Only the read-only NVM query may repeat. The set/clear tuple and reset are
+never resent automatically.
 
 The ubus request remains deferred through verification. Success therefore
 contains the replacement's new opaque identity, not the stale input identity:
@@ -436,7 +439,12 @@ The state policy models `available`, `scan_ready`,
 `verification_mismatch`, and `outcome_unknown`. Command acknowledgement alone
 never yields a verified state. Transport loss, timeout, or ambiguous reset
 completion after dispatch is non-retryable `outcome_unknown` unless the
-coordinator can establish all postconditions.
+coordinator can establish all postconditions. Failures during either bounded
+NVM window include top-level `verification_stage` as `pre_reset_nvm` or
+`post_reset_nvm`; malformed data fails immediately, while a valid mismatch is
+polled only until that stage's deadline.
+The existing 130-second overall mutation timeout remains authoritative and may
+end the deferred request before the sum of all worst-case phase deadlines.
 
 ## ACL split
 

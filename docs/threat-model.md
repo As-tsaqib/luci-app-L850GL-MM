@@ -145,9 +145,11 @@ length, bad name termination, duplicate fields, and malformed session data.
 - Commands are compiled-in fixed grammar built only from typed bounded
   integers; no browser command, path, wildcard, RAT, SIM ID, or band encoding
   is accepted.
-- Exact acknowledgement is followed by fixed reset, re-attested hardware-slot
-  replacement, registration, NVM state, and (for set) serving-cell checks.
-  No post-reprobe write is issued.
+- Exact acknowledgement enters a bounded read-only persistence barrier. Two
+  matching NVM reads one second apart are required before the single fixed
+  reset. Re-attested hardware-slot replacement and registration are followed
+  by at most ten seconds of read-only NVM polling and, for set, a serving-cell
+  check. No post-reprobe write is issued, and set/clear/reset are never resent.
 - A mutation cannot report verified success until all applicable
   postconditions pass; post-dispatch ambiguity is `outcome_unknown` with no
   automatic retry.

@@ -5,7 +5,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=l850gl-mm-bridge
 PKG_VERSION:=0.6.0
-PKG_RELEASE:=5
+PKG_RELEASE:=6
 
 PKG_MAINTAINER:=As Tsaqib <0xfiqks@gmail.com>
 PKG_LICENSE:=GPL-2.0-or-later
