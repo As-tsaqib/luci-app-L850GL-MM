@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Ownership boundary
 
-Version 1.0.0-alpha is a companion, not a modem connection stack.
+Version 1.0.0 is a companion, not a modem connection stack.
 
 ```text
 LuCI: Overview / Lock / SMS
@@ -54,7 +54,7 @@ ModemManager remains authoritative for:
 - standard `GetCellInfo` when the plugin supports it.
 
 netifd remains authoritative for persistent connection settings and runtime
-network orchestration. The 0.6 UI has no Settings page and does not expose APN,
+network orchestration. The 1.0 UI has no Settings page and does not expose APN,
 addresses, routes, gateways, DNS, or credentials. The narrow `set_modes` path
 resolves the unique bound `proto modemmanager` interface from the modem's
 internal Device value, writes only `allowedmode` and `preferredmode`, commits
@@ -242,7 +242,7 @@ transport and has no expert object.
 
 ## Retired architecture
 
-Version 1.0.0-alpha has no Status or Settings page, old Advanced page, direct radio
+Version 1.0.0 has no Status or Settings page, old Advanced page, direct radio
 toggle, generic reset, SIM-slot switch, eSIM addon, diagnostic UI, shadow
 daemon, custom netifd protocol, or modem rescan action. The earlier shadow
 implementation remains recoverable through Git history/tag; it is not part of

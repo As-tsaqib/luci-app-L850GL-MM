@@ -1,0 +1,701 @@
+# SPDX-FileCopyrightText: 2026 As Tsaqib
+# SPDX-License-Identifier: Apache-2.0
+
+name: Release bundles
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - release/1.0.0
+    tags:
+      - 'v1.0.0'
+    paths:
+      - '.github/workflows/release-bundle.yml'
+      - 'packaging/**'
+      - 'l850gl-mm-bridge/**'
+      - 'luci-app-l850gl-mm/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-bundle-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  prepare:
+    name: Prepare exact build matrix
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+
+    steps:
+      - name: Select smoke or release targets
+        id: matrix
+        shell: bash
+        env:
+          RELEASE_REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+
+          all_arches=(
+            aarch64_generic
+            aarch64_cortex-a53
+            arm_cortex-a7_neon-vfpv4
+            mipsel_24kc
+            x86_64
+          )
+          if [[ "${RELEASE_REF}" == refs/heads/release/1.0.0 ]]; then
+            arches=(x86_64)
+          else
+            arches=("${all_arches[@]}")
+          fi
+
+          json='{"include":['
+          separator=''
+          for arch in "${arches[@]}"; do
+            case "${arch}" in
+              aarch64_generic)
+                target='armsr'
+                subtarget='armv8'
+                target_symbol='TARGET_armsr'
+                subtarget_symbol='TARGET_armsr_armv8'
+                ;;
+              aarch64_cortex-a53)
+                target='mediatek'
+                subtarget='filogic'
+                target_symbol='TARGET_mediatek'
+                subtarget_symbol='TARGET_mediatek_filogic'
+                ;;
+              arm_cortex-a7_neon-vfpv4)
+                target='ipq40xx'
+                subtarget='generic'
+                target_symbol='TARGET_ipq40xx'
+                subtarget_symbol='TARGET_ipq40xx_generic'
+                ;;
+              mipsel_24kc)
+                target='ramips'
+                subtarget='mt7621'
+                target_symbol='TARGET_ramips'
+                subtarget_symbol='TARGET_ramips_mt7621'
+                ;;
+              x86_64)
+                target='x86'
+                subtarget='64'
+                target_symbol='TARGET_x86'
+                subtarget_symbol='TARGET_x86_64'
+                ;;
+              *) exit 1 ;;
+            esac
+
+            for openwrt_version in 24.10.8 25.12.5; do
+              case "${openwrt_version}" in
+                24.10.8)
+                  openwrt_major='openwrt24'
+                  package_format='ipk'
+                  modemmanager_ref='23abaa6f3b0fdfd76b570031107e5718476ff0c8'
+                  modemmanager_version='1.22.0'
+                  modemmanager_release='20'
+                  ;;
+                25.12.5)
+                  openwrt_major='openwrt25'
+                  package_format='apk'
+                  modemmanager_ref='d011c4fb8af70795928937ad5195479cc4ff6de9'
+                  modemmanager_version='1.24.0'
+                  modemmanager_release='10'
+                  ;;
+                *) exit 1 ;;
+              esac
+              json="${json}${separator}{\"arch\":\"${arch}\",\"target\":\"${target}\",\"subtarget\":\"${subtarget}\",\"target_symbol\":\"${target_symbol}\",\"subtarget_symbol\":\"${subtarget_symbol}\",\"openwrt_version\":\"${openwrt_version}\",\"openwrt_major\":\"${openwrt_major}\",\"package_format\":\"${package_format}\",\"modemmanager_ref\":\"${modemmanager_ref}\",\"modemmanager_version\":\"${modemmanager_version}\",\"modemmanager_release\":\"${modemmanager_release}\"}"
+              separator=','
+            done
+          done
+          json="${json}]}"
+          [ -n "${separator}" ]
+          echo "matrix=${json}" >> "${GITHUB_OUTPUT}"
+          echo "${json}"
+
+  build:
+    name: ${{ matrix.openwrt_version }} / ${{ matrix.arch }}
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
+    env:
+      APP_VERSION: '1.0.0'
+      APP_RELEASE: '1'
+      ARCH: ${{ matrix.arch }}
+      TARGET: ${{ matrix.target }}
+      SUBTARGET: ${{ matrix.subtarget }}
+      TARGET_SYMBOL: ${{ matrix.target_symbol }}
+      SUBTARGET_SYMBOL: ${{ matrix.subtarget_symbol }}
+      OPENWRT_VERSION: ${{ matrix.openwrt_version }}
+      OPENWRT_MAJOR: ${{ matrix.openwrt_major }}
+      PACKAGE_FORMAT: ${{ matrix.package_format }}
+      MODEMMANAGER_REF: ${{ matrix.modemmanager_ref }}
+      MODEMMANAGER_VERSION: ${{ matrix.modemmanager_version }}
+      MODEMMANAGER_RELEASE: ${{ matrix.modemmanager_release }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Resolve official SDK and provenance
+        id: sdk
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p logs dist
+          base_url="https://downloads.openwrt.org/releases/${OPENWRT_VERSION}/targets/${TARGET}/${SUBTARGET}"
+          index="$(curl --fail --silent --show-error --location --retry 5 --retry-all-errors "${base_url}/")"
+          expected_prefix="openwrt-sdk-${OPENWRT_VERSION}-${TARGET}-${SUBTARGET//\//-}_"
+          mapfile -t names < <(
+            printf '%s' "${index}" |
+              grep -oE 'openwrt-sdk-[^"< ]+\.tar\.(zst|xz)' |
+              sort -u | grep -F "${expected_prefix}"
+          )
+          [ "${#names[@]}" -eq 1 ]
+          filename="${names[0]}"
+
+          sums="$(curl --fail --silent --show-error --location --retry 5 --retry-all-errors "${base_url}/sha256sums")"
+          mapfile -t hashes < <(
+            awk -v name="${filename}" '$2 == name || $2 == ("*" name) { print $1 }' <<< "${sums}" | sort -u
+          )
+          [ "${#hashes[@]}" -eq 1 ]
+          [[ "${hashes[0]}" =~ ^[0-9a-f]{64}$ ]]
+
+          feeds_name='feeds.buildinfo'
+          feeds_hash="$(awk -v name="${feeds_name}" '$2 == name || $2 == ("*" name) { print $1 }' <<< "${sums}")"
+          [[ "${feeds_hash}" =~ ^[0-9a-f]{64}$ ]]
+          curl --fail --silent --show-error --location --retry 5 --retry-all-errors \
+            --output logs/feeds.buildinfo "${base_url}/${feeds_name}"
+          printf '%s *%s\n' "${feeds_hash}" logs/feeds.buildinfo | sha256sum --check -
+          official_packages_ref="$(sed -nE 's#^src-git packages .*\^([0-9a-f]{40})$#\1#p' logs/feeds.buildinfo)"
+          [[ "${official_packages_ref}" =~ ^[0-9a-f]{40}$ ]]
+          if [ "${OPENWRT_VERSION}" = '24.10.8' ]; then
+            [ "${official_packages_ref}" = "${MODEMMANAGER_REF}" ]
+          fi
+
+          archive="${RUNNER_TEMP}/openwrt-sdk-cache/${filename}"
+          mkdir -p "$(dirname "${archive}")"
+          {
+            echo "filename=${filename}"
+            echo "url=${base_url}/${filename}"
+            echo "sha256=${hashes[0]}"
+            echo "archive=${archive}"
+          } >> "${GITHUB_OUTPUT}"
+          {
+            echo "OpenWrt=${OPENWRT_VERSION}"
+            echo "Target=${TARGET}/${SUBTARGET}"
+            echo "Package_Architecture=${ARCH}"
+            echo "Package_Format=${PACKAGE_FORMAT}"
+            echo "SDK=${base_url}/${filename}"
+            echo "SDK_SHA256=${hashes[0]}"
+            echo "Official_Packages_Feed=${official_packages_ref}"
+            echo "ModemManager_Recipe_Commit=${MODEMMANAGER_REF}"
+          } > logs/sdk-resolution.txt
+
+      - name: Restore verified SDK cache
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ${{ steps.sdk.outputs.archive }}
+          key: sdk-${{ runner.os }}-${{ matrix.openwrt_version }}-${{ matrix.target }}-${{ matrix.subtarget }}-${{ steps.sdk.outputs.sha256 }}
+
+      - name: Download and verify SDK
+        shell: bash
+        env:
+          ARCHIVE: ${{ steps.sdk.outputs.archive }}
+          EXPECTED_SHA256: ${{ steps.sdk.outputs.sha256 }}
+          SDK_URL: ${{ steps.sdk.outputs.url }}
+        run: |
+          set -euo pipefail
+          if [ -f "${ARCHIVE}" ] && ! printf '%s *%s\n' "${EXPECTED_SHA256}" "${ARCHIVE}" | sha256sum --check -; then
+            rm -f "${ARCHIVE}"
+          fi
+          if [ ! -f "${ARCHIVE}" ]; then
+            curl --fail --show-error --location --retry 5 --retry-all-errors \
+              --output "${ARCHIVE}.part" "${SDK_URL}"
+            mv "${ARCHIVE}.part" "${ARCHIVE}"
+          fi
+          printf '%s *%s\n' "${EXPECTED_SHA256}" "${ARCHIVE}" |
+            tee logs/sdk-SHA256SUMS | sha256sum --check -
+
+      - name: Install SDK host dependencies
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            bison build-essential ca-certificates curl file flex g++-multilib \
+            gawk gcc-multilib gettext git libelf-dev libncurses-dev libssl-dev \
+            patch pkgconf python3 python3-setuptools rsync unzip zip zlib1g-dev zstd
+
+      - name: Extract SDK
+        id: tree
+        shell: bash
+        env:
+          ARCHIVE: ${{ steps.sdk.outputs.archive }}
+        run: |
+          set -euo pipefail
+          sdk_root="${RUNNER_TEMP}/openwrt-sdk"
+          mkdir -p "${sdk_root}"
+          case "${ARCHIVE}" in
+            *.tar.zst) tar --zstd -xf "${ARCHIVE}" -C "${sdk_root}" --strip-components=1 ;;
+            *.tar.xz) tar -xJf "${ARCHIVE}" -C "${sdk_root}" --strip-components=1 ;;
+            *) exit 1 ;;
+          esac
+          test -x "${sdk_root}/scripts/feeds"
+          test -x "${sdk_root}/scripts/config"
+          test -f "${sdk_root}/rules.mk"
+          echo "root=${sdk_root}" >> "${GITHUB_OUTPUT}"
+
+      - name: Prepare pinned feeds and expert packages
+        shell: bash
+        env:
+          SDK_ROOT: ${{ steps.tree.outputs.root }}
+        run: |
+          set -euo pipefail
+          cd "${SDK_ROOT}"
+          cp feeds.conf.default feeds.conf
+          if grep -Ev \
+            '^[[:space:]]*(#|$)|^[[:space:]]*src-git[-a-z]*([[:space:]]+--[^[:space:]]+)*[[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:]]+\^[0-9a-f]{40}[[:space:]]*$' \
+            feeds.conf; then
+            echo 'Every SDK feed must be pinned to a full Git commit' >&2
+            exit 1
+          fi
+          ./scripts/feeds update -a 2>&1 | tee "${GITHUB_WORKSPACE}/logs/feeds-update.log"
+
+          modemmanager_tree="${RUNNER_TEMP}/openwrt-packages-modemmanager"
+          git init -q "${modemmanager_tree}"
+          git -C "${modemmanager_tree}" remote add origin https://github.com/openwrt/packages.git
+          git -C "${modemmanager_tree}" fetch --depth 1 origin "${MODEMMANAGER_REF}"
+          git -C "${modemmanager_tree}" checkout --detach FETCH_HEAD
+          [ "$(git -C "${modemmanager_tree}" rev-parse HEAD)" = "${MODEMMANAGER_REF}" ]
+          recipe="${modemmanager_tree}/net/modemmanager/Makefile"
+          grep -Fqx "PKG_VERSION:=${MODEMMANAGER_VERSION}" "${recipe}"
+          grep -Fqx "PKG_RELEASE:=${MODEMMANAGER_RELEASE}" "${recipe}"
+
+          rm -rf feeds/packages/net/modemmanager
+          cp -a "${modemmanager_tree}/net/modemmanager" feeds/packages/net/
+          python3 "${GITHUB_WORKSPACE}/packaging/prepare-modemmanager-expert.py" \
+            feeds/packages/net/modemmanager/Makefile
+          grep -Fq 'define Package/modemmanager-l850gl-expert' feeds/packages/net/modemmanager/Makefile
+          grep -Fq 'PROVIDES:=modemmanager' feeds/packages/net/modemmanager/Makefile
+          grep -Fq 'CONFLICTS:=modemmanager' feeds/packages/net/modemmanager/Makefile
+          if grep -Fq 'define Package/modemmanager-l850gl-expert/config' \
+            feeds/packages/net/modemmanager/Makefile; then
+            echo 'Expert package must not import stock-only Kconfig dependencies' >&2
+            exit 1
+          fi
+          # shellcheck disable=SC2016
+          grep -Fq -- '-Dat_command_via_dbus=$(if $(CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS),true,false)' \
+            feeds/packages/net/modemmanager/Makefile
+          grep -Fq -- '-Dbuiltin_plugins=true' \
+            feeds/packages/net/modemmanager/Makefile
+
+          ./scripts/feeds install modemmanager luci-base luci-proto-modemmanager 2>&1 |
+            tee "${GITHUB_WORKSPACE}/logs/feeds-install.log"
+          rm -rf package/l850gl-mm-bridge package/luci-app-l850gl-mm
+          cp -a "${GITHUB_WORKSPACE}/l850gl-mm-bridge" package/
+          cp -a "${GITHUB_WORKSPACE}/luci-app-l850gl-mm" package/
+          grep -Fqx "PKG_VERSION:=${APP_VERSION}" package/l850gl-mm-bridge/Makefile
+          grep -Fqx "PKG_RELEASE:=${APP_RELEASE}" package/l850gl-mm-bridge/Makefile
+          grep -Fqx "PKG_VERSION:=${APP_VERSION}" package/luci-app-l850gl-mm/Makefile
+          grep -Fqx "PKG_RELEASE:=${APP_RELEASE}" package/luci-app-l850gl-mm/Makefile
+
+      - name: Configure exact expert build
+        shell: bash
+        env:
+          SDK_ROOT: ${{ steps.tree.outputs.root }}
+        run: |
+          set -euo pipefail
+          cd "${SDK_ROOT}"
+          ./scripts/config -e "${TARGET_SYMBOL}"
+          ./scripts/config -e "${SUBTARGET_SYMBOL}"
+          ./scripts/config -m PACKAGE_modemmanager
+          ./scripts/config -m PACKAGE_modemmanager-l850gl-expert
+          ./scripts/config -m PACKAGE_l850gl-mm-bridge
+          ./scripts/config -m PACKAGE_luci-app-l850gl-mm
+          ./scripts/config -e MODEMMANAGER_WITH_MBIM
+          ./scripts/config -e MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS
+          ./scripts/config -e L850GL_MM_BRIDGE_EXPERT
+          if grep -q '^config MODEMMANAGER_WITH_NETIFD$' feeds/packages/net/modemmanager/Config.in; then
+            ./scripts/config -e MODEMMANAGER_WITH_NETIFD
+          else
+            # shellcheck disable=SC2016
+            grep -Fq '$(INSTALL_BIN) ./files/lib/netifd/proto/modemmanager.sh' \
+              feeds/packages/net/modemmanager/Makefile
+          fi
+
+          set +e
+          make defconfig 2>&1 | tee "${GITHUB_WORKSPACE}/logs/defconfig-expert.log"
+          defconfig_status="${PIPESTATUS[0]}"
+          set -e
+          if grep -Eiq 'recursive dependency' "${GITHUB_WORKSPACE}/logs/defconfig-expert.log"; then
+            echo 'Kconfig recursive dependency is a release-blocking error' >&2
+            exit 1
+          fi
+          [ "${defconfig_status}" -eq 0 ]
+          grep -Fqx "CONFIG_TARGET_ARCH_PACKAGES=\"${ARCH}\"" .config
+          grep -Fqx 'CONFIG_PACKAGE_modemmanager=m' .config
+          grep -Fqx 'CONFIG_PACKAGE_modemmanager-l850gl-expert=m' .config
+          grep -Fqx 'CONFIG_PACKAGE_l850gl-mm-bridge=m' .config
+          grep -Fqx 'CONFIG_PACKAGE_luci-app-l850gl-mm=m' .config
+          grep -Fqx 'CONFIG_MODEMMANAGER_WITH_MBIM=y' .config
+          grep -Fqx 'CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS=y' .config
+          grep -Fqx 'CONFIG_L850GL_MM_BRIDGE_EXPERT=y' .config
+          if grep -q '^config MODEMMANAGER_WITH_NETIFD$' feeds/packages/net/modemmanager/Config.in; then
+            grep -Fqx 'CONFIG_MODEMMANAGER_WITH_NETIFD=y' .config
+          fi
+          cp .config "${GITHUB_WORKSPACE}/logs/config-expert"
+
+      - name: Build expert ModemManager, bridge, and LuCI
+        shell: bash
+        env:
+          SDK_ROOT: ${{ steps.tree.outputs.root }}
+        run: |
+          set -euo pipefail
+          cd "${SDK_ROOT}"
+          set +e
+          make -j"$(nproc)" \
+            package/feeds/packages/modemmanager/compile \
+            package/l850gl-mm-bridge/compile \
+            package/luci-app-l850gl-mm/compile V=s 2>&1 |
+              tee "${GITHUB_WORKSPACE}/logs/build-expert.log"
+          build_status="${PIPESTATUS[0]}"
+          set -e
+          if grep -Eiq 'recursive dependency' "${GITHUB_WORKSPACE}/logs/build-expert.log"; then
+            echo 'Kconfig recursive dependency is a release-blocking error' >&2
+            exit 1
+          fi
+          [ "${build_status}" -eq 0 ]
+          grep -Fq -- '-Dat_command_via_dbus=true' "${GITHUB_WORKSPACE}/logs/build-expert.log"
+          grep -Fq 'libmm-plugin-fibocom.a' "${GITHUB_WORKSPACE}/logs/build-expert.log"
+          grep -Fq 'libmm-shared-xmm.a' "${GITHUB_WORKSPACE}/logs/build-expert.log"
+
+      - name: Verify expert binaries
+        shell: bash
+        env:
+          SDK_ROOT: ${{ steps.tree.outputs.root }}
+        run: |
+          set -euo pipefail
+          cd "${SDK_ROOT}"
+          mapfile -t bridges < <(find build_dir/target-* -type f \
+            -path '*/.pkgdir/l850gl-mm-bridge/usr/sbin/l850gl-mm-bridge')
+          [ "${#bridges[@]}" -eq 1 ]
+          file "${bridges[0]}" | grep -Fq 'ELF'
+          for required in \
+            'l850gl.mm.l850' \
+            'cell_scan' \
+            'set_cell_lock' \
+            'clear_cell_lock' \
+            'get_carrier_info' \
+            'AT+XMCI=1' \
+            'AT+CFUN=15' \
+            'AT@SIC:FREQ_LOCK(0,3,255,0,65535,65535)' \
+            'AT@NVM:DYN_CPS.NAS_ASM.FREQ_LOCK_PARAMS.*??' \
+            'AT+GTCAINFO?' \
+            'AT+CBC'; do
+            strings "${bridges[0]}" | grep -Fqx "${required}"
+          done
+          if strings "${bridges[0]}" | grep -F 'fibocom.mm' > /dev/null; then
+            echo 'Retired Fibocom ubus object leaked into release bridge' >&2
+            exit 1
+          fi
+
+          mapfile -t modemmanagers < <(find build_dir/target-* -type f \
+            -path '*/.pkgdir/modemmanager-l850gl-expert/usr/sbin/ModemManager')
+          [ "${#modemmanagers[@]}" -eq 1 ]
+          file "${modemmanagers[0]}" | grep -Fq 'ELF'
+          expert_root="$(dirname "$(dirname "$(dirname "${modemmanagers[0]}")")")"
+          test -x "${expert_root}/lib/netifd/proto/modemmanager.sh"
+          {
+            echo 'Expert_Object=l850gl.mm.l850'
+            echo 'AT_Command_Via_DBus=enabled'
+            echo 'Netifd_Protocol=present'
+            echo "Bridge_Binary=$(file "${bridges[0]}")"
+            echo "ModemManager_Binary=$(file "${modemmanagers[0]}")"
+          } > "${GITHUB_WORKSPACE}/logs/verify-expert.txt"
+
+      - name: Collect exact packages and create bundle
+        shell: bash
+        env:
+          SDK_ROOT: ${{ steps.tree.outputs.root }}
+        run: |
+          set -euo pipefail
+          cd "${SDK_ROOT}"
+          case "${PACKAGE_FORMAT}" in
+            ipk)
+              mm_name="modemmanager-l850gl-expert_${MODEMMANAGER_VERSION}-r${MODEMMANAGER_RELEASE}_${ARCH}.ipk"
+              bridge_name="l850gl-mm-bridge_${APP_VERSION}-r${APP_RELEASE}_${ARCH}.ipk"
+              luci_name="luci-app-l850gl-mm_${APP_VERSION}-r${APP_RELEASE}_all.ipk"
+              ;;
+            apk)
+              mm_name="modemmanager-l850gl-expert-${MODEMMANAGER_VERSION}-r${MODEMMANAGER_RELEASE}.apk"
+              bridge_name="l850gl-mm-bridge-${APP_VERSION}-r${APP_RELEASE}.apk"
+              luci_name="luci-app-l850gl-mm-${APP_VERSION}-r${APP_RELEASE}.apk"
+              ;;
+            *) exit 1 ;;
+          esac
+          for name in "${mm_name}" "${bridge_name}" "${luci_name}"; do
+            mapfile -d '' matches < <(find bin/packages -type f -name "${name}" -print0)
+            if [ "${#matches[@]}" -ne 1 ]; then
+              echo "Expected exactly one ${name}, found ${#matches[@]}" >&2
+              find bin/packages -type f \( -name '*.ipk' -o -name '*.apk' \) -print >&2
+              exit 1
+            fi
+            cp "${matches[0]}" "${GITHUB_WORKSPACE}/dist/"
+          done
+
+          if [ "${PACKAGE_FORMAT}" = 'ipk' ]; then
+            control_dir="${RUNNER_TEMP}/expert-ipk-control"
+            mkdir "${control_dir}"
+            tar -xzOf "${GITHUB_WORKSPACE}/dist/${mm_name}" ./control.tar.gz |
+              tar -xzOf - ./control > "${control_dir}/control"
+            grep -Fqx 'Package: modemmanager-l850gl-expert' \
+              "${control_dir}/control"
+            grep -Eq '^Provides: .*modemmanager' "${control_dir}/control"
+            grep -Eq '^Conflicts: .*modemmanager' "${control_dir}/control"
+            grep -Fqx "Architecture: ${ARCH}" "${control_dir}/control"
+            cp "${control_dir}/control" \
+              "${GITHUB_WORKSPACE}/logs/expert-ipk-control.txt"
+          fi
+
+          {
+            echo 'Application=luci-app-L850GL-MM'
+            echo 'Release=1.0.0-r1'
+            echo 'API_Schema=4'
+            echo "OpenWrt=${OPENWRT_VERSION}"
+            echo "Target=${TARGET}/${SUBTARGET}"
+            echo "Package_Architecture=${ARCH}"
+            echo "Package_Format=${PACKAGE_FORMAT}"
+            echo "ModemManager=modemmanager-l850gl-expert-${MODEMMANAGER_VERSION}-r${MODEMMANAGER_RELEASE}"
+            echo "ModemManager_Recipe_Commit=${MODEMMANAGER_REF}"
+            echo 'ModemManager_MBIM=enabled'
+            echo 'ModemManager_AT_Command_Via_DBus=enabled'
+            if grep -q '^CONFIG_MODEMMANAGER_WITH_NETIFD=y$' .config; then
+              echo 'ModemManager_Netifd=enabled'
+            else
+              echo 'ModemManager_Netifd=unconditional-in-recipe'
+            fi
+            echo 'Expert_Object=l850gl.mm.l850'
+            echo 'Expert_Firmware_Allowlist=18500.5001.00.05.27.30'
+            echo "Source_Commit=${GITHUB_SHA}"
+          } > "${GITHUB_WORKSPACE}/dist/BUILD_INFO.txt"
+
+          if [ "${PACKAGE_FORMAT}" = 'apk' ]; then
+            update_command='apk update'
+            dependency_command='apk add luci-base luci-proto-modemmanager kmod-usb-acm kmod-usb-net-cdc-mbim kmod-usb-wdm'
+            remove_command='apk del modemmanager'
+            simulate_command="apk add --simulate --allow-untrusted ./${mm_name} ./${bridge_name} ./${luci_name}"
+            install_command="apk add --allow-untrusted ./${mm_name} ./${bridge_name} ./${luci_name}"
+            replacement_note='APK removes the stock world constraint; reverse dependencies may keep its files present until the expert transaction replaces the provider.'
+            rollback_remove_command='apk del luci-app-l850gl-mm l850gl-mm-bridge modemmanager-l850gl-expert'
+            rollback_install_command='apk add --allow-untrusted ./<matching-stock-modemmanager.apk>'
+          else
+            update_command='opkg update'
+            dependency_command='opkg install luci-base luci-proto-modemmanager kmod-usb-acm kmod-usb-net-cdc-mbim kmod-usb-wdm'
+            remove_command='opkg remove --force-depends modemmanager'
+            simulate_command="opkg --noaction install ./${mm_name} ./${bridge_name} ./${luci_name}"
+            install_command="opkg install ./${mm_name} ./${bridge_name} ./${luci_name}"
+            replacement_note='OPKG has no APK-style world constraint. --force-depends intentionally permits the brief local replacement window; run the simulation first and the real install immediately after removal.'
+            rollback_remove_command='opkg remove --force-depends luci-app-l850gl-mm l850gl-mm-bridge modemmanager-l850gl-expert'
+            rollback_install_command='opkg install ./<matching-stock-modemmanager.ipk>'
+          fi
+          cat > "${GITHUB_WORKSPACE}/dist/INSTALL.txt" <<EOF
+          L850GL MM 1.0.0 expert bundle
+
+          OpenWrt: ${OPENWRT_VERSION}
+          Target: ${TARGET}/${SUBTARGET}
+          Package architecture: ${ARCH}
+          Package format: ${PACKAGE_FORMAT}
+
+          Before removing stock ModemManager, copy all three bundle packages to
+          the router and pre-stage every dependency from the matching official
+          OpenWrt ${OPENWRT_VERSION} feeds. Keep a stock ModemManager package and
+          alternate management/WAN access available: removing it can interrupt
+          the modem connection immediately.
+
+          Resolve the companion's feed dependencies while stock ModemManager and
+          its WAN are still active:
+
+              ${update_command}
+              ${dependency_command}
+
+          Verify the bundle in its extracted directory:
+
+              sha256sum -c SHA256SUMS
+
+          The expert package provides and conflicts with stock modemmanager.
+          Remove the stock package from the package manager's world/requested
+          set first, then simulate and perform the local transaction:
+
+          ${replacement_note}
+
+              ${remove_command}
+              ${simulate_command}
+              ${install_command}
+
+          If post-install validation fails, use the stock package staged before
+          removal. This recovery removes the companion rather than mixing its
+          expert bridge with stock ModemManager:
+
+              /etc/init.d/l850gl-mm-bridge stop
+              ${rollback_remove_command}
+              ${rollback_install_command}
+              /etc/init.d/modemmanager restart
+
+          Do not run the remove command until dependencies and recovery packages
+          are local. These packages are only for the exact OpenWrt target above
+          and the L850-GL MBIM 2cb7:0007 modem.
+          EOF
+
+          bundle_dir="${GITHUB_WORKSPACE}/dist"
+          (
+            cd "${bundle_dir}"
+            sha256sum "${mm_name}" "${bridge_name}" "${luci_name}" \
+              BUILD_INFO.txt INSTALL.txt > SHA256SUMS
+            sha256sum -c SHA256SUMS
+          )
+          zip_name="luci-app-l850gl-mm-${APP_VERSION}-${ARCH}-${OPENWRT_MAJOR}.${PACKAGE_FORMAT}.zip"
+          (
+            cd "${bundle_dir}"
+            zip -9 "${zip_name}" "${mm_name}" "${bridge_name}" "${luci_name}" \
+              SHA256SUMS BUILD_INFO.txt INSTALL.txt
+          )
+          [ "$(unzip -Z1 "${bundle_dir}/${zip_name}" | wc -l)" -eq 6 ]
+          unzip -l "${bundle_dir}/${zip_name}"
+
+      - name: Upload ZIP bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: luci-app-l850gl-mm-1.0.0-${{ matrix.arch }}-${{ matrix.openwrt_major }}.${{ matrix.package_format }}
+          path: dist/luci-app-l850gl-mm-1.0.0-${{ matrix.arch }}-${{ matrix.openwrt_major }}.${{ matrix.package_format }}.zip
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload failure logs
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: failed-logs-${{ matrix.arch }}-${{ matrix.openwrt_major }}
+          path: logs/
+          if-no-files-found: warn
+          retention-days: 14
+
+  release:
+    name: Publish stable GitHub Release
+    needs: build
+    if: github.ref == 'refs/tags/v1.0.0'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Download all bundles
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Verify exact Cartesian release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd release-assets
+          arches=(
+            aarch64_generic
+            aarch64_cortex-a53
+            arm_cortex-a7_neon-vfpv4
+            mipsel_24kc
+            x86_64
+          )
+          : > expected-assets.txt
+          for arch in "${arches[@]}"; do
+            echo "luci-app-l850gl-mm-1.0.0-${arch}-openwrt24.ipk.zip" >> expected-assets.txt
+            echo "luci-app-l850gl-mm-1.0.0-${arch}-openwrt25.apk.zip" >> expected-assets.txt
+          done
+          sort -o expected-assets.txt expected-assets.txt
+          find . -maxdepth 1 -type f -name '*.zip' \
+            -printf '%f\n' | sort > actual-assets.txt
+          diff -u expected-assets.txt actual-assets.txt
+          [ "$(wc -l < actual-assets.txt)" -eq 10 ]
+
+          while IFS= read -r bundle; do
+            case "${bundle}" in
+              *-openwrt24.ipk.zip)
+                format='ipk'
+                mm_version='1.22.0'
+                mm_release='20'
+                arch="${bundle#luci-app-l850gl-mm-1.0.0-}"
+                arch="${arch%-openwrt24.ipk.zip}"
+                mm_name="modemmanager-l850gl-expert_${mm_version}-r${mm_release}_${arch}.ipk"
+                bridge_name="l850gl-mm-bridge_1.0.0-r1_${arch}.ipk"
+                luci_name='luci-app-l850gl-mm_1.0.0-r1_all.ipk'
+                ;;
+              *-openwrt25.apk.zip)
+                format='apk'
+                arch="${bundle#luci-app-l850gl-mm-1.0.0-}"
+                arch="${arch%-openwrt25.apk.zip}"
+                mm_name='modemmanager-l850gl-expert-1.24.0-r10.apk'
+                bridge_name='l850gl-mm-bridge-1.0.0-r1.apk'
+                luci_name='luci-app-l850gl-mm-1.0.0-r1.apk'
+                ;;
+              *) exit 1 ;;
+            esac
+            work="verify-${arch}-${format}"
+            mkdir "${work}"
+            unzip -Z1 "${bundle}" | sort > "${work}/archive-files.actual"
+            printf '%s\n' \
+              BUILD_INFO.txt \
+              INSTALL.txt \
+              SHA256SUMS \
+              "${bridge_name}" \
+              "${luci_name}" \
+              "${mm_name}" | sort > "${work}/archive-files.expected"
+            diff -u "${work}/archive-files.expected" "${work}/archive-files.actual"
+            unzip -q "${bundle}" -d "${work}"
+            (
+              cd "${work}"
+              [ "$(wc -l < SHA256SUMS)" -eq 5 ]
+              sha256sum -c SHA256SUMS
+              awk '{ print $2 }' SHA256SUMS | sort > checksum-files.actual
+              printf '%s\n' BUILD_INFO.txt INSTALL.txt \
+                "${bridge_name}" "${luci_name}" "${mm_name}" | sort > checksum-files.expected
+              diff -u checksum-files.expected checksum-files.actual
+            )
+          done < actual-assets.txt
+
+          mapfile -t release_bundles < expected-assets.txt
+          sha256sum "${release_bundles[@]}" > SHA256SUMS
+          sha256sum -c SHA256SUMS
+          rm expected-assets.txt actual-assets.txt
+
+      - name: Publish non-prerelease
+        uses: softprops/action-gh-release@6da8fa9354ddfdc4aeace5fc48d7f679b5214090 # v2.4.1
+        with:
+          name: luci-app-L850GL-MM ${{ github.ref_name }} bundled packages
+          body: |
+            Stable schema-4 L850-GL ModemManager companion with Overview, Lock,
+            and SMS. This release contains ten expert-only bundles for OpenWrt
+            24.10.8/IPK and 25.12.5/APK across five package architectures.
+
+            Select the ZIP matching both the exact OpenWrt release and package
+            architecture, verify the outer and inner SHA256SUMS, and follow its
+            INSTALL.txt before removing stock ModemManager. The stock-to-expert
+            transaction is live-validated on OpenWrt 25.12.5
+            arm_cortex-a7_neon-vfpv4; the other targets are SDK compile/package
+            qualified and are not claimed as live hardware validation.
+          files: |
+            release-assets/luci-app-l850gl-mm-1.0.0-*.zip
+            release-assets/SHA256SUMS
+          fail_on_unmatched_files: true
+          prerelease: false

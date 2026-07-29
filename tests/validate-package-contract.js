@@ -35,12 +35,12 @@ for (const retired of [
 	'luci-app-fibocom-esim'
 ]) {
 	assert.deepStrictEqual(filesUnder(retired), [],
-		`${retired} must remain retired from the 1.0 alpha product tree`);
+		`${retired} must remain retired from the 1.0 product tree`);
 }
 
 const bridgeMakefile = read('l850gl-mm-bridge/Makefile');
 assert.match(bridgeMakefile, /^PKG_NAME:=l850gl-mm-bridge$/m);
-assert.match(bridgeMakefile, /^PKG_VERSION:=1\.0\.0_alpha$/m);
+assert.match(bridgeMakefile, /^PKG_VERSION:=1\.0\.0$/m);
 assert.match(bridgeMakefile, /^PKG_RELEASE:=1$/m);
 assert.match(bridgeMakefile,
 	/^\s*URL:=https:\/\/github\.com\/As-tsaqib\/luci-app-L850GL-MM$/m);
@@ -59,6 +59,8 @@ for (const forbidden of [
 }
 assert.match(bridgeMakefile, /^\s*config L850GL_MM_BRIDGE_EXPERT$/m,
 	'expert PCI support must require an explicit build option');
+assert.doesNotMatch(bridgeMakefile, /depends on PACKAGE_l850gl-mm-bridge/,
+	'the package-scoped expert option must not depend recursively on itself');
 assert.match(bridgeMakefile,
 	/L850GL_MM_EXPERT="\$\(if \$\(CONFIG_L850GL_MM_BRIDGE_EXPERT\),1,\)"/,
 	'the package Kconfig symbol must enable only the reviewed source macro');
@@ -100,7 +102,7 @@ const widgetsSource = read(
 	'luci-app-l850gl-mm/htdocs/luci-static/resources/l850gl-mm/widgets.js');
 
 assert.match(bridgeHeader, /#define L850GL_MM_API_SCHEMA 4U/);
-assert.match(bridgeHeader, /#define L850GL_MM_BRIDGE_VERSION "1\.0\.0-alpha"/);
+assert.match(bridgeHeader, /#define L850GL_MM_BRIDGE_VERSION "1\.0\.0"/);
 assert.match(sourceMakefile, /L850GL_MM_EXPERT/);
 assert.match(sourceMakefile, /^TARGET := l850gl-mm-bridge$/m);
 assert.match(identityHeader, /#define L850GL_ID_PREFIX "l850gl-"/,
@@ -577,7 +579,7 @@ assert.match(init, /^PROG=\/usr\/sbin\/l850gl-mm-bridge$/m);
 assert.match(init, /command "\$PROG" --foreground/);
 
 const luciMakefile = read('luci-app-l850gl-mm/Makefile');
-assert.match(luciMakefile, /^PKG_VERSION:=1\.0\.0_alpha$/m);
+assert.match(luciMakefile, /^PKG_VERSION:=1\.0\.0$/m);
 assert.match(luciMakefile, /^PKG_RELEASE:=1$/m);
 assert.match(luciMakefile, /^LUCI_URL:=https:\/\/github\.com\/As-tsaqib\/luci-app-L850GL-MM$/m);
 assert.match(luciMakefile, /^LUCI_MAINTAINER:=As Tsaqib <[^>]+>$/m);
@@ -641,7 +643,10 @@ assert.match(staticWorkflow, /run-host-ca-parser\.sh/);
 assert.match(staticWorkflow, /run-host-voltage-parser\.sh/);
 assert.match(staticWorkflow, /make check/);
 const sdkWorkflow = read('.github/workflows/openwrt-sdk.yml');
+const releaseWorkflow = read('.github/workflows/release-bundle.yml');
 const expertRecipeTransformer = read('packaging/prepare-modemmanager-expert.py');
+assert.ok(fs.existsSync(absolute('tests/test-prepare-modemmanager-expert.py')),
+	'the expert recipe transformer must have behavioral tests');
 for (const contract of [
 	'Package/modemmanager-l850gl-expert',
 	'PROVIDES:=modemmanager',
@@ -651,9 +656,16 @@ for (const contract of [
 	assert.ok(expertRecipeTransformer.includes(contract),
 		`expert ModemManager recipe transformer must retain ${contract}`);
 }
-assert.match(expertRecipeTransformer, /PKG_VERSION:=1\.24\.0/);
-assert.match(expertRecipeTransformer, /PKG_RELEASE:=10/);
+for (const recipe of [ '1.22.0', '20', '1.24.0', '10' ])
+	assert.ok(expertRecipeTransformer.includes(`"${recipe}"`));
+assert.ok(!expertRecipeTransformer.includes(
+	'define Package/modemmanager-l850gl-expert/config'),
+	'expert package must not import the stock-only Config.in dependency');
 assert.ok(sdkWorkflow.includes("grep -Fq -- '-Dbuiltin_plugins=true'"));
+assert.ok(sdkWorkflow.includes("- 'packaging/**'"),
+	'packaging changes must trigger the SDK workflow');
+assert.ok(sdkWorkflow.includes('error: recursive dependency detected!'),
+	'SDK CI must fail closed on recursive Kconfig diagnostics');
 assert.ok(sdkWorkflow.includes('CONFIG_L850GL_MM_BRIDGE_EXPERT=y'),
 	'SDK CI must exercise the explicit expert build separately');
 assert.ok(sdkWorkflow.includes('CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS=y'));
@@ -665,8 +677,12 @@ assert.ok(sdkWorkflow.includes('modemmanager-l850gl-expert-1.24.0-r10.apk'),
 	'expert bundle must collect the renamed local ModemManager package');
 assert.ok(sdkWorkflow.includes('apk add --simulate --allow-untrusted'),
 	'expert install instructions must require a package-manager simulation');
-assert.ok(sdkWorkflow.includes('l850gl-mm-1.0.0-alpha-arm_cortex-a7_neon-vfpv4-openwrt25-expert.zip'),
-	'alpha CI must emit one architecture-scoped expert ZIP');
+assert.ok(sdkWorkflow.indexOf('apk del modemmanager') <
+	sdkWorkflow.indexOf('apk add --simulate --allow-untrusted'),
+	'expert installation must unpin stock before simulating provider replacement');
+assert.ok(sdkWorkflow.includes(
+	'l850gl-mm-1.0.0-arm_cortex-a7_neon-vfpv4-openwrt25-expert.apk.zip'),
+	'primary CI must emit one architecture-scoped expert ZIP');
 assert.ok(sdkWorkflow.includes("grep -Fq -- '-Dat_command_via_dbus=true'"));
 assert.ok(sdkWorkflow.includes('Firmware_Allowlist=18500.5001.00.05.27.30'));
 assert.ok(sdkWorkflow.includes("grep -Fx 'get_carrier_info'"),
@@ -677,15 +693,62 @@ assert.ok(sdkWorkflow.includes("grep -Fx 'AT+CBC'"),
 	'base/expert SDK verification must gate the reviewed voltage command');
 assert.strictEqual((sdkWorkflow.match(/API_Schema=4/g) || []).length, 2,
 	'both SDK artifact manifests must identify schema 4');
-assert.strictEqual((sdkWorkflow.match(/Release=1\.0\.0-alpha-r1/g) || []).length, 2,
-	'both SDK artifact manifests must identify release 1.0.0-alpha-r1');
+assert.strictEqual((sdkWorkflow.match(/Release=1\.0\.0-r1/g) || []).length, 2,
+	'both SDK artifact manifests must identify release 1.0.0-r1');
 assert.ok(!sdkWorkflow.includes('Release=0.6.0-r6'),
-	'the alpha SDK workflow must not label new artifacts as the previous release');
+	'the final SDK workflow must not label new artifacts as the previous release');
 assert.ok(!sdkWorkflow.includes('API_Schema=2'));
 assert.ok(!sdkWorkflow.includes('API_Schema=3'));
 assert.ok(!sdkWorkflow.includes('luci-app-fibocom-esim'));
 assert.ok(!sdkWorkflow.includes('luci-app-lpac'));
 assert.ok(!sdkWorkflow.includes('LPAC_'));
+
+for (const arch of [
+	'aarch64_generic',
+	'aarch64_cortex-a53',
+	'arm_cortex-a7_neon-vfpv4',
+	'mipsel_24kc',
+	'x86_64'
+]) {
+	assert.ok(releaseWorkflow.includes(arch),
+		`release matrix must include canonical architecture ${arch}`);
+}
+for (const typo of [
+	'aarch64_cortex_a53', 'arm_cortex_a7-neon-vfvp4', 'mipsl_24kc', 'x86-64'
+]) {
+	assert.ok(!releaseWorkflow.includes(typo),
+		`release matrix must not use non-canonical architecture ${typo}`);
+}
+assert.ok(releaseWorkflow.includes('24.10.8'));
+assert.ok(releaseWorkflow.includes('25.12.5'));
+assert.ok(!releaseWorkflow.includes('24.10.7'));
+assert.ok(releaseWorkflow.includes('23abaa6f3b0fdfd76b570031107e5718476ff0c8'));
+assert.ok(releaseWorkflow.includes('d011c4fb8af70795928937ad5195479cc4ff6de9'));
+assert.ok(releaseWorkflow.includes("package_format='ipk'"));
+assert.ok(releaseWorkflow.includes("package_format='apk'"));
+assert.ok(releaseWorkflow.includes('CONFIG_PACKAGE_modemmanager-l850gl-expert=m'));
+assert.ok(releaseWorkflow.includes("grep -Fqx 'CONFIG_L850GL_MM_BRIDGE_EXPERT=y'"));
+assert.ok(releaseWorkflow.includes('recursive dependency'),
+	'release builds must fail on every recursive Kconfig diagnostic');
+assert.ok(releaseWorkflow.includes('apk del modemmanager'));
+assert.ok(releaseWorkflow.includes('opkg remove --force-depends modemmanager'));
+assert.ok(releaseWorkflow.includes('apk add --simulate --allow-untrusted'));
+assert.ok(releaseWorkflow.includes('opkg --noaction install'));
+assert.ok(releaseWorkflow.includes(
+	'apk del luci-app-l850gl-mm l850gl-mm-bridge modemmanager-l850gl-expert'));
+assert.ok(releaseWorkflow.includes(
+	'opkg remove --force-depends luci-app-l850gl-mm l850gl-mm-bridge modemmanager-l850gl-expert'));
+assert.ok(releaseWorkflow.includes('ModemManager_Recipe_Commit='));
+assert.ok(releaseWorkflow.includes('Expert_Firmware_Allowlist=18500.5001.00.05.27.30'));
+assert.ok(releaseWorkflow.includes('[ "$(wc -l < actual-assets.txt)" -eq 10 ]'),
+	'release publication must require the exact ten-bundle Cartesian matrix');
+assert.ok(releaseWorkflow.includes('sha256sum -c SHA256SUMS'));
+assert.ok(releaseWorkflow.includes('contents: write'));
+assert.ok(releaseWorkflow.includes("github.ref == 'refs/tags/v1.0.0'"),
+	'only the exact final tag may publish hard-coded 1.0.0 assets');
+assert.ok(releaseWorkflow.includes('prerelease: false'));
+assert.ok(!releaseWorkflow.includes('dist/base'),
+	'GitHub Release assets must never include the verification-only base build');
 
 const liveFixture = JSON.parse(read('tests/fixtures/live/l850-mbim-connected.json'));
 assert.strictEqual(liveFixture.hardware.model, 'L850-GL');

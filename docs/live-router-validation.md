@@ -19,6 +19,41 @@ listed companion behavior on this hardware; it does not claim every L850
 firmware or OpenWrt release. The historical eSIM probe is retained only as
 provenance for a package retired in 0.3.
 
+## Stock ModemManager to expert alpha reinstall, 2026-07-30
+
+An OpenWrt 25.12.5 `arm_cortex-a7_neon-vfpv4` router was first returned to the
+official stock `modemmanager` package. APK ownership checks confirmed that the
+stock package owned the ModemManager binary, init script, and D-Bus service.
+With that stock package still pinned as a world constraint, a direct-add
+simulation of the expert bundle failed at dependency solving; renaming the
+provider does not by itself authorize APK to replace a pinned conflicting
+package.
+
+`apk del modemmanager` removed the stock world constraint. The subsequent
+bundle simulation and real install then completed as the same clean four-action
+transition: purge stock `modemmanager`, install
+`modemmanager-l850gl-expert-1.24.0-r10`, install
+`l850gl-mm-bridge-1.0.0_alpha-r1`, and install
+`luci-app-l850gl-mm-1.0.0_alpha-r1`. All three bundle APKs had already been
+staged locally so loss of the modem WAN during replacement could not strand the
+router.
+
+Post-install ownership checks assigned the ModemManager binary, init script,
+and D-Bus service to `modemmanager-l850gl-expert`. ModemManager and the bridge
+were enabled and running, the modem and bearer were connected, and the bridge
+reported schema 4 with the exact eight base and five expert methods. Typed
+Overview, Lock status, PCI status, and carrier information calls succeeded;
+carrier information was available, and LuCI served exactly Overview, Lock, and
+SMS with all three page assets reachable through uHTTPd. The retired
+`fibocom.mm` objects were absent.
+
+This acceptance ran no SMS, Band Lock, mode, or PCI mutation, no cell scan, and
+no router reboot. It validates the stock-to-expert package transition and alpha
+runtime only on OpenWrt 25.12.5 `arm_cortex-a7_neon-vfpv4`. The final 1.0.0
+identity and every other OpenWrt/architecture release target remain
+compile/package-test claims pending their CI builds; they are not represented
+as live hardware validation.
+
 ## Installed 0.6.0-r6 PCI persistence acceptance, 2026-07-29
 
 Static run `30457585212` and OpenWrt SDK run `30457585130` passed for source

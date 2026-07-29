@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: 2026 As Tsaqib
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Ubus API 1.0.0-alpha
+# Ubus API 1.0.0
 
 The public contract is schema 4. `l850gl.mm` has exactly eight methods. The
 optional `l850gl.mm.l850` object has five expert methods and is absent from a

@@ -18,13 +18,18 @@ not copied.
 - original implementation and tests authored for this repository.
 
 The base verification build links OpenWrt's native unmodified ModemManager
-package. The 1.0.0-alpha expert CI artifact rebuilds that same pinned upstream
-recipe with its existing `MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS` option enabled
-and emits the binary package as `modemmanager-l850gl-expert`. The packaging-only
-definition provides/conflicts with stock `modemmanager`; it patches no
-ModemManager source and retains the upstream binary, service, D-Bus interface,
-and license. netifd and `luci-proto-modemmanager` remain upstream packages and
-retain connection ownership.
+package and is not published as a release asset. Each 1.0.0 expert bundle
+rebuilds its explicitly pinned upstream recipe with the existing
+`MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS` option enabled: OpenWrt 24.10.8 uses
+ModemManager 1.22.0-r20 from packages commit
+`23abaa6f3b0fdfd76b570031107e5718476ff0c8`, while OpenWrt 25.12.5 uses the
+live-accepted 1.24.0-r10 recipe at
+`d011c4fb8af70795928937ad5195479cc4ff6de9`. CI records the exact selection in
+every `BUILD_INFO.txt` and emits it as `modemmanager-l850gl-expert`. The
+packaging-only definition provides/conflicts with stock `modemmanager`; it
+patches no ModemManager source and retains the upstream binary, service, D-Bus
+interface, and license. netifd and `luci-proto-modemmanager` remain upstream
+packages and retain connection ownership.
 
 ## Audit snapshot ledger
 
@@ -100,7 +105,7 @@ Commit IDs are evidence anchors, not source-import points.
   evidence only. The 2026-07-27 local target-firmware matrix independently
   proved logical band encoding, PCI wildcard `65535`, clear tuple, NVM state,
   `CFUN=15`, reprobe/registration, and serving-cell postconditions.
-- Stock OpenWrt keeps generic AT-over-D-Bus disabled. The base 0.6 build must
+- Stock OpenWrt keeps generic AT-over-D-Bus disabled. The base 1.0 verification build must
   keep it disabled and omit the expert object.
 - Firmware `18500.5001.00.05.27.30` is the sole PCI mutation allowlist entry,
   based on the dated local matrix rather than a public post.

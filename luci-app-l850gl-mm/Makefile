@@ -3,7 +3,7 @@
 
 include $(TOPDIR)/rules.mk
 
-PKG_VERSION:=1.0.0_alpha
+PKG_VERSION:=1.0.0
 PKG_RELEASE:=1
 
 LUCI_TITLE:=LuCI companion for the L850-GL modem managed by ModemManager

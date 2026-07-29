@@ -9,15 +9,19 @@ on:
       - '.github/workflows/openwrt-sdk.yml'
       - 'l850gl-mm-bridge/**'
       - 'luci-app-l850gl-mm/**'
+      - 'packaging/**'
+      - 'tests/validate-package-contract.js'
   pull_request:
     paths:
       - '.github/workflows/openwrt-sdk.yml'
       - 'l850gl-mm-bridge/**'
       - 'luci-app-l850gl-mm/**'
+      - 'packaging/**'
+      - 'tests/validate-package-contract.js'
   workflow_dispatch:
     inputs:
       openwrt_version:
-        description: 'OpenWrt release used for labels and official SDK lookup'
+        description: 'Primary live-validated OpenWrt release (fixed to 25.12.5)'
         required: true
         default: '25.12.5'
         type: string
@@ -57,6 +61,7 @@ jobs:
         run: |
           set -euo pipefail
           [[ "${OPENWRT_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [ "${OPENWRT_VERSION}" = '25.12.5' ]
           base_url="https://downloads.openwrt.org/releases/${OPENWRT_VERSION}/targets/ipq40xx/generic"
           if [ -n "${SDK_URL_OVERRIDE}" ]; then
             [[ "${SDK_URL_OVERRIDE}" == https://* ]]
@@ -197,6 +202,11 @@ jobs:
             feeds/packages/net/modemmanager/Makefile
           grep -Fq 'CONFLICTS:=modemmanager' \
             feeds/packages/net/modemmanager/Makefile
+          if grep -Fq 'define Package/modemmanager-l850gl-expert/config' \
+            feeds/packages/net/modemmanager/Makefile; then
+            echo 'Expert package must not import stock-only Kconfig dependencies' >&2
+            exit 1
+          fi
           {
             echo 'ModemManager_Package=1.24.0-r10'
             echo 'ModemManager_Expert_Package=modemmanager-l850gl-expert-1.24.0-r10'
@@ -233,11 +243,19 @@ jobs:
           # CONFIG_L850GL_MM_BRIDGE_EXPERT is not set
           EOF
           make defconfig 2>&1 | tee "${GITHUB_WORKSPACE}/logs/defconfig-base.log"
+          if grep -Fq 'error: recursive dependency detected!' \
+            "${GITHUB_WORKSPACE}/logs/defconfig-base.log"; then
+            echo 'Recursive Kconfig dependency detected in base configuration' >&2
+            exit 1
+          fi
           cp .config "${GITHUB_WORKSPACE}/logs/config-base"
           grep -q '^CONFIG_TARGET_ARCH_PACKAGES="arm_cortex-a7_neon-vfpv4"$' .config
-          ! grep -q '^CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS=y$' .config
-          ! grep -q '^CONFIG_PACKAGE_modemmanager-l850gl-expert=m$' .config
-          ! grep -q '^CONFIG_L850GL_MM_BRIDGE_EXPERT=y$' .config
+          if grep -q '^CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS=y$' .config ||
+            grep -q '^CONFIG_PACKAGE_modemmanager-l850gl-expert=m$' .config ||
+            grep -q '^CONFIG_L850GL_MM_BRIDGE_EXPERT=y$' .config; then
+            echo 'Base configuration unexpectedly enabled expert capability' >&2
+            exit 1
+          fi
 
       - name: Build and verify base packages
         shell: bash
@@ -256,6 +274,11 @@ jobs:
             echo "Base package build failed with status ${build_status}" >&2
             exit "${build_status}"
           fi
+          if grep -Fq 'error: recursive dependency detected!' \
+            "${GITHUB_WORKSPACE}/logs/build-base.log"; then
+            echo 'Recursive Kconfig dependency detected during base build' >&2
+            exit 1
+          fi
           if ! grep -Fq 'libmm-plugin-fibocom.a' \
             "${GITHUB_WORKSPACE}/logs/build-base.log"; then
             echo 'Required ModemManager L850 plugin was not linked in the base build' >&2
@@ -267,40 +290,41 @@ jobs:
             exit 1
           fi
           mapfile -t binaries < <(find build_dir/target-* \
-            -path '*/l850gl-mm-bridge-1.0.0_alpha/.pkgdir/l850gl-mm-bridge/usr/sbin/l850gl-mm-bridge' \
+            -path '*/l850gl-mm-bridge-1.0.0/.pkgdir/l850gl-mm-bridge/usr/sbin/l850gl-mm-bridge' \
             -type f)
+          verify_log="${GITHUB_WORKSPACE}/logs/verify-base.txt"
           printf 'Base_bridge_binary_count=%s\n' "${#binaries[@]}" | \
-            tee "${GITHUB_WORKSPACE}/logs/verify-base.txt"
+            tee "${verify_log}"
           if [ "${#binaries[@]}" -ne 1 ]; then
             printf '%s\n' "${binaries[@]}" >&2
             echo 'Expected exactly one packaged base bridge binary' >&2
             exit 1
           fi
+          exec 3>> "${verify_log}"
           if strings "${binaries[0]}" | grep -Fx 'l850gl.mm.l850' \
-            >> "${GITHUB_WORKSPACE}/logs/verify-base.txt"; then
+            >&3; then
             echo 'Base bridge unexpectedly contains the expert object name' >&2
             exit 1
           fi
           if strings "${binaries[0]}" | grep -F 'fibocom.mm' \
-            >> "${GITHUB_WORKSPACE}/logs/verify-base.txt"; then
+            >&3; then
             echo 'Base bridge unexpectedly contains a retired ubus object name' >&2
             exit 1
           fi
           if strings "${binaries[0]}" | grep -Fx 'AT+GTCAINFO?' \
-            >> "${GITHUB_WORKSPACE}/logs/verify-base.txt"; then
+            >&3; then
             echo 'Base bridge unexpectedly contains the expert carrier command' >&2
             exit 1
           fi
           if strings "${binaries[0]}" | grep -Fx 'AT+CBC' \
-            >> "${GITHUB_WORKSPACE}/logs/verify-base.txt"; then
+            >&3; then
             echo 'Base bridge unexpectedly contains the expert voltage command' >&2
             exit 1
           fi
-          echo 'Expert_Object=absent' >> "${GITHUB_WORKSPACE}/logs/verify-base.txt"
-          echo 'Expert_Carrier_Command=absent' \
-            >> "${GITHUB_WORKSPACE}/logs/verify-base.txt"
-          echo 'Expert_Voltage_Command=absent' \
-            >> "${GITHUB_WORKSPACE}/logs/verify-base.txt"
+          echo 'Expert_Object=absent' >&3
+          echo 'Expert_Carrier_Command=absent' >&3
+          echo 'Expert_Voltage_Command=absent' >&3
+          exec 3>&-
 
       - name: Collect base packages
         shell: bash
@@ -317,8 +341,8 @@ jobs:
           [ "${#packages[@]}" -eq 2 ]
           for package in "${packages[@]}"; do
             case "$(basename "${package}")" in
-              l850gl-mm-bridge-1.0.0_alpha-r1.apk|l850gl-mm-bridge_1.0.0_alpha-r1_*.ipk|\
-              luci-app-l850gl-mm-1.0.0_alpha-r1.apk|luci-app-l850gl-mm_1.0.0_alpha-r1_all.ipk) ;;
+              l850gl-mm-bridge-1.0.0-r1.apk|l850gl-mm-bridge_1.0.0-r1_*.ipk|\
+              luci-app-l850gl-mm-1.0.0-r1.apk|luci-app-l850gl-mm_1.0.0-r1_all.ipk) ;;
               *) echo "Unexpected package release: ${package}" >&2; exit 1 ;;
             esac
           done
@@ -328,7 +352,7 @@ jobs:
             echo 'Target=ipq40xx/generic'
             echo 'Package_Architecture=arm_cortex-a7_neon-vfpv4'
             echo 'API_Schema=4'
-            echo 'Release=1.0.0-alpha-r1'
+            echo 'Release=1.0.0-r1'
             echo 'Expert_Object=absent'
             echo 'ModemManager_Recipe=1.24.0-r10'
             echo "Source_Commit=${GITHUB_SHA}"
@@ -356,6 +380,11 @@ jobs:
           CONFIG_L850GL_MM_BRIDGE_EXPERT=y
           EOF
           make defconfig 2>&1 | tee "${GITHUB_WORKSPACE}/logs/defconfig-expert.log"
+          if grep -Fq 'error: recursive dependency detected!' \
+            "${GITHUB_WORKSPACE}/logs/defconfig-expert.log"; then
+            echo 'Recursive Kconfig dependency detected in expert configuration' >&2
+            exit 1
+          fi
           grep -q '^CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS=y$' .config
           grep -q '^CONFIG_PACKAGE_modemmanager-l850gl-expert=m$' .config
           grep -q '^CONFIG_L850GL_MM_BRIDGE_EXPERT=y$' .config
@@ -381,52 +410,57 @@ jobs:
             echo "Expert package build failed with status ${build_status}" >&2
             exit "${build_status}"
           fi
+          if grep -Fq 'error: recursive dependency detected!' \
+            "${GITHUB_WORKSPACE}/logs/build-expert.log"; then
+            echo 'Recursive Kconfig dependency detected during expert build' >&2
+            exit 1
+          fi
           if ! grep -Fq -- '-Dat_command_via_dbus=true' \
             "${GITHUB_WORKSPACE}/logs/build-expert.log"; then
             echo 'Expert ModemManager did not enable AT command transport' >&2
             exit 1
           fi
           mapfile -t binaries < <(find build_dir/target-* \
-            -path '*/l850gl-mm-bridge-1.0.0_alpha/.pkgdir/l850gl-mm-bridge/usr/sbin/l850gl-mm-bridge' \
+            -path '*/l850gl-mm-bridge-1.0.0/.pkgdir/l850gl-mm-bridge/usr/sbin/l850gl-mm-bridge' \
             -type f)
+          verify_log="${GITHUB_WORKSPACE}/logs/verify-expert.txt"
           printf 'Expert_bridge_binary_count=%s\n' "${#binaries[@]}" | \
-            tee "${GITHUB_WORKSPACE}/logs/verify-expert.txt"
+            tee "${verify_log}"
           if [ "${#binaries[@]}" -ne 1 ]; then
             printf '%s\n' "${binaries[@]}" >&2
             echo 'Expected exactly one packaged expert bridge binary' >&2
             exit 1
           fi
+          exec 3>> "${verify_log}"
           if ! strings "${binaries[0]}" | grep -Fx 'l850gl.mm.l850' \
-            >> "${GITHUB_WORKSPACE}/logs/verify-expert.txt"; then
+            >&3; then
             echo 'Expert bridge does not contain the expert object name' >&2
             exit 1
           fi
           if strings "${binaries[0]}" | grep -F 'fibocom.mm' \
-            >> "${GITHUB_WORKSPACE}/logs/verify-expert.txt"; then
+            >&3; then
             echo 'Expert bridge unexpectedly contains a retired ubus object name' >&2
             exit 1
           fi
           if ! strings "${binaries[0]}" | grep -Fx 'get_carrier_info' \
-            >> "${GITHUB_WORKSPACE}/logs/verify-expert.txt"; then
+            >&3; then
             echo 'Expert bridge does not contain the carrier method' >&2
             exit 1
           fi
           if ! strings "${binaries[0]}" | grep -Fx 'AT+GTCAINFO?' \
-            >> "${GITHUB_WORKSPACE}/logs/verify-expert.txt"; then
+            >&3; then
             echo 'Expert bridge does not contain the reviewed carrier command' >&2
             exit 1
           fi
           if ! strings "${binaries[0]}" | grep -Fx 'AT+CBC' \
-            >> "${GITHUB_WORKSPACE}/logs/verify-expert.txt"; then
+            >&3; then
             echo 'Expert bridge does not contain the reviewed voltage command' >&2
             exit 1
           fi
-          echo 'Expert_Object=l850gl.mm.l850' \
-            >> "${GITHUB_WORKSPACE}/logs/verify-expert.txt"
-          echo 'Expert_Carrier_Method=get_carrier_info' \
-            >> "${GITHUB_WORKSPACE}/logs/verify-expert.txt"
-          echo 'Expert_Voltage_Command=AT+CBC' \
-            >> "${GITHUB_WORKSPACE}/logs/verify-expert.txt"
+          echo 'Expert_Object=l850gl.mm.l850' >&3
+          echo 'Expert_Carrier_Method=get_carrier_info' >&3
+          echo 'Expert_Voltage_Command=AT+CBC' >&3
+          exec 3>&-
 
       - name: Collect expert package
         shell: bash
@@ -440,7 +474,7 @@ jobs:
             \( -name 'l850gl-mm-bridge-*.apk' -o -name 'l850gl-mm-bridge_*.ipk' \) -print0)
           [ "${#bridge[@]}" -eq 1 ]
           case "$(basename "${bridge[0]}")" in
-            l850gl-mm-bridge-1.0.0_alpha-r1.apk|l850gl-mm-bridge_1.0.0_alpha-r1_*.ipk) ;;
+            l850gl-mm-bridge-1.0.0-r1.apk|l850gl-mm-bridge_1.0.0-r1_*.ipk) ;;
             *) echo "Unexpected expert bridge release: ${bridge[0]}" >&2; exit 1 ;;
           esac
           cp "${bridge[0]}" "${GITHUB_WORKSPACE}/dist/expert/"
@@ -462,7 +496,7 @@ jobs:
             echo 'Target=ipq40xx/generic'
             echo 'Package_Architecture=arm_cortex-a7_neon-vfpv4'
             echo 'API_Schema=4'
-            echo 'Release=1.0.0-alpha-r1'
+            echo 'Release=1.0.0-r1'
             echo 'Expert_Object=l850gl.mm.l850'
             echo 'ModemManager_AT_Command_Via_DBus=enabled'
             echo 'ModemManager_Package=modemmanager-l850gl-expert-1.24.0-r10'
@@ -471,7 +505,7 @@ jobs:
             echo "Source_Commit=${GITHUB_SHA}"
           } > "${GITHUB_WORKSPACE}/dist/expert/BUILD_INFO.txt"
           cat > "${GITHUB_WORKSPACE}/dist/expert/INSTALL.txt" <<EOF
-          L850GL MM 1.0.0-alpha expert bundle
+          L850GL MM 1.0.0 expert bundle
 
           OpenWrt: ${OPENWRT_VERSION}
           Target: ipq40xx/generic
@@ -484,18 +518,23 @@ jobs:
           - ${bridge_name}
           - ${luci_name}
 
-          Keep the matching official OpenWrt feeds reachable so apk can resolve
-          luci-base, luci-proto-modemmanager, kernel modules, and libraries.
-          Verify SHA256SUMS, simulate the complete transaction, then install all
-          three local packages together. The expert ModemManager provides and
-          conflicts with the stock modemmanager package.
+          Before changing ModemManager, keep alternate router management available
+          and stage the matching stock package for rollback. A modem-only WAN may
+          disconnect as soon as the stock package is removed. Keep the matching
+          official OpenWrt feeds reachable while dependencies are preinstalled.
+
+          Verify every local file first. Remove the stock modemmanager world
+          constraint before asking apk to select the expert provider; direct add
+          while stock remains pinned is intentionally rejected by the solver.
 
               apk update
+              apk add luci-base luci-proto-modemmanager kmod-usb-acm kmod-usb-net-cdc-mbim kmod-usb-wdm
+              apk del modemmanager
               apk add --simulate --allow-untrusted ./${modemmanager_name} ./${bridge_name} ./${luci_name}
               apk add --allow-untrusted ./${modemmanager_name} ./${bridge_name} ./${luci_name}
 
-          This is an alpha artifact for the exact target above, not a universal
-          OpenWrt or ModemManager package.
+          This bundle is for the exact target above, not a universal OpenWrt or
+          ModemManager package.
           EOF
           (
             cd "${GITHUB_WORKSPACE}/dist/expert"
@@ -503,7 +542,7 @@ jobs:
               -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS
             test -s SHA256SUMS
           )
-          zip_name='l850gl-mm-1.0.0-alpha-arm_cortex-a7_neon-vfpv4-openwrt25-expert.zip'
+          zip_name='l850gl-mm-1.0.0-arm_cortex-a7_neon-vfpv4-openwrt25-expert.apk.zip'
           (
             cd "${GITHUB_WORKSPACE}/dist/expert"
             zip -9 "${GITHUB_WORKSPACE}/dist/${zip_name}" \
@@ -523,8 +562,8 @@ jobs:
       - name: Upload expert packages
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: l850gl-mm-1.0.0-alpha-arm_cortex-a7-neon-vfpv4-openwrt25-expert
-          path: dist/l850gl-mm-1.0.0-alpha-arm_cortex-a7_neon-vfpv4-openwrt25-expert.zip
+          name: l850gl-mm-1.0.0-arm_cortex-a7_neon-vfpv4-openwrt25-expert.apk
+          path: dist/l850gl-mm-1.0.0-arm_cortex-a7_neon-vfpv4-openwrt25-expert.apk.zip
           if-no-files-found: error
           retention-days: 14
 

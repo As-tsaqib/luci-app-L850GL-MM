@@ -12,7 +12,7 @@ The migration establishes one modem owner and one connection owner:
 ```text
 ModemManager: modem, ports, SIM, SMS, radio, bearer
 netifd:       APN, connection intent, route, DNS
-L850GL MM 0.6: Overview, persistent Mode/Band Lock, gated PCI/CA UI, SMS
+L850GL MM 1.0: Overview, persistent Mode/Band Lock, gated PCI/CA UI, SMS
 ```
 
 Do not run XModem/QModem polling, direct-AT helpers, custom dialers, SMS tools,
@@ -45,7 +45,7 @@ identifiers, phone numbers, SMS, credentials, or activation codes.
 ## Remove the retired companion
 
 The renamed service and packages must never coexist with the retired pair.
-Before installing package version 1.0.0_alpha-r1, stop and disable the old service, then remove all
+Before installing package version 1.0.0-r1, stop and disable the old service, then remove all
 old companion packages with the router's package manager:
 
 ```text
@@ -64,9 +64,9 @@ retired packages are absent. Do not continue while any old companion process
 or package remains. This sequence intentionally removes the old LuCI package
 before the renamed pair is unpacked, so files and ACLs cannot overlap.
 
-## Install 1.0.0-alpha
+## Install 1.0.0
 
-Install the matching checksum-verified 1.0.0_alpha-r1 expert bundle only after
+Install the matching checksum-verified 1.0.0-r1 expert bundle only after
 the retirement checks above pass:
 
 ```text
@@ -75,16 +75,25 @@ l850gl-mm-bridge
 luci-app-l850gl-mm
 ```
 
+Follow the `INSTALL.txt` in that exact target bundle; APK and OPKG replacement
+steps are intentionally target-specific. Stage all three local packages and a
+matching stock rollback package before removing ownership, because replacing
+ModemManager may immediately interrupt a modem-only WAN. In particular, an APK
+direct-add cannot replace stock `modemmanager` while it remains a pinned world
+constraint.
+
 Do not reinstall the retired eSIM addon. The base ModemManager
 build must keep generic AT-over-D-Bus disabled. Use an expert image only when
 its broader ModemManager capability and separate ACL have been explicitly
 reviewed. The expert artifact includes a matching upstream OpenWrt
 `modemmanager-l850gl-expert` package rebuilt with that capability; install it together with
-the expert bridge rather than mixing the bridge with the stock package.
+the expert bridge rather than mixing the bridge with the stock package. The
+v1.0.0 GitHub release contains expert bundles only; the base build is a CI
+verification artifact and is not a release installation option.
 
 After installation:
 
-1. Verify `l850gl-mm-bridge --version` reports 1.0.0-alpha.
+1. Verify `l850gl-mm-bridge --version` reports 1.0.0.
 2. Verify `l850gl.mm` exposes exactly the eight schema-4 methods, including
    `set_modes`.
 3. Verify the retired `fibocom.mm` object and service remain absent. On a base
@@ -126,7 +135,7 @@ and do not retry until its state makes a new request safe.
 
 ## Settings that are intentionally not imported
 
-Version 0.6 does not import or reproduce:
+Version 1.0 does not import or reproduce:
 
 - custom APN/auth/PIN, route, DNS, or firewall settings;
 - raw AT macros, port paths, ModemManager indexes, sysfs paths, or USB
@@ -138,7 +147,7 @@ Version 0.6 does not import or reproduce:
   sequences.
 
 Persistent network settings must be recreated or retained in the existing
-netifd section. Version 0.6 may update only that section's `allowedmode` and
+netifd section. Version 1.0 may update only that section's `allowedmode` and
 `preferredmode` after resolving it internally; it does not import XModem mode
 state or expose a section selector. SMS inventory is read from ModemManager/SIM
 storage, not migrated from an application database.
@@ -151,12 +160,15 @@ develop and validate NCM bearer support in ModemManager as a separate project.
 
 ## Rollback
 
-If the read-only 0.6 deployment fails, stop and disable
-`l850gl-mm-bridge`, remove `luci-app-l850gl-mm` and `l850gl-mm-bridge`, and
-restore the previously backed-up configuration. Reinstalling the retired pair
-is a separate explicit rollback decision; never run old and new services or
-publish old and new ubus objects together. Do not disable or replace the
-working ModemManager/netifd owner merely to restore an old LuCI page.
+If the 1.0 expert deployment fails, follow the exact package-manager recovery
+commands in that bundle's `INSTALL.txt`. Stop `l850gl-mm-bridge`, remove the
+LuCI package, bridge, and `modemmanager-l850gl-expert` together, then install
+the matching stock ModemManager package staged before the upgrade and restart
+its service. Verify ModemManager ownership, modem reprobe, and netifd recovery
+before restoring any prior companion package. Reinstalling the retired pair is
+a separate explicit rollback decision; never run old and new services, mix an
+expert bridge with stock ModemManager, or publish old and new ubus objects
+together.
 
 If a separately approved band test disrupts WAN, use the prepared alternate
 management path and restore automatic `["any"]` only after the modem object and

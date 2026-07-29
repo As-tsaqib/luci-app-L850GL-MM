@@ -16,7 +16,7 @@ The browser must never submit raw AT, a D-Bus/sysfs/device path, or an arbitrary
 ubus method. Prefer typed asynchronous libmm-glib and fail closed when the
 standard capability is absent.
 
-## Keep the 0.6 surface small
+## Keep the 1.0 surface small
 
 The menu is exactly Overview, Lock, and SMS. The base `l850gl.mm` object is
 exactly eight schema-4 methods. Do not restore Status, Settings, old Advanced,

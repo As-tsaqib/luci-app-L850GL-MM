@@ -4,7 +4,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=l850gl-mm-bridge
-PKG_VERSION:=1.0.0_alpha
+PKG_VERSION:=1.0.0
 PKG_RELEASE:=1
 
 PKG_MAINTAINER:=As Tsaqib <0xfiqks@gmail.com>
@@ -34,7 +34,6 @@ endef
 define Package/l850gl-mm-bridge/config
 	config L850GL_MM_BRIDGE_EXPERT
 		bool "Build the reviewed L850 PCI/EARFCN expert object"
-		depends on PACKAGE_l850gl-mm-bridge
 		depends on MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS
 		default n
 		help

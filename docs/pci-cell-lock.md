@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Current verdict
 
-Version 1.0.0-alpha retains the PCI expert contract, build/ACL gates, standard
+Version 1.0.0 retains the PCI expert contract, build/ACL gates, standard
 GetCellInfo-first scan path, bounded XMCI and NVM parsers, typed command
 builders, rate limiting, cancellation, timeout, shared mutation locking, and
 the reset/reprobe/registration/postcondition state machine. It adds the

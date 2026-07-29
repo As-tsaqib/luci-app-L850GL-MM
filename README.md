@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 Repository: <https://github.com/As-tsaqib/luci-app-L850GL-MM>
 
-Version 1.0.0-alpha is a small LuCI companion for the L850-GL modem already managed by
+Version 1.0.0 is a small LuCI companion for the L850-GL modem already managed by
 ModemManager and OpenWrt netifd. Its public API is schema 4 and its menu is
 exactly:
 
@@ -149,33 +149,49 @@ opaque ID, modem generation, and (for SMS) messaging generation are present.
 
 ## Packaging
 
-The alpha source packages the accepted r6 behavior with a distinguishable
-expert ModemManager identity:
+Version 1.0.0 packages the accepted r6 behavior with a distinguishable expert
+ModemManager identity:
 
 ```text
-l850gl-mm-bridge               1.0.0_alpha-r1 expert libmm-glib/GDBus to ubus bridge
-luci-app-l850gl-mm             1.0.0_alpha-r1 Overview, Lock, and SMS views
-modemmanager-l850gl-expert     1.24.0-r10 upstream OpenWrt recipe with reviewed AT transport
+l850gl-mm-bridge               1.0.0-r1 expert libmm-glib/GDBus to ubus bridge
+luci-app-l850gl-mm             1.0.0-r1 Overview, Lock, and SMS views
+modemmanager-l850gl-expert     matching upstream OpenWrt recipe with reviewed AT transport
 ```
 
 The retired Status, old Advanced, Settings, radio toggle, generic reset,
-primary SIM-slot switch, and old eSIM addon are not part of 1.0.0-alpha. APN,
+primary SIM-slot switch, and old eSIM addon are not part of 1.0.0. APN,
 route, DNS, credentials, and all connection settings remain in OpenWrt's
 existing Network / Interfaces UI.
 
-CI still verifies a safe base binary with generic AT-over-D-Bus disabled. The
-published alpha bundle is expert-only and contains `modemmanager-l850gl-expert`,
-which provides and conflicts with the stock `modemmanager` package. It must be
-installed in the same transaction as the expert bridge. Its fixed command
-surface remains firmware-, hardware-, ACL-, and build-gated.
+The v1.0.0 release publishes ten target-specific expert bundles and no base
+release asset:
+
+| OpenWrt | ModemManager expert | Format | Architectures |
+|---|---|---|---|
+| 24.10.8 | 1.22.0-r20 | IPK | `aarch64_cortex-a53`, `aarch64_generic`, `arm_cortex-a7_neon-vfpv4`, `mipsel_24kc`, `x86_64` |
+| 25.12.5 | 1.24.0-r10 | APK | `aarch64_cortex-a53`, `aarch64_generic`, `arm_cortex-a7_neon-vfpv4`, `mipsel_24kc`, `x86_64` |
+
+Each ZIP is for exactly one OpenWrt version and package architecture. It
+contains `modemmanager-l850gl-expert`, the matching expert bridge and LuCI
+package, `SHA256SUMS`, build metadata, and target-specific installation and
+rollback instructions. Do not mix packages from different bundles.
+
+CI still builds and verifies a safe base binary with generic AT-over-D-Bus
+disabled, but that artifact is verification-only. Every published bundle is
+expert-only and contains `modemmanager-l850gl-expert`, which provides and
+conflicts with the stock `modemmanager` package. Follow its `INSTALL.txt`: the
+stock package's world constraint must be removed before installing all three
+local packages together. Its fixed command surface remains firmware-,
+hardware-, ACL-, and build-gated.
 
 ## Evidence status
 
-Version 1.0.0-alpha changes release packaging and version identity, not API
-schema 4 or the accepted r6 modem state machines. Its release gate requires the
-three-package expert ZIP, checksum manifest, install simulation, stock-to-expert
-package transition, and installed router acceptance described in the dated live
-record.
+Version 1.0.0 changes release packaging and version identity, not API schema 4
+or the accepted r6 modem state machines. Its release gate requires each
+three-package expert ZIP and checksum manifest to pass its target SDK build and
+package checks. The stock-to-expert transaction and installed runtime were
+also exercised on the one live target identified in the dated record; that
+hardware result is not generalized to the other nine compile-only targets.
 
 Version 0.6.0 renames the active packages, service, ACLs, paths, and ubus
 objects; the retired names are migration/history identifiers only and must not

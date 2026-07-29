@@ -10,13 +10,33 @@ SPDX-License-Identifier: Apache-2.0
 The repository separates historical schema-1 v0.2 evidence from 2026-07-19,
 the approved L850 firmware command/recovery matrix and schema-2 package run
 from 2026-07-27, installed schema-3 v0.4 evidence, schema-4 v0.5 work from
-2026-07-28, and renamed v0.6 source work from 2026-07-29. Source, fixture, SDK
-success, firmware-command evidence, and installed-package evidence are not
+2026-07-28, renamed v0.6 source work from 2026-07-29, and the expert-package
+replacement acceptance from 2026-07-30. Source, fixture, SDK success,
+firmware-command evidence, and installed-package evidence are not
 interchangeable.
 
 Never store IMEI, IMSI, ICCID, EID, phone numbers, SMS body, APN credentials,
 PIN/PUK, activation codes, tokens, or assigned IP configuration. Evidence must
 use an allowlist and sanitized fixtures rather than raw diagnostic dumps.
+
+## Stock-to-expert alpha package evidence
+
+On 2026-07-30, OpenWrt 25.12.5
+`arm_cortex-a7_neon-vfpv4` was returned to the official
+`modemmanager-1.24.0-r10` package and its ownership was confirmed. A direct
+expert add simulation correctly failed while stock remained a pinned APK world
+constraint. After `apk del modemmanager`, the checksum-verified three-package
+alpha bundle simulated and installed as an exact stock purge plus expert,
+bridge, and LuCI installation. The expert package then exclusively owned the
+ModemManager binary, init script, and D-Bus service.
+
+Both services were enabled/running, the modem reconnected, schema 4 and the
+exact 8/5 method tables were present, typed Overview/Lock/PCI/carrier reads
+succeeded, and the three LuCI pages were served. No scan, SMS, mode, Band Lock,
+PCI mutation, or reboot was performed. This is installation/runtime evidence
+for the alpha bits on that one target, not live validation of the final identity
+or the other nine OpenWrt 24/25 release bundles. Full command/result boundaries
+are recorded in `docs/live-router-validation.md`.
 
 ## Installed 0.6.0-r6 PCI persistence evidence
 
@@ -154,7 +174,7 @@ serving EARFCN/PCI postcondition. The local 2026-07-27 matrix supplied that
 missing proof independently; public posts are retained as provenance, not as
 the allowlist authority.
 
-## Current 0.6.0 evidence status
+## Current 1.0.0 evidence status
 
 Implemented in the current source/host/static contract:
 

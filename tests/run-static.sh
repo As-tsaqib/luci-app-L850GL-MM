@@ -26,6 +26,7 @@ for file in $shell_files; do
 done
 
 python3 -c 'from pathlib import Path; path = Path("packaging/prepare-modemmanager-expert.py"); compile(path.read_text(encoding="utf-8"), str(path), "exec")'
+python3 tests/test-prepare-modemmanager-expert.py
 
 node tests/validate-package-contract.js
 node luci-app-l850gl-mm/tests/static.js
