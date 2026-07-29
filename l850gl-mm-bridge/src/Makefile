@@ -20,7 +20,7 @@ SOURCES := main.c identity.c hardware.c network_binding.c radio_policy.c \
 	sms_policy.c sms_dedupe_policy.c ubus_request.c l850_cell.c bridge.c \
 	ubus_glib.c
 ifneq ($(L850GL_MM_EXPERT),)
-SOURCES += l850_ca.c l850_voltage.c
+SOURCES += l850_ca.c l850_voltage.c l850_mutation_policy.c
 endif
 OBJECTS := $(SOURCES:.c=.o)
 DEPS := $(OBJECTS:.o=.d)

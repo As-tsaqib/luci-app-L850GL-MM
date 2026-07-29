@@ -36,6 +36,7 @@ sh tests/run-host-sms-policy.sh
 sh tests/run-host-sms-dedupe.sh
 sh tests/run-host-ubus-blob.sh
 sh tests/run-host-cell-parser.sh
+sh tests/run-host-cell-mutation-policy.sh
 sh tests/run-host-ca-parser.sh
 sh tests/run-host-voltage-parser.sh
 

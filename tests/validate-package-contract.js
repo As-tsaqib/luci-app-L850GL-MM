@@ -74,6 +74,10 @@ const sourceWithoutNetworkBinding = sourceFiles.filter(function(file) {
 }).map(read).join('\n');
 const l850CellSource = read('l850gl-mm-bridge/src/l850_cell.c');
 const l850CellHeader = read('l850gl-mm-bridge/src/l850_cell.h');
+const l850MutationPolicySource = read(
+	'l850gl-mm-bridge/src/l850_mutation_policy.c');
+const l850MutationPolicyHeader = read(
+	'l850gl-mm-bridge/src/l850_mutation_policy.h');
 const l850CaSource = read('l850gl-mm-bridge/src/l850_ca.c');
 const l850CaHeader = read('l850gl-mm-bridge/src/l850_ca.h');
 const l850VoltageSource = read('l850gl-mm-bridge/src/l850_voltage.c');
@@ -285,6 +289,17 @@ assert.match(sourceMakefile, /\bl850_ca\.c\b/,
 	'the bounded L850 carrier parser must be built into the bridge');
 assert.match(sourceMakefile, /\bl850_voltage\.c\b/,
 	'the bounded L850 voltage parser must be built into the bridge');
+assert.match(sourceMakefile, /\bl850_mutation_policy\.c\b/,
+	'the NVM verification policy must be built into the bridge');
+assert.match(l850MutationPolicyHeader,
+	/#define L850GL_NVM_PRE_RESET_REQUIRED_MATCHES 2U/,
+	'pre-reset verification must require two consecutive NVM matches');
+assert.match(l850MutationPolicyHeader,
+	/#define L850GL_NVM_POST_RESET_REQUIRED_MATCHES 1U/,
+	'post-reset verification must accept one matching NVM observation');
+assert.match(l850MutationPolicySource,
+	/observation == L850GL_NVM_OBSERVATION_MISMATCH[\s\S]*?consecutive_matches = 0U/,
+	'a mismatch must reset the consecutive pre-reset match streak');
 assert.match(l850VoltageHeader,
 	/#define L850GL_L850_VOLTAGE_MAX_RESPONSE 128U/,
 	'the voltage response must remain tightly bounded');
@@ -479,6 +494,8 @@ for (const requiredTest of [
 	'tests/host-ubus-blob.c', 'tests/run-host-ubus-blob.sh',
 	'tests/host-sms-dedupe.c', 'tests/run-host-sms-dedupe.sh',
 	'tests/host-cell-parser.c', 'tests/run-host-cell-parser.sh',
+	'tests/host-cell-mutation-policy.c',
+	'tests/run-host-cell-mutation-policy.sh',
 	'tests/host-voltage-parser.c', 'tests/run-host-voltage-parser.sh'
 ]) {
 	assert.ok(fs.existsSync(absolute(requiredTest)), `${requiredTest} must exist`);
