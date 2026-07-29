@@ -18,6 +18,20 @@ Never store IMEI, IMSI, ICCID, EID, phone numbers, SMS body, APN credentials,
 PIN/PUK, activation codes, tokens, or assigned IP configuration. Evidence must
 use an allowlist and sanitized fixtures rather than raw diagnostic dumps.
 
+## Installed 0.6.0-r4 evidence
+
+Static run `30434665005` and SDK run `30434665450` passed for source
+`955a3d0e14001e63ac5b002001c6f8a967fae82b`. Checksum-verified r4 expert
+bridge/LuCI packages were installed after an exact two-package simulation;
+the byte-identical expert ModemManager package and its running PID were
+preserved. Runtime validation proved schema 4, exact 8/5 method tables, one
+process per owner, connected bearer, no retired object, matching installed and
+loopback-served assets, exact cooldown reporting, stale-identity rejection,
+and eight consecutive available three-carrier snapshots. Static interaction
+tests prove immediate no-redraw Apply-button validation for EARFCN 0..70545,
+optional/0..503 PCI, busy/non-mutable gating, first-click confirmation, and
+scan-card selection. No live mutation, scan, or SMS operation was performed.
+
 ## Tested hardware context
 
 | Item | Observed value |

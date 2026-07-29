@@ -250,6 +250,14 @@ paths and counts an inactive secondary sentinel as a carrier. Neither its
   1/3-carrier transitions, exact cooldown recovery passed, the actual LuCI
   validator/renderer displayed the normalized CA and serving fallback, and
   installed/served assets matched the artifact. No live mutation was run.
+- 2026-07-29: final r4 source `955a3d0` passed static run `30434665005` and
+  SDK run `30434665450`. The checksum-verified r4 bridge/LuCI pair upgraded
+  exactly from r3 while the byte-identical expert ModemManager process was
+  preserved. Runtime schema/method tables, process ownership, connected
+  bearer, installed/served UI hashes, cooldown, stale identity, and eight
+  spaced live three-carrier reads passed. The static suite additionally covers
+  3CA/2CA/1CA replacement and input-driven PCI Apply-button behavior. No live
+  mutation, scan, or SMS operation was run.
 
 Historical v0.2 schema-1 results remain explicitly labeled and are not
 rewritten as schema-2 package evidence. Firmware command-level live evidence

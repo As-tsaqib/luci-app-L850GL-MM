@@ -19,6 +19,53 @@ listed companion behavior on this hardware; it does not claim every L850
 firmware or OpenWrt release. The historical eSIM probe is retained only as
 provenance for a package retired in 0.3.
 
+## Installed 0.6.0-r4 final acceptance, 2026-07-29
+
+Static run `30434665005` and OpenWrt SDK run `30434665450` passed for source
+`955a3d0e14001e63ac5b002001c6f8a967fae82b`. Static CI compiled and passed
+the complete host suite, including malformed ubus blobs, the CA parser's
+derived two-carrier fixture, coherent 3CA/2CA/1CA LuCI transitions, bounded
+retryable-cache behavior, and immediate EARFCN/PCI input validation. SDK CI
+built and binary-checked base and expert OpenWrt 25.12.5 `ipq40xx/generic`
+variants. The base artifact omitted the expert object and fixed AT commands;
+the expert artifact retained exactly the reviewed command paths.
+
+| Installed expert artifact | SHA-256 |
+|---|---|
+| `l850gl-mm-bridge-0.6.0-r4.apk` | `51929cdce4b1f3477d767cbfecb5eb46ca3c571b0e24119fa9141036f08d15e5` |
+| `luci-app-l850gl-mm-0.6.0-r4.apk` | `1ef556f8902834302f914a8c3723fba757752e3bbf230d19dd201d048fd61f39` |
+| `modemmanager-1.24.0-r10.apk` | `9b46039b963f5766a0a13d767ff77e978f590d2d50226183bd609f462112e60c` |
+
+Both downloaded `SHA256SUMS` files and both `BUILD_INFO.txt` manifests passed
+locally. The manifests identify schema 4, release `0.6.0-r4`, the exact source
+commit, and the absent/present expert-object split. Router-staged bridge and
+LuCI hashes matched again. An APK simulation admitted exactly the r3-to-r4
+bridge/LuCI upgrades. The ModemManager artifact was byte-identical to the
+already installed expert package, so it was not reinstalled and its PID was
+preserved; the bridge PID was replaced.
+
+Installed acceptance established:
+
+- one ModemManager and one bridge process, exact eight base/five expert method
+  tables, schema-4 Overview/Lock success, power on, and a connected bearer;
+- no retired ubus object and no recent bridge warning/error line;
+- installed and loopback-served Overview hash
+  `3824d6725e2a406018ae4599f3ac4e184ff75389eb897f9488d37a86b7284e6b`
+  and Lock hash
+  `869404aa4abc5eebdf7e1cc308a67febd0c772f7ebec873bbdbebe978db738af`;
+- served Overview contained the concise `Modem info by ModemManager`
+  description and reviewed retryable CA states; served Lock contained the
+  input-only Apply-button updater and the `0..70545` EARFCN bound;
+- one carrier success returned live 3CA B5+B3+B1, its immediate retry returned
+  accurate `rate_limited` with `retry_after_ms=4992`, and an inventory
+  replacement rejected the old opaque identity as `stale_identity`;
+- eight further queries, each resolving fresh identity/generation and spaced
+  six seconds apart, all returned `available` with the live 3CA topology and
+  no malformed, busy, or unavailable result.
+
+No cell scan, SMS operation, band/mode mutation, PCI mutation, reset, direct
+TTY access, or bearer operation was run during r4 acceptance.
+
 ## Installed 0.6.0-r3 CA acceptance, 2026-07-29
 
 Static run `30423022209` and OpenWrt SDK run `30423022228` passed for source

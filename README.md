@@ -147,7 +147,7 @@ opaque ID, modem generation, and (for SMS) messaging generation are present.
 
 ## Packaging
 
-The current source targets the following r4 package
+The current source and installed router use the following accepted r4 package
 metadata:
 
 ```text
@@ -193,6 +193,17 @@ returned `available` across one/three-carrier transitions, cooldown recovery
 was exact, and the actual LuCI validator/renderer displayed B5+B3+B1 plus the
 serving-cell fallback without an unavailable CA row. See the dated validation
 document for hashes and bounded test details.
+
+Final release r4 fixes CA presentation cache eviction for the reviewed
+retryable radio states and makes valid 3CA/2CA/1CA responses replace each other
+without a page reload. It also updates the PCI Apply button directly on every
+input event without a DOM redraw, bounds EARFCN to 0..70545, retains optional
+PCI 0..503, and uses the concise Overview description. Static run
+`30434665005` and SDK run `30434665450` passed for source `955a3d0`; the
+checksum-verified r4 bridge/LuCI pair was installed while the byte-identical
+ModemManager process was preserved. Runtime schema/method, served-asset,
+cooldown, stale-identity, process-ownership, bearer, and repeated-carrier
+checks passed without a live mutation.
 
 Live testing on 2026-07-27 validated the fixed grammar and recovery matrix on
 an L850-GL MBIM `2cb7:0007` running firmware
