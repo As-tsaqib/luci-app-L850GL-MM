@@ -187,8 +187,17 @@ main(int argc, char **argv)
 	assert(info.carriers[0].ul_bandwidth_tenths_mhz == 30U);
 
 	for (index = 0U; index < sizeof(invalid) / sizeof(invalid[0]); index++) {
-		assert(parse_fixture(argv[1], invalid[index].name, &info) ==
-			invalid[index].expected);
+		enum L850GLL850CaParseResult actual =
+			parse_fixture(argv[1], invalid[index].name, &info);
+
+		if (actual != invalid[index].expected) {
+			fprintf(stderr, "%s: expected %s, got %s\n",
+				invalid[index].name,
+				l850gl_l850_ca_parse_result_name(
+					invalid[index].expected),
+				l850gl_l850_ca_parse_result_name(actual));
+			return EXIT_FAILURE;
+		}
 		assert(info.length == 0U && info.declared_slots == 0U);
 	}
 	memset(&info, 0xa5, sizeof(info));
