@@ -17,11 +17,14 @@ not copied.
 - sanitized L850 observations and bounded synthetic fixtures;
 - original implementation and tests authored for this repository.
 
-The base project links OpenWrt's native unmodified ModemManager package. The
-expert CI artifact rebuilds and ships that same upstream recipe with its
-existing `MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS` option enabled; it carries no
-ModemManager source patch or fork. netifd and `luci-proto-modemmanager` remain
-upstream packages and retain connection ownership.
+The base verification build links OpenWrt's native unmodified ModemManager
+package. The 1.0.0-alpha expert CI artifact rebuilds that same pinned upstream
+recipe with its existing `MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS` option enabled
+and emits the binary package as `modemmanager-l850gl-expert`. The packaging-only
+definition provides/conflicts with stock `modemmanager`; it patches no
+ModemManager source and retains the upstream binary, service, D-Bus interface,
+and license. netifd and `luci-proto-modemmanager` remain upstream packages and
+retain connection ownership.
 
 ## Audit snapshot ledger
 

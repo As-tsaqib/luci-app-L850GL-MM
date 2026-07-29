@@ -45,7 +45,7 @@ identifiers, phone numbers, SMS, credentials, or activation codes.
 ## Remove the retired companion
 
 The renamed service and packages must never coexist with the retired pair.
-Before installing 0.6.0-r6, stop and disable the old service, then remove all
+Before installing package version 1.0.0_alpha-r1, stop and disable the old service, then remove all
 old companion packages with the router's package manager:
 
 ```text
@@ -64,12 +64,13 @@ retired packages are absent. Do not continue while any old companion process
 or package remains. This sequence intentionally removes the old LuCI package
 before the renamed pair is unpacked, so files and ACLs cannot overlap.
 
-## Install 0.6.0
+## Install 1.0.0-alpha
 
-Install the matching checksum-verified 0.6.0-r6 pair only after the retirement
-checks above pass:
+Install the matching checksum-verified 1.0.0_alpha-r1 expert bundle only after
+the retirement checks above pass:
 
 ```text
+modemmanager-l850gl-expert
 l850gl-mm-bridge
 luci-app-l850gl-mm
 ```
@@ -78,12 +79,12 @@ Do not reinstall the retired eSIM addon. The base ModemManager
 build must keep generic AT-over-D-Bus disabled. Use an expert image only when
 its broader ModemManager capability and separate ACL have been explicitly
 reviewed. The expert artifact includes a matching upstream OpenWrt
-`modemmanager` package rebuilt with that capability; install it together with
+`modemmanager-l850gl-expert` package rebuilt with that capability; install it together with
 the expert bridge rather than mixing the bridge with the stock package.
 
 After installation:
 
-1. Verify `l850gl-mm-bridge --version` reports 0.6.0.
+1. Verify `l850gl-mm-bridge --version` reports 1.0.0-alpha.
 2. Verify `l850gl.mm` exposes exactly the eight schema-4 methods, including
    `set_modes`.
 3. Verify the retired `fibocom.mm` object and service remain absent. On a base

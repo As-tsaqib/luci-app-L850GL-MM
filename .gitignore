@@ -7,6 +7,7 @@
 *.swp
 *~
 .cache/
+__pycache__/
 .config
 .vscode/
 build/

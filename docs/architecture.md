@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Ownership boundary
 
-Version 0.6.0 is a companion, not a modem connection stack.
+Version 1.0.0-alpha is a companion, not a modem connection stack.
 
 ```text
 LuCI: Overview / Lock / SMS
@@ -231,8 +231,10 @@ CONFIG_L850GL_MM_BRIDGE_EXPERT=y
 ```
 
 That build publishes the five-method `l850gl.mm.l850` object under separate
-exact ACL grants and packages a matching ModemManager rebuilt with reviewed
-command transport. Enabling the
+exact ACL grants and packages the matching rebuild as
+`modemmanager-l850gl-expert`. The package provides and conflicts with stock
+`modemmanager`, while retaining the upstream service, binary, and D-Bus names.
+Enabling the
 build gate alone does not enable mutation: exact model/plugin/composition,
 `2cb7:0007` attestation, live bands, generation, and the one-entry firmware
 allowlist must all match. The base artifact retains the stock disabled
@@ -240,7 +242,7 @@ transport and has no expert object.
 
 ## Retired architecture
 
-Version 0.6 has no Status or Settings page, old Advanced page, direct radio
+Version 1.0.0-alpha has no Status or Settings page, old Advanced page, direct radio
 toggle, generic reset, SIM-slot switch, eSIM addon, diagnostic UI, shadow
 daemon, custom netifd protocol, or modem rescan action. The earlier shadow
 implementation remains recoverable through Git history/tag; it is not part of

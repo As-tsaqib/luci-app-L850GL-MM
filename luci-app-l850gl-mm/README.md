@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # luci-app-L850GL-MM
 
-LuCI 0.6.0 frontend for the schema-4 `l850gl.mm` companion API. It installs
+LuCI 1.0.0-alpha frontend for the schema-4 `l850gl.mm` companion API. It installs
 exactly Overview, Lock, and SMS below Modem / L850GL MM.
 
 The browser uses only the shared typed RPC module. It never calls D-Bus,

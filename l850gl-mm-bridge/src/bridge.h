@@ -10,7 +10,7 @@
 #include <libmm-glib.h>
 
 #define L850GL_MM_API_SCHEMA 4U
-#define L850GL_MM_BRIDGE_VERSION "0.6.0"
+#define L850GL_MM_BRIDGE_VERSION "1.0.0-alpha"
 #define L850GL_SMS_REQUEST_DIGEST_LEN 32U
 typedef struct _L850GLBridge L850GLBridge;
 typedef struct _L850GLModem L850GLModem;

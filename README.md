@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 Repository: <https://github.com/As-tsaqib/luci-app-L850GL-MM>
 
-Version 0.6.0 is a small LuCI companion for the L850-GL modem already managed by
+Version 1.0.0-alpha is a small LuCI companion for the L850-GL modem already managed by
 ModemManager and OpenWrt netifd. Its public API is schema 4 and its menu is
 exactly:
 
@@ -149,25 +149,33 @@ opaque ID, modem generation, and (for SMS) messaging generation are present.
 
 ## Packaging
 
-The current source and router use the following checksum-verified r6 package
-metadata after SDK and live mutation acceptance:
+The alpha source packages the accepted r6 behavior with a distinguishable
+expert ModemManager identity:
 
 ```text
-l850gl-mm-bridge   0.6.0-r6 native libmm-glib/GDBus to ubus bridge
-luci-app-l850gl-mm 0.6.0-r6 Overview, Lock, and SMS views
+l850gl-mm-bridge               1.0.0_alpha-r1 expert libmm-glib/GDBus to ubus bridge
+luci-app-l850gl-mm             1.0.0_alpha-r1 Overview, Lock, and SMS views
+modemmanager-l850gl-expert     1.24.0-r10 upstream OpenWrt recipe with reviewed AT transport
 ```
 
 The retired Status, old Advanced, Settings, radio toggle, generic reset,
-primary SIM-slot switch, and old eSIM addon are not part of 0.6.0. APN,
+primary SIM-slot switch, and old eSIM addon are not part of 1.0.0-alpha. APN,
 route, DNS, credentials, and all connection settings remain in OpenWrt's
 existing Network / Interfaces UI.
 
-The normal build requires ModemManager with MBIM and netifd support and keeps
-generic AT-over-D-Bus disabled. `CONFIG_L850GL_MM_BRIDGE_EXPERT` is off
-by default and depends on an explicitly enabled
-`MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS` build.
+CI still verifies a safe base binary with generic AT-over-D-Bus disabled. The
+published alpha bundle is expert-only and contains `modemmanager-l850gl-expert`,
+which provides and conflicts with the stock `modemmanager` package. It must be
+installed in the same transaction as the expert bridge. Its fixed command
+surface remains firmware-, hardware-, ACL-, and build-gated.
 
 ## Evidence status
+
+Version 1.0.0-alpha changes release packaging and version identity, not API
+schema 4 or the accepted r6 modem state machines. Its release gate requires the
+three-package expert ZIP, checksum manifest, install simulation, stock-to-expert
+package transition, and installed router acceptance described in the dated live
+record.
 
 Version 0.6.0 renames the active packages, service, ACLs, paths, and ubus
 objects; the retired names are migration/history identifiers only and must not

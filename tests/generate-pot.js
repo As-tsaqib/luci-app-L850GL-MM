@@ -67,7 +67,7 @@ const lines = [
 	'#',
 	'msgid ""',
 	'msgstr ""',
-	'"Project-Id-Version: luci-app-L850GL-MM 0.6.0\\n"',
+	'"Project-Id-Version: luci-app-L850GL-MM 1.0.0-alpha\\n"',
 	'"Report-Msgid-Bugs-To: \\n"',
 	'"POT-Creation-Date: 2026-07-27 00:00+0800\\n"',
 	'"MIME-Version: 1.0\\n"',

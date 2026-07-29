@@ -3439,8 +3439,8 @@ assert.ok(read('htdocs/luci-static/resources/l850gl-mm/widgets.js').includes(
 	"' ' + _('(active)')"));
 
 const makefile = read('Makefile');
-assert.ok(makefile.includes('PKG_VERSION:=0.6.0'));
-assert.ok(makefile.includes('PKG_RELEASE:=6'));
+assert.ok(makefile.includes('PKG_VERSION:=1.0.0_alpha'));
+assert.ok(makefile.includes('PKG_RELEASE:=1'));
 assert.ok(makefile.includes(
 	'LUCI_TITLE:=LuCI companion for the L850-GL modem managed by ModemManager'));
 assert.ok(makefile.includes(
@@ -3458,7 +3458,7 @@ assert.ok(makefile.includes('PKG_LICENSE:=Apache-2.0'));
 assert.ok(makefile.includes('include $(TOPDIR)/feeds/luci/luci.mk'));
 
 const pot = read('po/templates/l850gl-mm.pot');
-assert.ok(pot.includes('Project-Id-Version: luci-app-L850GL-MM 0.6.0'));
+assert.ok(pot.includes('Project-Id-Version: luci-app-L850GL-MM 1.0.0-alpha'));
 for (const retired of [
 	'Status', 'Advanced', 'Settings', 'Radio power', 'Reset modem', 'Primary SIM slot',
 	'Rescan devices', 'Shadow mode', 'eSIM'

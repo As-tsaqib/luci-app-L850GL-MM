@@ -138,7 +138,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             bison build-essential ca-certificates curl file flex g++-multilib \
             gawk gcc-multilib gettext git libelf-dev libncurses-dev libssl-dev \
-            patch pkgconf python3 python3-setuptools rsync unzip zlib1g-dev zstd
+            patch pkgconf python3 python3-setuptools rsync unzip zip zlib1g-dev zstd
 
       - name: Extract SDK
         id: tree
@@ -189,8 +189,17 @@ jobs:
           rm -rf feeds/packages/net/modemmanager
           cp -a "${modemmanager_tree}/net/modemmanager" \
             feeds/packages/net/
+          python3 "${GITHUB_WORKSPACE}/packaging/prepare-modemmanager-expert.py" \
+            feeds/packages/net/modemmanager/Makefile
+          grep -Fq 'define Package/modemmanager-l850gl-expert' \
+            feeds/packages/net/modemmanager/Makefile
+          grep -Fq 'PROVIDES:=modemmanager' \
+            feeds/packages/net/modemmanager/Makefile
+          grep -Fq 'CONFLICTS:=modemmanager' \
+            feeds/packages/net/modemmanager/Makefile
           {
             echo 'ModemManager_Package=1.24.0-r10'
+            echo 'ModemManager_Expert_Package=modemmanager-l850gl-expert-1.24.0-r10'
             echo "ModemManager_Recipe_Commit=${modemmanager_ref}"
           } > "${GITHUB_WORKSPACE}/logs/modemmanager-recipe-source.txt"
           ./scripts/feeds install modemmanager luci-base \
@@ -220,12 +229,14 @@ jobs:
           CONFIG_MODEMMANAGER_WITH_MBIM=y
           CONFIG_MODEMMANAGER_WITH_NETIFD=y
           # CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS is not set
+          # CONFIG_PACKAGE_modemmanager-l850gl-expert is not set
           # CONFIG_L850GL_MM_BRIDGE_EXPERT is not set
           EOF
           make defconfig 2>&1 | tee "${GITHUB_WORKSPACE}/logs/defconfig-base.log"
           cp .config "${GITHUB_WORKSPACE}/logs/config-base"
           grep -q '^CONFIG_TARGET_ARCH_PACKAGES="arm_cortex-a7_neon-vfpv4"$' .config
           ! grep -q '^CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS=y$' .config
+          ! grep -q '^CONFIG_PACKAGE_modemmanager-l850gl-expert=m$' .config
           ! grep -q '^CONFIG_L850GL_MM_BRIDGE_EXPERT=y$' .config
 
       - name: Build and verify base packages
@@ -256,7 +267,7 @@ jobs:
             exit 1
           fi
           mapfile -t binaries < <(find build_dir/target-* \
-            -path '*/l850gl-mm-bridge-0.6.0/.pkgdir/l850gl-mm-bridge/usr/sbin/l850gl-mm-bridge' \
+            -path '*/l850gl-mm-bridge-1.0.0_alpha/.pkgdir/l850gl-mm-bridge/usr/sbin/l850gl-mm-bridge' \
             -type f)
           printf 'Base_bridge_binary_count=%s\n' "${#binaries[@]}" | \
             tee "${GITHUB_WORKSPACE}/logs/verify-base.txt"
@@ -306,8 +317,8 @@ jobs:
           [ "${#packages[@]}" -eq 2 ]
           for package in "${packages[@]}"; do
             case "$(basename "${package}")" in
-              l850gl-mm-bridge-0.6.0-r6.apk|l850gl-mm-bridge_0.6.0-r6_*.ipk|\
-              luci-app-l850gl-mm-0.6.0-r6.apk|luci-app-l850gl-mm_0.6.0-r6_all.ipk) ;;
+              l850gl-mm-bridge-1.0.0_alpha-r1.apk|l850gl-mm-bridge_1.0.0_alpha-r1_*.ipk|\
+              luci-app-l850gl-mm-1.0.0_alpha-r1.apk|luci-app-l850gl-mm_1.0.0_alpha-r1_all.ipk) ;;
               *) echo "Unexpected package release: ${package}" >&2; exit 1 ;;
             esac
           done
@@ -317,7 +328,7 @@ jobs:
             echo 'Target=ipq40xx/generic'
             echo 'Package_Architecture=arm_cortex-a7_neon-vfpv4'
             echo 'API_Schema=4'
-            echo 'Release=0.6.0-r6'
+            echo 'Release=1.0.0-alpha-r1'
             echo 'Expert_Object=absent'
             echo 'ModemManager_Recipe=1.24.0-r10'
             echo "Source_Commit=${GITHUB_SHA}"
@@ -337,13 +348,16 @@ jobs:
           set -euo pipefail
           cd "${SDK_ROOT}"
           sed -i '/CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS/d' .config
+          sed -i '/CONFIG_PACKAGE_modemmanager-l850gl-expert/d' .config
           sed -i '/CONFIG_L850GL_MM_BRIDGE_EXPERT/d' .config
           cat >> .config <<'EOF'
           CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS=y
+          CONFIG_PACKAGE_modemmanager-l850gl-expert=m
           CONFIG_L850GL_MM_BRIDGE_EXPERT=y
           EOF
           make defconfig 2>&1 | tee "${GITHUB_WORKSPACE}/logs/defconfig-expert.log"
           grep -q '^CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS=y$' .config
+          grep -q '^CONFIG_PACKAGE_modemmanager-l850gl-expert=m$' .config
           grep -q '^CONFIG_L850GL_MM_BRIDGE_EXPERT=y$' .config
           cp .config "${GITHUB_WORKSPACE}/logs/config-expert"
 
@@ -373,7 +387,7 @@ jobs:
             exit 1
           fi
           mapfile -t binaries < <(find build_dir/target-* \
-            -path '*/l850gl-mm-bridge-0.6.0/.pkgdir/l850gl-mm-bridge/usr/sbin/l850gl-mm-bridge' \
+            -path '*/l850gl-mm-bridge-1.0.0_alpha/.pkgdir/l850gl-mm-bridge/usr/sbin/l850gl-mm-bridge' \
             -type f)
           printf 'Expert_bridge_binary_count=%s\n' "${#binaries[@]}" | \
             tee "${GITHUB_WORKSPACE}/logs/verify-expert.txt"
@@ -426,12 +440,13 @@ jobs:
             \( -name 'l850gl-mm-bridge-*.apk' -o -name 'l850gl-mm-bridge_*.ipk' \) -print0)
           [ "${#bridge[@]}" -eq 1 ]
           case "$(basename "${bridge[0]}")" in
-            l850gl-mm-bridge-0.6.0-r6.apk|l850gl-mm-bridge_0.6.0-r6_*.ipk) ;;
+            l850gl-mm-bridge-1.0.0_alpha-r1.apk|l850gl-mm-bridge_1.0.0_alpha-r1_*.ipk) ;;
             *) echo "Unexpected expert bridge release: ${bridge[0]}" >&2; exit 1 ;;
           esac
           cp "${bridge[0]}" "${GITHUB_WORKSPACE}/dist/expert/"
           mapfile -d '' modemmanager < <(find bin/packages -type f \
-            \( -name 'modemmanager-[0-9]*.apk' -o -name 'modemmanager_*.ipk' \) -print0)
+            \( -name 'modemmanager-l850gl-expert-1.24.0-r10.apk' \
+               -o -name 'modemmanager-l850gl-expert_1.24.0-r10_*.ipk' \) -print0)
           [ "${#modemmanager[@]}" -eq 1 ]
           cp "${modemmanager[0]}" "${GITHUB_WORKSPACE}/dist/expert/"
           mapfile -d '' luci < <(find "${GITHUB_WORKSPACE}/dist/base" \
@@ -439,25 +454,63 @@ jobs:
             \( -name 'luci-app-l850gl-mm-*.apk' -o -name 'luci-app-l850gl-mm_*.ipk' \) -print0)
           [ "${#luci[@]}" -eq 1 ]
           cp "${luci[0]}" "${GITHUB_WORKSPACE}/dist/expert/"
+          bridge_name="$(basename "${bridge[0]}")"
+          luci_name="$(basename "${luci[0]}")"
+          modemmanager_name="$(basename "${modemmanager[0]}")"
           {
             echo "OpenWrt=${OPENWRT_VERSION}"
             echo 'Target=ipq40xx/generic'
             echo 'Package_Architecture=arm_cortex-a7_neon-vfpv4'
             echo 'API_Schema=4'
-            echo 'Release=0.6.0-r6'
+            echo 'Release=1.0.0-alpha-r1'
             echo 'Expert_Object=l850gl.mm.l850'
             echo 'ModemManager_AT_Command_Via_DBus=enabled'
-            echo 'ModemManager_Package=1.24.0-r10'
+            echo 'ModemManager_Package=modemmanager-l850gl-expert-1.24.0-r10'
             echo 'ModemManager_Recipe_Commit=d011c4fb8af70795928937ad5195479cc4ff6de9'
             echo 'Firmware_Allowlist=18500.5001.00.05.27.30'
             echo "Source_Commit=${GITHUB_SHA}"
           } > "${GITHUB_WORKSPACE}/dist/expert/BUILD_INFO.txt"
+          cat > "${GITHUB_WORKSPACE}/dist/expert/INSTALL.txt" <<EOF
+          L850GL MM 1.0.0-alpha expert bundle
+
+          OpenWrt: ${OPENWRT_VERSION}
+          Target: ipq40xx/generic
+          Package architecture: arm_cortex-a7_neon-vfpv4
+          Supported modem: L850-GL MBIM 2cb7:0007
+          Expert firmware allowlist: 18500.5001.00.05.27.30
+
+          Included local packages:
+          - ${modemmanager_name}
+          - ${bridge_name}
+          - ${luci_name}
+
+          Keep the matching official OpenWrt feeds reachable so apk can resolve
+          luci-base, luci-proto-modemmanager, kernel modules, and libraries.
+          Verify SHA256SUMS, simulate the complete transaction, then install all
+          three local packages together. The expert ModemManager provides and
+          conflicts with the stock modemmanager package.
+
+              apk update
+              apk add --simulate --allow-untrusted ./${modemmanager_name} ./${bridge_name} ./${luci_name}
+              apk add --allow-untrusted ./${modemmanager_name} ./${bridge_name} ./${luci_name}
+
+          This is an alpha artifact for the exact target above, not a universal
+          OpenWrt or ModemManager package.
+          EOF
           (
             cd "${GITHUB_WORKSPACE}/dist/expert"
             find . -maxdepth 1 -type f \( -name '*.apk' -o -name '*.ipk' \) \
               -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS
             test -s SHA256SUMS
           )
+          zip_name='l850gl-mm-1.0.0-alpha-arm_cortex-a7_neon-vfpv4-openwrt25-expert.zip'
+          (
+            cd "${GITHUB_WORKSPACE}/dist/expert"
+            zip -9 "${GITHUB_WORKSPACE}/dist/${zip_name}" \
+              "${modemmanager_name}" "${bridge_name}" "${luci_name}" \
+              SHA256SUMS BUILD_INFO.txt INSTALL.txt
+          )
+          unzip -l "${GITHUB_WORKSPACE}/dist/${zip_name}"
 
       - name: Upload base packages
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -470,8 +523,8 @@ jobs:
       - name: Upload expert packages
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: l850gl-mm-expert-openwrt-${{ env.OPENWRT_VERSION }}-ipq40xx-generic
-          path: dist/expert/
+          name: l850gl-mm-1.0.0-alpha-arm_cortex-a7-neon-vfpv4-openwrt25-expert
+          path: dist/l850gl-mm-1.0.0-alpha-arm_cortex-a7_neon-vfpv4-openwrt25-expert.zip
           if-no-files-found: error
           retention-days: 14
 

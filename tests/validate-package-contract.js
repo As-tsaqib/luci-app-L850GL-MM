@@ -35,13 +35,13 @@ for (const retired of [
 	'luci-app-fibocom-esim'
 ]) {
 	assert.deepStrictEqual(filesUnder(retired), [],
-		`${retired} must remain retired from the 0.6 product tree`);
+		`${retired} must remain retired from the 1.0 alpha product tree`);
 }
 
 const bridgeMakefile = read('l850gl-mm-bridge/Makefile');
 assert.match(bridgeMakefile, /^PKG_NAME:=l850gl-mm-bridge$/m);
-assert.match(bridgeMakefile, /^PKG_VERSION:=0\.6\.0$/m);
-assert.match(bridgeMakefile, /^PKG_RELEASE:=6$/m);
+assert.match(bridgeMakefile, /^PKG_VERSION:=1\.0\.0_alpha$/m);
+assert.match(bridgeMakefile, /^PKG_RELEASE:=1$/m);
 assert.match(bridgeMakefile,
 	/^\s*URL:=https:\/\/github\.com\/As-tsaqib\/luci-app-L850GL-MM$/m);
 assert.match(bridgeMakefile, /^\s*CONFLICTS:=fibocom-mm-bridge$/m,
@@ -100,7 +100,7 @@ const widgetsSource = read(
 	'luci-app-l850gl-mm/htdocs/luci-static/resources/l850gl-mm/widgets.js');
 
 assert.match(bridgeHeader, /#define L850GL_MM_API_SCHEMA 4U/);
-assert.match(bridgeHeader, /#define L850GL_MM_BRIDGE_VERSION "0\.6\.0"/);
+assert.match(bridgeHeader, /#define L850GL_MM_BRIDGE_VERSION "1\.0\.0-alpha"/);
 assert.match(sourceMakefile, /L850GL_MM_EXPERT/);
 assert.match(sourceMakefile, /^TARGET := l850gl-mm-bridge$/m);
 assert.match(identityHeader, /#define L850GL_ID_PREFIX "l850gl-"/,
@@ -577,8 +577,8 @@ assert.match(init, /^PROG=\/usr\/sbin\/l850gl-mm-bridge$/m);
 assert.match(init, /command "\$PROG" --foreground/);
 
 const luciMakefile = read('luci-app-l850gl-mm/Makefile');
-assert.match(luciMakefile, /^PKG_VERSION:=0\.6\.0$/m);
-assert.match(luciMakefile, /^PKG_RELEASE:=6$/m);
+assert.match(luciMakefile, /^PKG_VERSION:=1\.0\.0_alpha$/m);
+assert.match(luciMakefile, /^PKG_RELEASE:=1$/m);
 assert.match(luciMakefile, /^LUCI_URL:=https:\/\/github\.com\/As-tsaqib\/luci-app-L850GL-MM$/m);
 assert.match(luciMakefile, /^LUCI_MAINTAINER:=As Tsaqib <[^>]+>$/m);
 for (const dependency of [
@@ -641,12 +641,32 @@ assert.match(staticWorkflow, /run-host-ca-parser\.sh/);
 assert.match(staticWorkflow, /run-host-voltage-parser\.sh/);
 assert.match(staticWorkflow, /make check/);
 const sdkWorkflow = read('.github/workflows/openwrt-sdk.yml');
+const expertRecipeTransformer = read('packaging/prepare-modemmanager-expert.py');
+for (const contract of [
+	'Package/modemmanager-l850gl-expert',
+	'PROVIDES:=modemmanager',
+	'CONFLICTS:=modemmanager',
+	'BuildPackage,modemmanager-l850gl-expert'
+]) {
+	assert.ok(expertRecipeTransformer.includes(contract),
+		`expert ModemManager recipe transformer must retain ${contract}`);
+}
+assert.match(expertRecipeTransformer, /PKG_VERSION:=1\.24\.0/);
+assert.match(expertRecipeTransformer, /PKG_RELEASE:=10/);
 assert.ok(sdkWorkflow.includes("grep -Fq -- '-Dbuiltin_plugins=true'"));
 assert.ok(sdkWorkflow.includes('CONFIG_L850GL_MM_BRIDGE_EXPERT=y'),
 	'SDK CI must exercise the explicit expert build separately');
 assert.ok(sdkWorkflow.includes('CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS=y'));
 assert.ok(sdkWorkflow.includes('package/feeds/packages/modemmanager/compile'),
 	'expert CI must rebuild the matching ModemManager package');
+assert.ok(sdkWorkflow.includes('CONFIG_PACKAGE_modemmanager-l850gl-expert=m'),
+	'expert CI must select the distinguishable ModemManager package');
+assert.ok(sdkWorkflow.includes('modemmanager-l850gl-expert-1.24.0-r10.apk'),
+	'expert bundle must collect the renamed local ModemManager package');
+assert.ok(sdkWorkflow.includes('apk add --simulate --allow-untrusted'),
+	'expert install instructions must require a package-manager simulation');
+assert.ok(sdkWorkflow.includes('l850gl-mm-1.0.0-alpha-arm_cortex-a7_neon-vfpv4-openwrt25-expert.zip'),
+	'alpha CI must emit one architecture-scoped expert ZIP');
 assert.ok(sdkWorkflow.includes("grep -Fq -- '-Dat_command_via_dbus=true'"));
 assert.ok(sdkWorkflow.includes('Firmware_Allowlist=18500.5001.00.05.27.30'));
 assert.ok(sdkWorkflow.includes("grep -Fx 'get_carrier_info'"),
@@ -657,10 +677,10 @@ assert.ok(sdkWorkflow.includes("grep -Fx 'AT+CBC'"),
 	'base/expert SDK verification must gate the reviewed voltage command');
 assert.strictEqual((sdkWorkflow.match(/API_Schema=4/g) || []).length, 2,
 	'both SDK artifact manifests must identify schema 4');
-assert.strictEqual((sdkWorkflow.match(/Release=0\.6\.0-r6/g) || []).length, 2,
-	'both SDK artifact manifests must identify release 0.6.0-r6');
-assert.ok(!sdkWorkflow.includes('0.6.0-r5'),
-	'the final SDK workflow must not rebuild a different r5 payload');
+assert.strictEqual((sdkWorkflow.match(/Release=1\.0\.0-alpha-r1/g) || []).length, 2,
+	'both SDK artifact manifests must identify release 1.0.0-alpha-r1');
+assert.ok(!sdkWorkflow.includes('Release=0.6.0-r6'),
+	'the alpha SDK workflow must not label new artifacts as the previous release');
 assert.ok(!sdkWorkflow.includes('API_Schema=2'));
 assert.ok(!sdkWorkflow.includes('API_Schema=3'));
 assert.ok(!sdkWorkflow.includes('luci-app-fibocom-esim'));
