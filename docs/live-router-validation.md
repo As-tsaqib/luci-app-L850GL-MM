@@ -19,35 +19,53 @@ listed companion behavior on this hardware; it does not claim every L850
 firmware or OpenWrt release. The historical eSIM probe is retained only as
 provenance for a package retired in 0.3.
 
-## 0.6.0-r1 acceptance record, pending build/install
+## Installed 0.6.0-r1 schema-4 acceptance, 2026-07-29
 
-The active release names are `luci-app-L850GL-MM`, packages
-`luci-app-l850gl-mm` / `l850gl-mm-bridge`, service `l850gl-mm-bridge`, and ubus
-objects `l850gl.mm` / optional `l850gl.mm.l850`. Installation must first stop,
-disable, and remove the retired service and packages. A result is invalid if an
-old and new service, package pair, ACL namespace, or ubus object coexist.
+Static run `30416321185` and OpenWrt SDK run `30416321209` passed for source
+commit `47836330574cf69a09e9829a98ac40897caf9c59`. Static CI compiled and passed
+identity, hardware attestation, network binding, radio, SMS policy/dedupe,
+malformed ubus blob, cell, carrier, and voltage host tests. SDK CI built base
+and expert OpenWrt 25.12.5 `ipq40xx/generic` variants. Binary checks proved the
+base bridge omitted the expert object plus `AT+GTCAINFO?` and `AT+CBC`, while
+the expert bridge contained only the reviewed fixed command paths.
 
-Source and fixture checks cover the strict `AT+CBC` parser, nullable
-`modem.voltage_mv`, and bounded generation-matched reuse of the last valid
-carrier snapshot across only transient `busy`/`rate_limited` polls. They are
-not live evidence. After CI produces 0.6.0-r1 artifacts, record here:
+The checksum-verified expert artifact contained:
 
-- static and SDK run IDs, source commit, artifact SHA-256 values, and package
-  simulation;
-- absence of retired packages/service/objects and presence of the exact new
-  pair/service/schema-4 8/5 method tables;
-- base-binary absence and expert-binary presence of `l850gl.mm.l850`,
-  `AT+GTCAINFO?`, and `AT+CBC` as appropriate;
-- repeated carrier/Overview polling through at least one completion cooldown,
-  proving no overlap and no transient disappearance of previously validated
-  serving data;
-- a bounded live voltage value when available, while confirming that a missing
-  value leaves every other Overview row usable;
-- installed/served asset hashes, ownership/health, and privacy/log checks.
+| Artifact | SHA-256 |
+|---|---|
+| `l850gl-mm-bridge-0.6.0-r1.apk` | `a9841f04c477a2d3807cafa898b073ac16d314ef24aec493e1ef61857d03d22b` |
+| `luci-app-l850gl-mm-0.6.0-r1.apk` | `f06bcb4440b41687640b3e2cba5133091330c0d06f28927a39b6a1c8197d4486` |
+| `modemmanager-1.24.0-r10.apk` | `9b46039b963f5766a0a13d767ff77e978f590d2d50226183bd609f462112e60c` |
 
-Until those values are entered, 0.6.0-r1 is implemented but not claimed here as
-installed or live-verified. The following sections are immutable historical
-records for the retired pre-rename packages and objects.
+The ModemManager artifact was byte-identical to the already installed reviewed
+expert package and was not reinstalled. A rollback pair and the current old-UI
+snapshot were checksum-verified in `/tmp` before migration. The retired service
+was stopped and disabled, its LuCI/bridge packages were removed, then the two
+renamed packages were installed. The router exposed exactly the eight base and
+five expert methods under `l850gl.mm` / `l850gl.mm.l850`; the old packages,
+process, files, and `fibocom.mm` objects were absent. rpcd and uhttpd were
+restarted after removing the exact LuCI index-cache file.
+
+Read-only runtime validation established:
+
+- modem state `connected`, power `on`, connected bearer, and live parsed
+  voltage `3550 mV` from the nullable Overview field;
+- three carrier queries spaced six seconds apart all returned `available`; an
+  immediate fourth returned accurate retryable `rate_limited`, followed by
+  `available` after the reported deadline;
+- standard CellInfo remained unavailable on this firmware, while three full
+  Overview/Lock/carrier cycles at ten-second intervals each produced an
+  effective `available` Serving Cell through the validated carrier fallback;
+- cell-lock status and one-message SMS-page metadata reads succeeded without
+  running scan, SMS write/delete, Band/Mode Lock, or PCI mutation;
+- the menu contained exactly L850GL MM / Overview / Lock / SMS and all five
+  installed ACL groups retained exact non-wildcard permissions;
+- all six served CSS/JS hashes matched the APK manifest, the bridge and
+  ModemManager each had one process, picocom had none, and three bridge log
+  lines contained zero errors and zero private-data labels.
+
+The following sections are immutable historical records for the retired
+pre-rename packages and objects.
 
 ## Installed 0.5.0-r1 schema-4 acceptance, 2026-07-28
 

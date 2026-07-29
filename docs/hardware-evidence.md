@@ -138,10 +138,16 @@ Implemented in the current source/host/static contract:
   stale, incompatible, and non-transient failures remain fail-closed.
 
 The supplied `+CBC: <status>,<millivolts>` shape and sanitized fixtures are
-parser input evidence, not an installed-package voltage claim. Record the
-0.6.0-r1 SDK run, checksums, package replacement, exact new service/object
-names, served assets, repeated carrier polling, and live voltage value only
-after those checks complete on the router.
+parser input evidence rather than proof by themselves. Installed 0.6.0-r1 was
+subsequently accepted on 2026-07-29: static run `30416321185`, SDK run
+`30416321209`, source `4783633`, checksum-verified renamed packages, exact 8/5
+new method tables with the retired service/object absent, and matching
+installed/served assets. The expert bridge returned live typed voltage
+`3550 mV`; all other Overview data remained usable. Three six-second carrier
+queries and three ten-second full polling cycles remained available, with one
+intentional immediate query producing accurate `rate_limited` and succeeding
+after its deadline. No live scan, SMS write/delete, Band/Mode Lock, or PCI
+mutation was run during this acceptance.
 
 On 2026-07-29, before the renamed build was installed, the existing expert
 bridge was used for a clean read-only `GTCAINFO` parser check. A recently

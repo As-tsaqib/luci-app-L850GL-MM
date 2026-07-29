@@ -166,9 +166,12 @@ serving fallback flicker, LuCI may retain one structurally valid carrier
 snapshot for at most 30 seconds across only `busy` or `rate_limited` responses
 from the identical opaque modem ID and generation. Expiry, generation change,
 malformed data, schema mismatch, transport failure, or any non-transient error
-still clears it and fails closed. These 0.6 changes require their own SDK and
-installed-router record; the dated results below remain historical 0.3--0.5
-evidence.
+still clears it and fails closed. Static run `30416321185` and SDK run
+`30416321209` passed for source `4783633`; the checksum-verified expert pair was
+installed on 2026-07-29 with exact 8/5 new method tables and no retired object.
+Live read-only acceptance returned `3550 mV`, stable ten-second effective
+Serving Cell fallback, matching served assets, and a connected bearer. See the
+dated record below for the bounded test details.
 
 Live testing on 2026-07-27 validated the fixed grammar and recovery matrix on
 an L850-GL MBIM `2cb7:0007` running firmware
