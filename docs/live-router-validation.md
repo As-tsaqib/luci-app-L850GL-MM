@@ -19,6 +19,59 @@ listed companion behavior on this hardware; it does not claim every L850
 firmware or OpenWrt release. The historical eSIM probe is retained only as
 provenance for a package retired in 0.3.
 
+## Installed 0.6.0-r3 CA acceptance, 2026-07-29
+
+Static run `30423022209` and OpenWrt SDK run `30423022228` passed for source
+`a1047fcbdf248692fc76ed891e574d6150154ebe`. Static CI compiled and passed the
+complete host suite, including live active-secondary SINR `127`, primary `127`
+rejection, secondary `128`/`255` rejection, and `127` combined with an invalid
+PCI. SDK CI built and verified base/expert OpenWrt 25.12.5
+`ipq40xx/generic` variants. The base binary omitted the expert object and fixed
+AT commands; the expert binary contained only the reviewed expert paths.
+
+| Artifact | SHA-256 |
+|---|---|
+| `l850gl-mm-bridge-0.6.0-r3.apk` | `c0bb5db429583c6a3deb050106b81de82e2651abe0c8c344d2fb4db60198a2a8` |
+| `luci-app-l850gl-mm-0.6.0-r3.apk` | `60121616dad9979a157e13a311c508324888fbb8e4ce613ae25e12821b29e251` |
+| `modemmanager-1.24.0-r10.apk` | `9b46039b963f5766a0a13d767ff77e978f590d2d50226183bd609f462112e60c` |
+
+The hashes matched locally and again in router staging. An APK simulation
+admitted exactly the r2-to-r3 bridge/LuCI upgrades. The byte-identical
+ModemManager package was not reinstalled and its PID remained unchanged. The
+bridge restarted on the r3 binary and republished the exact eight base/five
+expert schema-4 methods. Old ubus objects remained absent; one bridge and one
+ModemManager process ran, no picocom process existed, and recent bridge logs
+contained no warning/error line.
+
+Read-only runtime acceptance established:
+
+- 20 carrier queries at six-second intervals all returned `available`, with
+  real 3-carrier to 1-carrier to 3-carrier transitions and zero malformed,
+  busy, or rate-limited sample;
+- three-carrier output was B5 primary plus B3/B1 secondaries, with both
+  secondary UL bandwidths explicitly null; one-carrier output omitted the
+  inactive secondaries;
+- one success followed by an immediate retry returned accurate
+  `rate_limited` (`retry_after_ms=4717`), then recovered to `available` just
+  after that deadline;
+- five carrier-first Overview/Lock cycles kept all three typed snapshots valid,
+  the bearer connected, and voltage available as `3550 mV` after its initial
+  asynchronous refresh;
+- standard CellInfo remained unavailable, but the actual LuCI validator
+  accepted a sanitized live response and the actual renderer displayed
+  B5+B3+B1, `10/10`, `20/—`, `15/—`, and an effective available serving
+  EARFCN/PCI fallback instead of any unavailable CA row;
+- r3 APK-manifest hashes for Overview/widgets matched installed files and
+  loopback-served bodies; served code contained explicit-null validation,
+  carrier-first polling, and em-dash rendering.
+
+Restarting rpcd invalidated previous authenticated sessions, so authenticated
+HTTP RPC was not fabricated or rerun; only the anonymous session remained.
+The installed exact ACL and local ubus path were verified, and the previous r1
+authenticated HTTP acceptance remains scoped evidence for the unchanged RPC
+route. No scan, SMS mutation, Band/Mode mutation, PCI mutation, reset, or
+bearer operation was run during r3 acceptance.
+
 ## Installed 0.6.0-r2 CA diagnostic, 2026-07-29 (not accepted)
 
 Static run `30420544115` and OpenWrt SDK run `30420570825` passed for source

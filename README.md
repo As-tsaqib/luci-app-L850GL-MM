@@ -147,8 +147,8 @@ opaque ID, modem generation, and (for SMS) messaging generation are present.
 
 ## Packaging
 
-The current source targets the following r3 package metadata; installed r3
-acceptance is recorded only after its CI artifacts are deployed:
+The current source and installed router use the following accepted r3 package
+metadata:
 
 ```text
 l850gl-mm-bridge   0.6.0-r3 native libmm-glib/GDBus to ubus bridge
@@ -182,8 +182,13 @@ method tables and no retired object. That r1 read-only acceptance returned
 `3550 mV`, stable ten-second effective Serving Cell fallback, matching served
 assets, and a connected bearer. Release r2 added the active-secondary uplink
 shape but live repetition exposed a second, metric-only SINR sentinel. Release
-r3 handles that exact observation and remains pending CI/install acceptance
-until recorded in the dated validation document.
+r3 handles that exact observation. Static run `30423022209` and SDK run
+`30423022228` passed for source `a1047fc`; the checksum-verified pair was
+installed with ModemManager preserved. Twenty spaced carrier queries all
+returned `available` across one/three-carrier transitions, cooldown recovery
+was exact, and the actual LuCI validator/renderer displayed B5+B3+B1 plus the
+serving-cell fallback without an unavailable CA row. See the dated validation
+document for hashes and bounded test details.
 
 Live testing on 2026-07-27 validated the fixed grammar and recovery matrix on
 an L850-GL MBIM `2cb7:0007` running firmware

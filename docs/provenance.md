@@ -243,8 +243,13 @@ paths and counts an inactive secondary sentinel as a carrier. Neither its
   remained malformed. Ten sanitized read-only observations then captured SINR
   code `127` on otherwise valid active B3/B1 secondaries. Release r3 treats
   only that secondary metric as unavailable/non-exported and leaves every
-  carrier-defining sentinel fail-closed. R3 CI/install acceptance remains
-  separate evidence until recorded.
+  carrier-defining sentinel fail-closed.
+- 2026-07-29: r3 static run `30423022209` and SDK run `30423022228` passed for
+  source `a1047fc`. The checksum-verified r3 pair was installed with
+  ModemManager preserved; 20/20 spaced carrier queries were available across
+  1/3-carrier transitions, exact cooldown recovery passed, the actual LuCI
+  validator/renderer displayed the normalized CA and serving fallback, and
+  installed/served assets matched the artifact. No live mutation was run.
 
 Historical v0.2 schema-1 results remain explicitly labeled and are not
 rewritten as schema-2 package evidence. Firmware command-level live evidence

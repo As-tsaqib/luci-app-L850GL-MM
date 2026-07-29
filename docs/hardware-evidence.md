@@ -179,8 +179,20 @@ accepted as the final fix. Ten additional sanitized, read-only ModemManager
 observations isolated the remaining live variation: otherwise valid active
 secondaries intermittently use SINR code `127`, while carrier-defining fields
 remain unchanged. Release r3 admits only that metric sentinel on active
-secondaries, keeps it invalid on the primary, and exports no signal field. Its
-installed acceptance remains pending until its own CI artifacts are deployed.
+secondaries, keeps it invalid on the primary, and exports no signal field.
+
+Static run `30423022209` and SDK run `30423022228` passed for r3 source
+`a1047fc`; their checksum-verified pair was installed after an exact r2-to-r3
+simulation while the byte-identical ModemManager process remained running.
+Twenty carrier queries spaced six seconds apart all returned `available`,
+including 3-to-1-to-3 carrier transitions. An immediate retry returned
+`rate_limited` with `retry_after_ms=4717`, followed by `available` just after
+the deadline. Five carrier-first Overview/Lock cycles retained carrier success,
+valid base snapshots, a connected bearer, and typed voltage `3550 mV`. The
+actual LuCI validator accepted a sanitized live three-carrier payload and its
+renderer displayed B5+B3+B1, nullable-secondary-UL em dashes, and an effective
+available serving-cell fallback. Installed and loopback-served asset hashes
+matched the r3 APK manifest. No mutation, scan, reset, or SMS action was run.
 
 On 2026-07-29, before the renamed build was installed, the existing expert
 bridge was used for a clean read-only `GTCAINFO` parser check. A recently
