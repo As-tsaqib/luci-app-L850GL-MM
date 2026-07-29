@@ -41,7 +41,7 @@ for (const retired of [
 const bridgeMakefile = read('l850gl-mm-bridge/Makefile');
 assert.match(bridgeMakefile, /^PKG_NAME:=l850gl-mm-bridge$/m);
 assert.match(bridgeMakefile, /^PKG_VERSION:=0\.6\.0$/m);
-assert.match(bridgeMakefile, /^PKG_RELEASE:=3$/m);
+assert.match(bridgeMakefile, /^PKG_RELEASE:=4$/m);
 assert.match(bridgeMakefile,
 	/^\s*URL:=https:\/\/github\.com\/As-tsaqib\/luci-app-L850GL-MM$/m);
 assert.match(bridgeMakefile, /^\s*CONFLICTS:=fibocom-mm-bridge$/m,
@@ -509,7 +509,7 @@ assert.match(init, /command "\$PROG" --foreground/);
 
 const luciMakefile = read('luci-app-l850gl-mm/Makefile');
 assert.match(luciMakefile, /^PKG_VERSION:=0\.6\.0$/m);
-assert.match(luciMakefile, /^PKG_RELEASE:=3$/m);
+assert.match(luciMakefile, /^PKG_RELEASE:=4$/m);
 assert.match(luciMakefile, /^LUCI_URL:=https:\/\/github\.com\/As-tsaqib\/luci-app-L850GL-MM$/m);
 assert.match(luciMakefile, /^LUCI_MAINTAINER:=As Tsaqib <[^>]+>$/m);
 for (const dependency of [
@@ -587,6 +587,10 @@ assert.ok(sdkWorkflow.includes("grep -Fx 'AT+CBC'"),
 	'base/expert SDK verification must gate the reviewed voltage command');
 assert.strictEqual((sdkWorkflow.match(/API_Schema=4/g) || []).length, 2,
 	'both SDK artifact manifests must identify schema 4');
+assert.strictEqual((sdkWorkflow.match(/Release=0\.6\.0-r4/g) || []).length, 2,
+	'both SDK artifact manifests must identify release 0.6.0-r4');
+assert.ok(!sdkWorkflow.includes('0.6.0-r3'),
+	'the final SDK workflow must not rebuild a different r3 payload');
 assert.ok(!sdkWorkflow.includes('API_Schema=2'));
 assert.ok(!sdkWorkflow.includes('API_Schema=3'));
 assert.ok(!sdkWorkflow.includes('luci-app-fibocom-esim'));

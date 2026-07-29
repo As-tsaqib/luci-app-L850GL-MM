@@ -160,6 +160,13 @@ main(int argc, char **argv)
 		info.carriers[2].ul_earfcn == info.carriers[0].ul_earfcn &&
 		!info.carriers[2].uplink_active &&
 		info.carriers[2].sinr_available);
+	assert(parse_fixture(argv[1], "valid-live-two-carriers.txt", &info) ==
+		L850GL_L850_CA_PARSE_OK);
+	assert(info.declared_slots == 2U && info.length == 2U &&
+		info.carriers[0].primary && info.carriers[0].band == 5U &&
+		info.carriers[1].index == 2U && info.carriers[1].band == 3U &&
+		!info.carriers[1].uplink_active &&
+		info.carriers[1].ul_earfcn == info.carriers[0].ul_earfcn);
 	assert(parse_fixture(argv[1],
 		"valid-live-secondary-sinr-unavailable.txt", &info) ==
 		L850GL_L850_CA_PARSE_OK);

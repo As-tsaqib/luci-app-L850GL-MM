@@ -667,6 +667,9 @@ const overviewNode = overviewView.render({
 assert.strictEqual(overviewNode.tag, 'div');
 assertPageStructure(overviewNode, 'l850gl-mm-overview-page');
 const renderedOverview = renderedText(overviewNode);
+const overviewDescription = findNodes(overviewNode, function(node) {
+	return hasClass(node, 'cbi-map-descr');
+})[0];
 const overviewSections = findNodes(overviewNode, function(node) {
 	return node.attributes && typeof node.attributes.class === 'string' &&
 		node.attributes.class.split(/\s+/).includes('l850gl-mm-overview-section');
@@ -674,6 +677,9 @@ const overviewSections = findNodes(overviewNode, function(node) {
 
 assert.strictEqual(overviewSections.length, 3,
 	'Overview must render exactly three full-width LuCI sections');
+assert.deepStrictEqual(renderedText(overviewDescription),
+	[ 'Modem info by ModemManager' ],
+	'Overview must use the requested concise ModemManager description');
 assert.ok(overviewSections.every(function(section) {
 	return hasClass(section, 'cbi-section');
 }), 'every Overview group must use the standard LuCI cbi-section structure');
@@ -695,8 +701,8 @@ assert.strictEqual(renderedOverview.includes('Capabilities'), false,
 });
 [ 'Modem Info', 'Modem Status', 'Band and Cell Status', 'SIMs',
 	'B1, B3', 'Firmware', 'USB Mode', 'SIM Number', 'IMEI', 'ICCID',
-	'Active LTE Bands', 'Primary LTE Band', 'Secondary LTE Bands',
-	'Active LTE Carriers', 'LTE CA Details' ]
+	'Active LTE Bands', 'Active LTE Carriers', 'LTE CA Details',
+	'Total Bandwidth' ]
 	.forEach(function(expected) {
 		assert.ok(renderedOverview.some(function(value) { return value.includes(expected); }),
 			`Overview must render the ${expected} group or friendly band label`);
@@ -783,24 +789,52 @@ assert.deepStrictEqual(renderedText(findKeyValueRows(overviewNode, 'USB Mode')[0
 });
 assert.deepStrictEqual(renderedText(findKeyValueRows(overviewNode, 'Active LTE Bands')[0]),
 	[ 'Active LTE Bands', 'B3 + B7' ]);
-assert.deepStrictEqual(renderedText(findKeyValueRows(overviewNode, 'Primary LTE Band')[0]),
-	[ 'Primary LTE Band', 'B3' ]);
-assert.deepStrictEqual(renderedText(findKeyValueRows(overviewNode, 'Secondary LTE Bands')[0]),
-	[ 'Secondary LTE Bands', 'B7' ]);
+assert.strictEqual(findKeyValueRows(overviewNode, 'Primary LTE Band').length, 0,
+	'primary LTE band must not duplicate Active LTE Bands');
+assert.strictEqual(findKeyValueRows(overviewNode, 'Secondary LTE Bands').length, 0,
+	'secondary LTE bands must not duplicate Active LTE Bands');
 assert.deepStrictEqual(renderedText(findKeyValueRows(overviewNode, 'Active LTE Carriers')[0]),
 	[ 'Active LTE Carriers', '2' ]);
 const carrierDetailsText = renderedText(
 	findKeyValueRows(overviewNode, 'LTE CA Details')[0]).join(' ');
 
 assert.match(carrierDetailsText, /B3, EARFCN 1325, PCI 0/);
-assert.doesNotMatch(carrierDetailsText, /Primary carrier|#1/,
-	'primary LTE details must start directly with the band');
-assert.match(carrierDetailsText, /Secondary carrier #2.*B7, EARFCN 2850, PCI 321/);
-assert.match(carrierDetailsText, /DL\/UL 20\/10 MHz/);
-assert.match(carrierDetailsText, /DL\/UL 15\/\u2014 MHz/,
-	'a downlink-only secondary must not fabricate an uplink bandwidth');
+assert.match(carrierDetailsText, /B7, EARFCN 2850, PCI 321/);
+assert.doesNotMatch(carrierDetailsText, /Primary carrier|Secondary carrier|#[1-8]/,
+	'LTE CA details must start every carrier directly with its band');
+assert.doesNotMatch(carrierDetailsText, /MHz|DL\/UL/,
+	'LTE CA details must omit per-carrier bandwidth text');
 assert.doesNotMatch(carrierDetailsText, /Source|Method/,
 	'Overview must not expose internal carrier transport labels');
+assert.deepStrictEqual(renderedText(findKeyValueRows(overviewNode,
+	'Total Bandwidth')[0]), [ 'Total Bandwidth', 'DL 35 MHz · UL 10 MHz' ],
+	'Total Bandwidth must sum all active downlinks and only reported uplinks');
+const fractionalBandwidthNode = overviewView.render({
+	list: listResult,
+	entries: [ {
+		summary: summary, overview: overviewResult, lock: lockResult,
+		carrier: Object.assign({}, carrierResult, {
+			primary: Object.assign({}, carrierResult.primary, {
+				dl_bandwidth_mhz: 1.4, ul_bandwidth_mhz: 1.4
+			}),
+			secondary: [
+				Object.assign({}, carrierResult.secondary[0], {
+					dl_bandwidth_mhz: 1.4
+				}),
+				{
+					index: 3, band: 1, earfcn: 325, pci: 123,
+					dl_bandwidth_mhz: 1.4, ul_bandwidth_mhz: null
+				}
+			],
+			active_bands: [ 3, 7, 1 ],
+			active_carriers: 3
+		})
+	} ]
+});
+
+assert.deepStrictEqual(renderedText(findKeyValueRows(fractionalBandwidthNode,
+	'Total Bandwidth')[0]), [ 'Total Bandwidth', 'DL 4.2 MHz · UL 1.4 MHz' ],
+	'fractional bandwidth totals must remain exact to one decimal place');
 const firmwareRows = findKeyValueRows(overviewNode, 'Firmware');
 
 assert.strictEqual(firmwareRows.length, 1,
@@ -831,6 +865,8 @@ assert.strictEqual(findKeyValueRows(overviewNode, 'IMSI').length, 0,
 	'Overview must not display IMSI');
 assert.strictEqual(findKeyValueRows(overviewNode, 'Bearer connected').length, 0,
 	'Overview must not duplicate bearer connectivity state');
+assert.strictEqual(findKeyValueRows(overviewNode, 'Modem state').length, 0,
+	'Overview must omit the redundant modem-state row');
 const modemStatusCard = overviewSections.filter(function(section) {
 	return renderedText(section)[0] === 'Modem Status';
 })[0];
@@ -855,9 +891,11 @@ const mergedBandText = renderedText(bandAndCellSection);
 assert.ok(modemStatusText.indexOf('SIM lock') < modemStatusText.indexOf('SIMs') &&
 	modemStatusText.indexOf('SIMs') < modemStatusText.indexOf('Operator'),
 'the SIMs subsection must appear below the modem-status rows');
-assert.ok(mergedBandText.indexOf('LTE Carrier Aggregation') <
+assert.strictEqual(mergedBandText.includes('LTE Carrier Aggregation'), false,
+	'Band and Cell Status must not contain a redundant CA subsection header');
+assert.ok(mergedBandText.indexOf('Active LTE Bands') <
 	mergedBandText.indexOf('RSRP'),
-'signal metrics must flow directly after LTE Carrier Aggregation');
+'carrier and signal rows must form one flow under Band and Cell Status');
 assert.strictEqual(findKeyValueRows(overviewNode, 'Signal quality').length, 0,
 	'Overview must omit the redundant Signal quality progress row');
 assert.strictEqual(renderedOverview.includes('Signal Status'), false,
@@ -900,14 +938,18 @@ const unavailableCarrierOverview = overviewView.render({
 	entries: [ { summary: summary, overview: overviewResult } ]
 });
 
-[ 'Active LTE Bands', 'Primary LTE Band', 'Secondary LTE Bands',
-	'Active LTE Carriers', 'LTE CA Details' ].forEach(function(label) {
+[ 'Active LTE Bands', 'Active LTE Carriers', 'LTE CA Details',
+	'Total Bandwidth' ].forEach(function(label) {
 	const rows = findKeyValueRows(unavailableCarrierOverview, label);
 
 	assert.strictEqual(rows.length, 1,
 		`${label} must remain visible when the expert object is absent`);
 	assert.deepStrictEqual(renderedText(rows[0]), [ label, 'Unavailable' ],
 		`${label} must fail closed instead of displaying partial carrier data`);
+});
+[ 'Primary LTE Band', 'Secondary LTE Bands' ].forEach(function(label) {
+	assert.strictEqual(findKeyValueRows(unavailableCarrierOverview, label).length, 0,
+		`${label} must remain omitted when carrier data is unavailable`);
 });
 const carrierServingFallbackNode = overviewView.render({
 	list: listResult,
@@ -920,10 +962,9 @@ const carrierServingFallbackNode = overviewView.render({
 	} ]
 });
 
-assert.deepStrictEqual(
-	renderedText(findKeyValueRows(carrierServingFallbackNode, 'Serving cell status')[0]),
-	[ 'Serving cell status', 'Available' ],
-	'validated GTCAINFO primary carrier must prevent a false unavailable serving state');
+assert.strictEqual(
+	findKeyValueRows(carrierServingFallbackNode, 'Serving cell status').length, 0,
+	'Overview must omit the redundant serving-cell status row');
 assert.deepStrictEqual(
 	renderedText(findKeyValueRows(carrierServingFallbackNode, 'Serving EARFCN')[0]),
 	[ 'Serving EARFCN', '1325' ]);
@@ -1204,8 +1245,17 @@ const scanCells = [
 	{ type: 4, serving: true, earfcn: 1325, pci: 0, band: 3, rsrp: -90, rsrq: -10 },
 	{ type: 5, serving: false, earfcn: 1650, pci: 42, band: 3, rsrp: -97, rsrq: -13 }
 ];
+let interactiveRedraws = 0;
+const lockModals = [];
 const interactiveDom = {
-	content: function(node, replacement) { node.children = [ replacement ]; }
+	content: function(node, replacement) {
+		interactiveRedraws++;
+		node.children = [ replacement ];
+	}
+};
+const interactiveLockUi = {
+	showModal: function(title, body) { lockModals.push({ title: title, body: body }); },
+	hideModal: function() {}
 };
 const interactiveApi = {
 	cellScan: function(modemId, generation) {
@@ -1232,7 +1282,7 @@ const interactiveApi = {
 };
 const interactiveLockView = evaluate(
 	'htdocs/luci-static/resources/view/l850gl-mm/lock.js', {
-		dom: interactiveDom, poll: inert, ui: inert, view: view,
+		dom: interactiveDom, poll: inert, ui: interactiveLockUi, view: view,
 		api: interactiveApi, widgets: widgets
 	});
 const interactiveLock = interactiveLockView.render({
@@ -1240,8 +1290,77 @@ const interactiveLock = interactiveLockView.render({
 	entries: [ { summary: summary, lock: Object.assign({}, lockResult, {
 		pci_lock: { state: 'available', mutable: true,
 			reason: 'live-validated-l850-command-state-machine' }
-	}), expert: availableExpertResult } ]
+		}), expert: availableExpertResult } ]
 });
+const liveEarfcnInput = findNodes(interactiveLock, function(node) {
+	return node.tag === 'input' && node.attributes.id === 'l850gl-mm-earfcn-0';
+})[0];
+const livePciInput = findNodes(interactiveLock, function(node) {
+	return node.tag === 'input' && node.attributes.id === 'l850gl-mm-pci-0';
+})[0];
+const liveApplyCellButton = findNodes(interactiveLock, function(node) {
+	return node.tag === 'button' && renderedText(node).includes('Apply cell lock');
+})[0];
+const redrawsBeforeCellInput = interactiveRedraws;
+
+assert.strictEqual(liveApplyCellButton.attributes.disabled, '',
+	'an empty EARFCN must initially disable Apply cell lock');
+liveEarfcnInput.attributes.input({ target: { value: '1325' } });
+assert.strictEqual(interactiveRedraws, redrawsBeforeCellInput,
+	'EARFCN input must not redraw the full Lock DOM or lose focus');
+assert.strictEqual(liveApplyCellButton.disabled, false,
+	'a valid EARFCN with empty PCI must enable Apply cell lock immediately');
+liveApplyCellButton.attributes.click();
+assert.strictEqual(lockModals.length, 1,
+	'one click after valid input must open exactly one confirmation modal');
+assert.strictEqual(lockModals[0].title, 'Apply PCI/EARFCN lock');
+liveEarfcnInput.attributes.input({ target: { value: '-1' } });
+assert.strictEqual(liveApplyCellButton.disabled, true,
+	'an invalid EARFCN must disable Apply cell lock immediately');
+liveEarfcnInput.attributes.input({ target: { value: '70546' } });
+assert.strictEqual(liveApplyCellButton.disabled, true,
+	'an EARFCN above the backend LTE bound must remain disabled');
+liveEarfcnInput.attributes.input({ target: { value: '1.5' } });
+assert.strictEqual(liveApplyCellButton.disabled, true,
+	'a fractional EARFCN must remain disabled');
+liveEarfcnInput.attributes.input({ target: { value: '0' } });
+assert.strictEqual(liveApplyCellButton.disabled, false,
+	'EARFCN zero must remain a valid LTE channel number');
+liveEarfcnInput.attributes.input({ target: { value: '1325' } });
+livePciInput.attributes.input({ target: { value: '504' } });
+assert.strictEqual(liveApplyCellButton.disabled, true,
+	'PCI greater than 503 must disable Apply cell lock immediately');
+livePciInput.attributes.input({ target: { value: '' } });
+assert.strictEqual(liveApplyCellButton.disabled, false,
+	'an empty optional PCI must be valid');
+livePciInput.attributes.input({ target: { value: '0' } });
+assert.strictEqual(liveApplyCellButton.disabled, false,
+	'PCI zero must be valid and enable Apply cell lock');
+livePciInput.attributes.input({ target: { value: '503' } });
+assert.strictEqual(liveApplyCellButton.disabled, false,
+	'PCI 503 must remain valid at the inclusive upper bound');
+livePciInput.attributes.input({ target: { value: '0' } });
+
+[ Object.assign({}, availableExpertResult, { mutable: false }),
+	Object.assign({}, availableExpertResult, { state: 'busy', mutable: false }) ]
+	.forEach(function(blockedExpert, blockedIndex) {
+		const blockedView = evaluate(
+			'htdocs/luci-static/resources/view/l850gl-mm/lock.js', viewDependencies);
+		const blockedNode = blockedView.render({
+			list: listResult,
+			entries: [ { summary: summary, lock: lockResult, expert: blockedExpert } ]
+		});
+		const blockedEarfcn = findNodes(blockedNode, function(node) {
+			return node.tag === 'input' && node.attributes.id === 'l850gl-mm-earfcn-0';
+		})[0];
+		const blockedApply = findNodes(blockedNode, function(node) {
+			return node.tag === 'button' && renderedText(node).includes('Apply cell lock');
+		})[0];
+
+		blockedEarfcn.attributes.input({ target: { value: '1325' } });
+		assert.strictEqual(blockedApply.disabled, true,
+			`blocked expert state ${blockedIndex + 1} must remain disabled after valid input`);
+	});
 const mode4gOnly = findNodes(interactiveLock, function(node) {
 	return node.tag === 'input' && node.attributes.id ===
 		'l850gl-mm-allowed-mode-0-2';
@@ -1386,6 +1505,15 @@ assert.strictEqual(selectedScanCards.length, 1,
 assert.ok(renderedText(interactiveLock).some(function(value) {
 	return value.includes('Selected cell (EARFCN 1325, PCI 0)');
 }), 'the row action must show which cell was copied');
+const scanSelectedApply = findNodes(interactiveLock, function(node) {
+	return node.tag === 'button' && renderedText(node).includes('Apply cell lock');
+})[0];
+
+assert.strictEqual(scanSelectedApply.attributes.disabled, null,
+	'a validated scan-card selection must render Apply cell lock enabled');
+scanSelectedApply.attributes.click();
+assert.strictEqual(lockModals.length, 2,
+	'a selected scan card must open confirmation on the first Apply click');
 assertLabelTargets(interactiveLock, 'Lock');
 const renderedSms = smsView.render({
 	list: listResult,
@@ -1882,8 +2010,8 @@ function createOverviewCarrierPollingHarness(options) {
 }
 
 function assertCarrierUnavailable(node, context) {
-	[ 'Active LTE Bands', 'Primary LTE Band', 'Secondary LTE Bands',
-		'Active LTE Carriers', 'LTE CA Details' ].forEach(function(label) {
+	[ 'Active LTE Bands', 'Active LTE Carriers', 'LTE CA Details',
+		'Total Bandwidth' ].forEach(function(label) {
 		assert.deepStrictEqual(renderedText(findKeyValueRows(node, label)[0]),
 			[ label, 'Unavailable' ], context + ': ' + label);
 	});
@@ -1936,8 +2064,8 @@ async function testOverviewLoadMerge() {
 	const unavailableSnapshot = await unavailableModule.load();
 	const unavailableNode = unavailableModule.render(unavailableSnapshot);
 
-	[ 'Active LTE Bands', 'Primary LTE Band', 'Secondary LTE Bands',
-		'Active LTE Carriers', 'LTE CA Details' ].forEach(function(label) {
+	[ 'Active LTE Bands', 'Active LTE Carriers', 'LTE CA Details',
+		'Total Bandwidth' ].forEach(function(label) {
 		assert.deepStrictEqual(renderedText(
 			findKeyValueRows(unavailableNode, label)[0]), [ label, 'Unavailable' ]);
 	});
@@ -1965,6 +2093,11 @@ async function testOverviewCarrierLastKnownGood() {
 	const previousDateNow = Date.now;
 	const busy = overviewCarrierError('busy');
 	const rateLimited = overviewCarrierError('rate_limited');
+	const notReady = overviewCarrierError('not_ready');
+	const timeout = overviewCarrierError('timeout');
+	const dependencyUnavailable = overviewCarrierError('dependency_unavailable', {
+		identity: false
+	});
 	const updatedCarrier = Object.assign({}, carrierResult, {
 		generated_at: 2,
 		active_bands: [ 8 ],
@@ -1975,30 +2108,69 @@ async function testOverviewCarrierLastKnownGood() {
 		secondary: [],
 		active_carriers: 1
 	});
+	const threeCarrier = Object.assign({}, carrierResult, {
+		active_bands: [ 3, 7, 1 ],
+		secondary: carrierResult.secondary.concat([ {
+			index: 3, band: 1, earfcn: 325, pci: 123,
+			dl_bandwidth_mhz: 10, ul_bandwidth_mhz: null
+		} ]),
+		active_carriers: 3
+	});
 	let nowMs = 1000;
 
 	Date.now = function() { return nowMs; };
 	try {
+		const topologyHarness = createOverviewCarrierPollingHarness({
+			carrier_results: [
+				threeCarrier, carrierResult, updatedCarrier, threeCarrier
+			]
+		});
+		let topologyContent = await topologyHarness.start();
+		const expectedTopologies = [
+			[ 'B3 + B7 + B1', '3' ],
+			[ 'B3 + B7', '2' ],
+			[ 'B8', '1' ],
+			[ 'B3 + B7 + B1', '3' ]
+		];
+
+		for (let topologyIndex = 0; topologyIndex < expectedTopologies.length;
+		     topologyIndex++) {
+			if (topologyIndex > 0) {
+				nowMs++;
+				topologyContent = await topologyHarness.poll();
+			}
+			assert.deepStrictEqual(renderedText(findKeyValueRows(topologyContent,
+				'Active LTE Bands')[0]),
+				[ 'Active LTE Bands', expectedTopologies[topologyIndex][0] ],
+				'a coherent 3CA/2CA/1CA topology must replace the prior snapshot');
+			assert.deepStrictEqual(renderedText(findKeyValueRows(topologyContent,
+				'Active LTE Carriers')[0]),
+				[ 'Active LTE Carriers', expectedTopologies[topologyIndex][1] ]);
+			assert.strictEqual(renderedText(topologyContent).includes('Unavailable'), false,
+				'a coherent CA topology change must never render an unavailable gap');
+		}
+
+		nowMs = 1000;
 		const transientHarness = createOverviewCarrierPollingHarness({
 			carrier_results: [
-				carrierResult, rateLimited, updatedCarrier, busy, busy, busy
+				carrierResult, rateLimited, updatedCarrier, busy, notReady,
+				timeout, dependencyUnavailable, dependencyUnavailable
 			]
 		});
 		let content = await transientHarness.start();
 
 		assert.deepStrictEqual(renderedText(
-			findKeyValueRows(content, 'Primary LTE Band')[0]),
-		[ 'Primary LTE Band', 'B3' ]);
+			findKeyValueRows(content, 'Active LTE Bands')[0]),
+		[ 'Active LTE Bands', 'B3 + B7' ]);
 		nowMs = 1001;
 		content = await transientHarness.poll();
 		assert.deepStrictEqual(renderedText(
 			findKeyValueRows(content, 'Active LTE Bands')[0]),
 		[ 'Active LTE Bands', 'B3 + B7' ],
 		'an immediate rate limit must retain the validated initial carrier snapshot');
-		assert.deepStrictEqual(renderedText(
-			findKeyValueRows(content, 'Serving cell status')[0]),
-		[ 'Serving cell status', 'Available' ],
-		'the retained carrier must also keep the display-only serving fallback available');
+		assert.strictEqual(
+			findKeyValueRows(content, 'Serving cell status').length, 0,
+			'the removed serving-cell status row must stay absent during polling');
 		assert.deepStrictEqual(renderedText(
 			findKeyValueRows(content, 'Serving EARFCN')[0]),
 		[ 'Serving EARFCN', '1325' ]);
@@ -2006,8 +2178,8 @@ async function testOverviewCarrierLastKnownGood() {
 		nowMs = 2000;
 		content = await transientHarness.poll();
 		assert.deepStrictEqual(renderedText(
-			findKeyValueRows(content, 'Primary LTE Band')[0]),
-		[ 'Primary LTE Band', 'B8' ],
+			findKeyValueRows(content, 'Active LTE Bands')[0]),
+		[ 'Active LTE Bands', 'B8' ],
 		'a new validated success must replace the last-known-good carrier');
 		assert.deepStrictEqual(renderedText(
 			findKeyValueRows(content, 'Serving EARFCN')[0]),
@@ -2016,27 +2188,41 @@ async function testOverviewCarrierLastKnownGood() {
 		nowMs = 2001;
 		content = await transientHarness.poll();
 		assert.deepStrictEqual(renderedText(
-			findKeyValueRows(content, 'Primary LTE Band')[0]),
-		[ 'Primary LTE Band', 'B8' ],
+			findKeyValueRows(content, 'Active LTE Bands')[0]),
+		[ 'Active LTE Bands', 'B8' ],
 		'a canonical identity-less busy envelope must retain an exact-generation cache');
+		nowMs = 2002;
+		content = await transientHarness.poll();
+		assert.deepStrictEqual(renderedText(
+			findKeyValueRows(content, 'Active LTE Bands')[0]),
+		[ 'Active LTE Bands', 'B8' ],
+		'a same-generation retryable not-ready state must retain the validated cache');
+		nowMs = 2003;
+		content = await transientHarness.poll();
+		assert.deepStrictEqual(renderedText(
+			findKeyValueRows(content, 'Active LTE Bands')[0]),
+		[ 'Active LTE Bands', 'B8' ],
+		'a same-generation retryable timeout must retain the validated cache');
 		nowMs = 32000;
 		content = await transientHarness.poll();
 		assert.deepStrictEqual(renderedText(
-			findKeyValueRows(content, 'Primary LTE Band')[0]),
-		[ 'Primary LTE Band', 'B8' ],
-		'the bounded cache may be used at exactly thirty seconds');
+			findKeyValueRows(content, 'Active LTE Bands')[0]),
+		[ 'Active LTE Bands', 'B8' ],
+		'an identity-less dependency outage may use the cache at exactly thirty seconds');
 		nowMs = 32001;
 		content = await transientHarness.poll();
 		assertCarrierUnavailable(content,
 			'a transient error after the fixed thirty-second TTL must fail closed');
-		assert.deepStrictEqual(renderedText(
-			findKeyValueRows(content, 'Serving cell status')[0]),
-		[ 'Serving cell status', 'Refresh pending' ],
-		'repeated transient fallback must not extend the original cache timestamp');
+		assert.strictEqual(
+			findKeyValueRows(content, 'Serving cell status').length, 0,
+			'the removed serving-cell status row must remain absent after cache expiry');
 		assert.strictEqual(findKeyValueRows(content, 'Serving EARFCN').length, 0);
 
 		const malformedSuccess = Object.assign({}, carrierResult, {
 			primary: Object.assign({}, carrierResult.primary, { pci: 504 })
+		});
+		const malformedResponse = overviewCarrierError('malformed_response', {
+			error: { retryable: false }
 		});
 		const failClosedCases = [
 			[ 'schema mismatch', Object.assign({}, rateLimited, { schema: 3 }) ],
@@ -2044,8 +2230,14 @@ async function testOverviewCarrierLastKnownGood() {
 				generation: summary.generation + 1
 			}) ],
 			[ 'malformed carrier success', malformedSuccess ],
+			[ 'malformed carrier response', malformedResponse ],
 			[ 'transport failure', new Error('carrier transport failed') ],
-			[ 'non-transient timeout', overviewCarrierError('timeout') ],
+			[ 'non-retryable timeout', overviewCarrierError('timeout', {
+				error: { retryable: false }
+			}) ],
+			[ 'identity-less not-ready', overviewCarrierError('not_ready', {
+				identity: false
+			}) ],
 			[ 'non-retryable busy', overviewCarrierError('busy', {
 				error: { retryable: false }
 			}) ],
@@ -2076,6 +2268,29 @@ async function testOverviewCarrierLastKnownGood() {
 			assertCarrierUnavailable(content,
 				failureCase[0] + ' must not be resurrected by a later busy response');
 		}
+
+		nowMs = 1000;
+		const recoveryHarness = createOverviewCarrierPollingHarness({
+			carrier_results: [
+				threeCarrier, malformedResponse, updatedCarrier, busy
+			]
+		});
+
+		await recoveryHarness.start();
+		nowMs = 1001;
+		content = await recoveryHarness.poll();
+		assertCarrierUnavailable(content,
+			'a malformed carrier response must still fail closed');
+		nowMs = 1002;
+		content = await recoveryHarness.poll();
+		assert.deepStrictEqual(renderedText(findKeyValueRows(content,
+			'Active LTE Bands')[0]), [ 'Active LTE Bands', 'B8' ],
+		'a later valid topology must recover automatically without reloading the page');
+		nowMs = 1003;
+		content = await recoveryHarness.poll();
+		assert.deepStrictEqual(renderedText(findKeyValueRows(content,
+			'Active LTE Bands')[0]), [ 'Active LTE Bands', 'B8' ],
+		'the automatically recovered topology must repopulate the transient cache');
 
 		const nextSummary = Object.assign({}, summary, { generation: 5 });
 		const nextList = Object.assign({}, listResult, { modems: [ nextSummary ] });
@@ -2862,8 +3077,11 @@ assert.ok(overviewSource.includes('const CARRIER_CACHE_MAX_ENTRIES = 64'),
 	'the last-known-good carrier cache must remain inventory bounded');
 assert.ok(overviewSource.includes('const CARRIER_CACHE_TTL_MS = 30000'),
 	'the last-known-good carrier cache must expire after thirty seconds');
-assert.ok(overviewSource.includes("[ 'busy', 'rate_limited' ]"),
-	'only the two reviewed transient carrier errors may consult the cache');
+[ 'busy', 'dependency_unavailable', 'not_ready', 'rate_limited', 'timeout' ]
+	.forEach(function(state) {
+		assert.ok(overviewSource.includes("'" + state + "'"),
+			`the reviewed retryable ${state} state must consult the bounded cache`);
+	});
 assert.ok(overviewSource.includes('delete carrierCache[summary.modem_id]'),
 	'non-transient and expired carrier results must evict the current cache entry');
 assert.ok(overviewSource.includes("_('any(automatic)')"));
@@ -2871,6 +3089,7 @@ assert.ok(overviewSource.includes("_('Firmware')"));
 assert.ok(overviewSource.includes("_('SIMs')"));
 assert.ok(!overviewSource.includes("_('Signal Status')"));
 assert.ok(!overviewSource.includes("_('Signal quality')"));
+assert.ok(!overviewSource.includes("_('Modem state')"));
 assert.ok(overviewSource.includes('if (sim.number)'),
 	'Overview must omit the SIM Number row when the backend value is empty');
 assert.ok(!overviewSource.includes("_('IMSI')"));
@@ -3215,7 +3434,7 @@ assert.ok(read('htdocs/luci-static/resources/l850gl-mm/widgets.js').includes(
 
 const makefile = read('Makefile');
 assert.ok(makefile.includes('PKG_VERSION:=0.6.0'));
-assert.ok(makefile.includes('PKG_RELEASE:=3'));
+assert.ok(makefile.includes('PKG_RELEASE:=4'));
 assert.ok(makefile.includes(
 	'LUCI_TITLE:=LuCI companion for the L850-GL modem managed by ModemManager'));
 assert.ok(makefile.includes(
@@ -3245,14 +3464,16 @@ for (const text of [
 	'Overview', 'Lock', 'SMS', 'Band Lock', 'PCI/EARFCN Lock', 'Load more',
 	'Write SMS', 'Delete SMS', 'Ready', '%d loaded', '(active)', 'Tap line to use', 'Invert', 'Lock status',
 	'LOCK', 'UNLOCK', 'Any Supported bands',
+	'EARFCN must be an integer from 0 through 70545.',
 	'any(automatic)',
 	'Explicit LTE bands', 'Modem Info', 'Modem Status',
 	'Band and Cell Status', 'Band Lock uses ModemManager',
-	'LTE Carrier Aggregation', 'Active LTE Bands', 'Primary LTE Band',
-	'Secondary LTE Bands', 'Active LTE Carriers', 'LTE CA Details',
+	'Active LTE Bands', 'Active LTE Carriers', 'LTE CA Details',
+	'Total Bandwidth', 'DL %s MHz · UL %s MHz',
 	'Firmware', 'USB Mode', 'Modem voltage', 'SIMs', 'SIM Number', 'IMEI', 'ICCID',
 	'Cell scan available', 'Cell scan unavailable',
 	'Cell scan temporarily unavailable',
+	'Modem info by ModemManager',
 	'Messages are read, sent, and deleted through ModemManager.',
 	'Copy number', 'Number copied.',
 	'Unable to copy the number. Select it manually instead.',
@@ -3267,10 +3488,15 @@ for (const removedText of [
 	'Supported LTE bands', 'Current allowed mode', 'Current preferred mode',
 	'Compose SMS', 'Request-token capacity', 'Request-token maximum age (seconds)',
 	'Messaging cache', 'Loaded messages', 'Capability', 'Scan capability',
-	'Capabilities', 'Primary carrier #%d', 'Revision', 'IMSI', 'Bearer connected',
-	'Signal Status', 'Locked', 'Unlocked',
+	'Capabilities', 'Primary carrier #%d', 'Secondary carrier #%d',
+	'EARFCN must be an unsigned LTE channel number.',
+	'Primary LTE Band', 'Secondary LTE Bands', 'None',
+	'LTE Carrier Aggregation', 'B%d, EARFCN %d, PCI %d, DL/UL %s/%s MHz',
+	'Revision', 'IMSI', 'Bearer connected', 'Modem state',
+	'Signal Status', 'Serving cell status', 'Locked', 'Unlocked',
 	'Direction', 'Discharge timestamp', 'PDU type', 'Delivery state',
 	'Message reference', 'Storage', 'Binary data present',
+	'A concise ModemManager snapshot. Network configuration and connection intent remain owned by netifd.',
 	'Messages are read, sent, and deleted through ModemManager. Recipient numbers and message text remain only in this authorized view and are never written to application logs.',
 	'Band Lock uses ModemManager SetCurrentBands. PCI/EARFCN Lock is an explicit expert build path; only an exact live-validated hardware and firmware tuple can use its fixed command state machine.'
 ]) {

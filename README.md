@@ -54,8 +54,8 @@ LuCI resolves the carrier query before fetching Overview/Lock so the optional
 voltage refresh cannot repeatedly take the carrier query's arbitration slot.
 
 An expert build also adds read-only LTE carrier aggregation details to
-Overview: active LTE bands, primary and secondary LTE bands, active-carrier
-count, and per-carrier EARFCN, PCI, and bandwidth. This uses
+Overview: active LTE bands, active-carrier count, and compact per-carrier
+band/EARFCN/PCI details plus aggregate DL/UL bandwidth. This uses
 only the fixed `AT+GTCAINFO?` query through asynchronous ModemManager command
 arbitration. The typed parser accepts the L850 primary slot's 14-field grammar
 and secondary slots' 10-field grammar, omits inactive sentinel slots, bounds
@@ -147,12 +147,12 @@ opaque ID, modem generation, and (for SMS) messaging generation are present.
 
 ## Packaging
 
-The current source and installed router use the following accepted r3 package
+The current source targets the following r4 package
 metadata:
 
 ```text
-l850gl-mm-bridge   0.6.0-r3 native libmm-glib/GDBus to ubus bridge
-luci-app-l850gl-mm 0.6.0-r3 Overview, Lock, and SMS views
+l850gl-mm-bridge   0.6.0-r4 native libmm-glib/GDBus to ubus bridge
+luci-app-l850gl-mm 0.6.0-r4 Overview, Lock, and SMS views
 ```
 
 The retired Status, old Advanced, Settings, radio toggle, generic reset,
@@ -170,12 +170,16 @@ by default and depends on an explicitly enabled
 Version 0.6.0 renames the active packages, service, ACLs, paths, and ubus
 objects; the retired names are migration/history identifiers only and must not
 coexist with the new pair. It also adds the strict expert-build `AT+CBC`
-voltage parser/cache. To prevent a globally scheduled poll from making a valid
-serving fallback flicker, LuCI may retain one structurally valid carrier
-snapshot for at most 30 seconds across only `busy` or `rate_limited` responses
-from the identical opaque modem ID and generation. Expiry, generation change,
-malformed data, schema mismatch, transport failure, or any non-transient error
-still clears it and fails closed. For the previous `0.6.0-r1`, static run
+voltage parser/cache. To prevent a globally scheduled poll from making
+validated CA information flicker while radio state is reconciling, LuCI may
+retain one structurally valid carrier snapshot for at most 30 seconds across
+canonical retryable `busy`, `rate_limited`, `not_ready`, `timeout`, or
+`dependency_unavailable` responses. Identity-bearing responses must match the
+same opaque modem ID and generation; `not_ready` and `timeout` are never
+accepted without that identity. Expiry, generation change, malformed data,
+schema mismatch, browser transport failure, or any non-retryable error still
+clears it and fails closed. A later valid 3CA, 2CA, or 1CA response replaces
+the cache without a page reload. For the previous `0.6.0-r1`, static run
 `30416321185` and SDK run `30416321209` passed for source `4783633`; its
 checksum-verified expert pair was installed on 2026-07-29 with exact 8/5 new
 method tables and no retired object. That r1 read-only acceptance returned

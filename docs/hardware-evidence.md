@@ -134,8 +134,9 @@ Implemented in the current source/host/static contract:
 - generation/freshness checks that make malformed or unavailable voltage data
   affect only that field rather than the complete Overview response;
 - frontend retention of a bounded generation-matched last-known-good carrier
-  snapshot only across transient `busy`/`rate_limited` polls, while malformed,
-  stale, incompatible, and non-transient failures remain fail-closed.
+  snapshot across the reviewed retryable `busy`, `rate_limited`, `not_ready`,
+  `timeout`, and `dependency_unavailable` polls, while malformed, stale,
+  incompatible, and non-retryable failures remain fail-closed;
 - a target-firmware active-secondary grammar that requires own-band DL fields,
   UL bandwidth sentinel `255`, and an UL EARFCN equal to the validated primary
   UL, with explicit nullable secondary UL bandwidth at the API boundary;

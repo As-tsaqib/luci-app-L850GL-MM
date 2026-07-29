@@ -29,14 +29,20 @@ list_sms, send_sms, delete_sms
 
 Overview displays the schema-4 USB mode, modem voltage when available, full
 IMEI and ICCID, and the SIM number only when supplied by the base ModemManager
-snapshot. IMSI remains deliberately hidden. On an expert build it also calls
+snapshot under the concise `Modem info by ModemManager` description. IMSI
+remains deliberately hidden. On an expert build it also calls
 the typed `get_carrier_info` method
-every ten seconds and displays active LTE bands, primary/secondary bands,
-active-carrier count, and bounded per-carrier EARFCN/PCI/bandwidth. A
-downlink-only secondary renders its explicitly nullable uplink bandwidth as an
-em dash instead of inventing a value. A base build
+every ten seconds and displays active LTE bands, active-carrier count, and
+bounded per-carrier band/EARFCN/PCI details plus aggregate DL/UL bandwidth.
+The total includes every active downlink and only uplinks actually reported by
+the backend, rather than inventing secondary uplink values. A base build
 has no expert object, so the same rows fail closed as unavailable. The browser
 never receives raw command output or cellular location fields.
+One validated carrier topology is retained for at most 30 seconds across the
+reviewed retryable carrier states, so a valid 3CA/2CA/1CA transition replaces
+the display on the next poll without requiring a page reload. Malformed,
+schema-incompatible, stale-identity, and non-retryable responses remain
+fail-closed.
 
 Allowed/preferred mode selection persists through the exact bound netifd
 interface and requires confirmation because activation reloads the mobile
@@ -52,6 +58,8 @@ per modem with a five-second cooldown beginning only after completion. The
 expert carrier query is independently single-flight against scans and mutations
 and uses the same five-second completion-based cooldown; it never accepts
 command text from LuCI.
+EARFCN/PCI input validation updates only the Apply button on each `input` event,
+preserving focus and cursor position; an empty PCI and PCI zero are both valid.
 
 SMS polls the backend cache every 10 seconds and exposes All, Inbox, Outbox,
 Draft, and Unknown. Each backend page is at most 100 messages; Load more follows

@@ -100,12 +100,16 @@ expert result exists. On an expert build, the frontend may instead display the
 already validated `GTCAINFO` primary carrier as a serving EARFCN/PCI fallback;
 it does not write that observation into the generation-bound CellInfo cache.
 LuCI keeps at most one structurally valid carrier snapshot for 30 seconds and
-reuses it only when a subsequent query for the identical opaque modem ID and
-generation is transiently `busy` or `rate_limited`. It discards the snapshot
-on expiry, identity/generation change, malformed/schema-incompatible data,
-transport failure, or any non-transient error. This bounded presentation cache
-prevents expected command cooldown from making Serving Cell flicker without
-turning stale or incompatible data into success.
+reuses it only for a structurally valid retryable `busy`, `rate_limited`,
+`not_ready`, `timeout`, or `dependency_unavailable` envelope. Any identity in
+that envelope must match the exact opaque modem ID and generation;
+`not_ready` and `timeout` additionally require the identity pair. It discards
+the snapshot on expiry, identity/generation change, malformed or
+schema-incompatible data, a browser transport failure, or any non-retryable
+error. A new valid 3CA, 2CA, or 1CA snapshot replaces the cached topology on
+the next poll without a page reload. This bounded presentation cache prevents
+expected radio reconciliation and command cooldown from making CA and Serving
+Cell flicker without turning rejected data into success.
 Each polling cycle starts and resolves `get_carrier_info` before requesting the
 Overview and Lock snapshots. This gives the user-visible CA read a deterministic
 slot before `get_overview` may start its optional `AT+CBC` voltage refresh; the

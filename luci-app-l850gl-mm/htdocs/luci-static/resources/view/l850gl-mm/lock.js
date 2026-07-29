@@ -723,8 +723,9 @@ function renderBandLock(controller, entry, state, index) {
 }
 
 function validateCellInput(state) {
-	if (!/^(?:0|[1-9][0-9]{0,5})$/.test(state.earfcn))
-		return _('EARFCN must be an unsigned LTE channel number.');
+	if (!/^(?:0|[1-9][0-9]{0,4})$/.test(state.earfcn) ||
+	    Number(state.earfcn) > 70545)
+		return _('EARFCN must be an integer from 0 through 70545.');
 	if (state.pci !== '' && !/^(?:0|[1-9][0-9]{0,2})$/.test(state.pci))
 		return _('PCI must be empty or an integer from 0 through 503.');
 	if (state.pci !== '' && Number(state.pci) > 503)
@@ -959,6 +960,12 @@ function renderPciLock(controller, entry, state, index) {
 	const observed = lockObservation(status) || {};
 	const earfcnId = 'l850gl-mm-earfcn-' + index;
 	const pciId = 'l850gl-mm-pci-' + index;
+	let applyButton = null;
+	function updateApplyButton() {
+		if (applyButton)
+			applyButton.disabled = !canMutate || Boolean(state.busy) ||
+				validateCellInput(state) !== null;
+	}
 	const children = [
 		E('h4', { 'class': 'l850gl-mm-panel-title' }, [ _('PCI/EARFCN Lock') ])
 	];
@@ -996,7 +1003,10 @@ function renderPciLock(controller, entry, state, index) {
 					'id': earfcnId, 'class': 'cbi-input-text', 'type': 'number', 'min': 0,
 					'value': state.earfcn,
 					'disabled': !canMutate || state.busy ? '' : null,
-					'input': function(event) { state.earfcn = event.target.value; }
+					'input': function(event) {
+						state.earfcn = event.target.value;
+						updateApplyButton();
+					}
 				}) ])
 			]),
 			E('div', { 'class': 'l850gl-mm-cell-input' }, [
@@ -1005,7 +1015,10 @@ function renderPciLock(controller, entry, state, index) {
 					'id': pciId, 'class': 'cbi-input-text', 'type': 'number',
 					'min': 0, 'max': 503, 'value': state.pci,
 					'disabled': !canMutate || state.busy ? '' : null,
-					'input': function(event) { state.pci = event.target.value; }
+					'input': function(event) {
+						state.pci = event.target.value;
+						updateApplyButton();
+					}
 				}) ])
 			])
 		]),
@@ -1019,27 +1032,30 @@ function renderPciLock(controller, entry, state, index) {
 	]));
 	if (inputError && (state.earfcn !== '' || state.pci !== ''))
 		children.push(E('div', { 'class': 'alert-message warning' }, [ inputError ]));
+	applyButton = E('button', {
+		'class': 'btn cbi-button cbi-button-action', 'type': 'button',
+		'disabled': !canMutate || state.busy || inputError ? '' : null,
+		'click': function() {
+			if (!canMutate || state.busy || validateCellInput(state) !== null)
+				return;
+			const earfcn = Number(state.earfcn);
+			const pci = state.pci === '' ? null : Number(state.pci);
+
+			confirmMutation(_('Apply PCI/EARFCN lock'),
+				_('Applying a cell lock is disruptive and can interrupt WAN service. Verification requires reset, reprobe, registration, and a matching serving cell.'),
+				_('Apply cell lock'), function() {
+					return performExpertMutation(controller, entry, state,
+						_('Cell lock'), function(context) {
+							return api.setCellLock(context.modemId,
+								context.generation, earfcn, pci, true);
+						});
+				});
+		}
+	}, [ _('Apply cell lock') ]);
 	children.push(E('div', {
 		'class': 'cbi-page-actions l850gl-mm-actions l850gl-mm-cell-actions'
 	}, [
-		E('button', {
-			'class': 'btn cbi-button cbi-button-action', 'type': 'button',
-			'disabled': !canMutate || state.busy || inputError ? '' : null,
-			'click': function() {
-				const earfcn = Number(state.earfcn);
-				const pci = state.pci === '' ? null : Number(state.pci);
-
-				confirmMutation(_('Apply PCI/EARFCN lock'),
-					_('Applying a cell lock is disruptive and can interrupt WAN service. Verification requires reset, reprobe, registration, and a matching serving cell.'),
-					_('Apply cell lock'), function() {
-						return performExpertMutation(controller, entry, state,
-							_('Cell lock'), function(context) {
-								return api.setCellLock(context.modemId,
-									context.generation, earfcn, pci, true);
-							});
-					});
-			}
-		}, [ _('Apply cell lock') ]),
+		applyButton,
 		E('button', {
 			'class': 'btn cbi-button cbi-button-negative', 'type': 'button',
 			'disabled': !canMutate || state.busy ? '' : null,

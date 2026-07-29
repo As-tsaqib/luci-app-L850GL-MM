@@ -201,9 +201,11 @@ length, bad name termination, duplicate fields, and malformed session data.
 - LuCI requires schema 4 and complete typed success objects. Unknown schema or
   malformed data disables every mutation.
 - LuCI's carrier presentation cache is limited to 30 seconds and may bridge
-  only structurally valid `busy`/`rate_limited` results for the identical
-  opaque modem ID and generation. Every other error, expiry, or identity change
-  clears it.
+  only structurally valid retryable `busy`, `rate_limited`, `not_ready`,
+  `timeout`, or `dependency_unavailable` results. Any supplied identity must
+  match; `not_ready` and `timeout` require the exact opaque modem ID and
+  generation. Malformed/schema-incompatible data, non-retryable errors,
+  expiry, and identity changes clear it.
 - Cell records are structurally validated again before rendering.
 - DOM nodes are built without `innerHTML`; private data is not written to
   localStorage or console output.

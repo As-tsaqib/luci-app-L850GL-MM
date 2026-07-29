@@ -43,6 +43,9 @@ function pruneCarrierCache(summaries) {
 
 function carrierTransientError(result, summary) {
 	const error = widgets.object(result && result.error);
+	const transientStates = [
+		'busy', 'dependency_unavailable', 'not_ready', 'rate_limited', 'timeout'
+	];
 	const hasModemId = widgets.isObject(result) &&
 		Object.prototype.hasOwnProperty.call(result, 'modem_id');
 	const hasGeneration = widgets.isObject(result) &&
@@ -50,13 +53,15 @@ function carrierTransientError(result, summary) {
 
 	if (!widgets.isObject(result) || result.schema !== widgets.SCHEMA_VERSION ||
 	    !Number.isSafeInteger(result.generated_at) || result.generated_at < 0 ||
-	    result.ok !== false || [ 'busy', 'rate_limited' ].indexOf(result.state) === -1 ||
+	    result.ok !== false || transientStates.indexOf(result.state) === -1 ||
 	    !widgets.isObject(error) || error.code !== result.state ||
 	    typeof error.message !== 'string' || error.message.length > 256 ||
 	    error.message.indexOf('\0') !== -1 || error.retryable !== true ||
 	    hasModemId !== hasGeneration)
 		return false;
 	if (hasModemId && !widgets.identityMatches(result, summary))
+		return false;
+	if ([ 'not_ready', 'timeout' ].indexOf(result.state) !== -1 && !hasModemId)
 		return false;
 	if (result.state === 'rate_limited') {
 		return hasModemId && Number.isSafeInteger(result.retry_after_ms) &&
@@ -240,25 +245,28 @@ function lteBandLabel(band) {
 	return 'B%d'.format(band);
 }
 
-function carrierDetail(role, carrier) {
-	const uplinkBandwidth = carrier.ul_bandwidth_mhz == null ?
-		'\u2014' : carrier.ul_bandwidth_mhz;
-	const detail = _('B%d, EARFCN %d, PCI %d, DL/UL %s/%s MHz').format(
-			carrier.band, carrier.earfcn, carrier.pci,
-			carrier.dl_bandwidth_mhz, uplinkBandwidth);
+function carrierDetail(carrier) {
+	const detail = _('B%d, EARFCN %d, PCI %d').format(
+			carrier.band, carrier.earfcn, carrier.pci);
 
-	return E('div', { 'class': 'l850gl-mm-carrier-detail' }, role ? [
-		E('strong', {}, [ role ]), ': ', detail
-	] : [ detail ]);
+	return E('div', { 'class': 'l850gl-mm-carrier-detail' }, [ detail ]);
+}
+
+function bandwidthTotal(carriers, field) {
+	const tenths = carriers.reduce(function(total, carrier) {
+		return typeof carrier[field] === 'number' ?
+			total + Math.round(carrier[field] * 10) : total;
+	}, 0);
+
+	return tenths % 10 ? (tenths / 10).toFixed(1) : String(tenths / 10);
 }
 
 function carrierRows(result, summary) {
 	const labels = [
 		_('Active LTE Bands'),
-		_('Primary LTE Band'),
-		_('Secondary LTE Bands'),
 		_('Active LTE Carriers'),
-		_('LTE CA Details')
+		_('LTE CA Details'),
+		_('Total Bandwidth')
 	];
 
 	if (widgets.carrierInfoError(result, summary)) {
@@ -267,41 +275,20 @@ function carrierRows(result, summary) {
 		});
 	}
 
-	const details = [ carrierDetail(null, result.primary) ];
+	const carriers = [ result.primary ].concat(result.secondary);
+	const details = [ carrierDetail(result.primary) ];
 
 	result.secondary.forEach(function(carrier) {
-		details.push(carrierDetail(
-			_('Secondary carrier #%d').format(carrier.index), carrier));
+		details.push(carrierDetail(carrier));
 	});
 	return [
 		[ labels[0], result.active_bands.map(lteBandLabel).join(' + ') ],
-		[ labels[1], lteBandLabel(result.primary.band) ],
-		[ labels[2], result.secondary.length ?
-			result.secondary.map(function(carrier) {
-				return lteBandLabel(carrier.band);
-			}).join(', ') : _('None') ],
-		[ labels[3], result.active_carriers ],
-		[ labels[4], E('div', { 'class': 'l850gl-mm-carrier-details' }, details) ]
+		[ labels[1], result.active_carriers ],
+		[ labels[2], E('div', { 'class': 'l850gl-mm-carrier-details' }, details) ],
+		[ labels[3], _('DL %s MHz · UL %s MHz').format(
+			bandwidthTotal(carriers, 'dl_bandwidth_mhz'),
+			bandwidthTotal(carriers, 'ul_bandwidth_mhz')) ]
 	];
-}
-
-function servingCellLabel(serving) {
-	if (serving.state === 'available')
-		return _('Available');
-	switch (serving.reason) {
-	case 'refresh-pending':
-		return _('Refresh pending');
-	case 'standard-cell-info-unavailable':
-		return _('Standard CellInfo unavailable');
-	case 'standard-cell-info-malformed':
-		return _('Malformed CellInfo rejected');
-	case 'stale':
-		return _('Stale');
-	case 'device-gone':
-		return _('Device removed');
-	default:
-		return _('Unavailable');
-	}
 }
 
 function overviewGroup(title, rows, extra) {
@@ -353,7 +340,6 @@ function renderDevice(entry) {
 		[ _('IMEI'), identifierValue(identity.imei) ]
 	];
 	const modemStatusRows = [
-		[ _('Modem state'), widgets.badge(modem.state, modem.state) ],
 		[ _('Power'), widgets.badge(modem.power, modem.power) ],
 		[ _('SIM present'), sim.present ],
 		[ _('SIM lock'), sim.lock ],
@@ -375,9 +361,7 @@ function renderDevice(entry) {
 		simRows.push([ _('SIM Number'), identifierValue(sim.number) ]);
 	simRows.push([ _('ICCID'), identifierValue(sim.iccid) ]);
 	const bandAndCellRows = [
-		[ _('Current bands'), friendlyCurrentBands(entry.lock, summary) ],
-		[ _('Serving cell status'), widgets.badge(servingCellLabel(serving),
-			serving.state) ]
+		[ _('Current bands'), friendlyCurrentBands(entry.lock, summary) ]
 	];
 	const activeCarrierRows = carrierRows(entry.carrier, summary);
 	const signalRows = [
@@ -400,12 +384,8 @@ function renderDevice(entry) {
 				]),
 				widgets.keyValueList(simRows)
 			]),
-			overviewGroup(_('Band and Cell Status'), bandAndCellRows, [
-				E('h4', { 'class': 'l850gl-mm-subsection-title' }, [
-					_('LTE Carrier Aggregation')
-				]),
-				widgets.keyValueList(activeCarrierRows.concat(signalRows))
-			])
+			overviewGroup(_('Band and Cell Status'),
+				bandAndCellRows.concat(activeCarrierRows, signalRows))
 		])
 	];
 
@@ -442,7 +422,7 @@ return view.extend({
 			widgets.stylesheet(),
 			E('h2', {}, [ _('Overview') ]),
 			E('div', { 'class': 'cbi-map-descr' }, [
-				_('A concise ModemManager snapshot. Network configuration and connection intent remain owned by netifd.')
+				_('Modem info by ModemManager')
 			]),
 			content
 		]);
