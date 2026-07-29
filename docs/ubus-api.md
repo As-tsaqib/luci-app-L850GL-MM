@@ -397,12 +397,14 @@ Confirmation is mandatory. EARFCN must map to a live supported band; optional
 PCI is 0..503. The implementation validates typed input, exact hardware,
 firmware, cooldown, and the shared mutation lock, then dispatches only the
 compiled-in set or clear tuple. Exact command acknowledgement starts a
-ten-second pre-reset persistence barrier: two consecutive matching NVM reads
+ten-second pre-reset verification deadline: two consecutive matching NVM reads
 one second apart are required before one fixed reset. Hardware-slot
-replacement correlation and registration follow. NVM is then polled for at
-most ten seconds; set additionally verifies the serving EARFCN and optional
-PCI. Only the read-only NVM query may repeat. The set/clear tuple and reset are
-never resent automatically.
+replacement correlation and registration follow. Post-reset NVM observations
+use another ten-second deadline; an already dispatched query retains its
+five-second command timeout, but a result after the stage deadline is rejected.
+Set additionally verifies the serving EARFCN and optional PCI. Only the
+read-only NVM query may repeat. The set/clear tuple and reset are never resent
+automatically.
 
 The ubus request remains deferred through verification. Success therefore
 contains the replacement's new opaque identity, not the stale input identity:

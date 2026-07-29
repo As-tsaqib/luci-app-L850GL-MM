@@ -148,8 +148,10 @@ length, bad name termination, duplicate fields, and malformed session data.
 - Exact acknowledgement enters a bounded read-only persistence barrier. Two
   matching NVM reads one second apart are required before the single fixed
   reset. Re-attested hardware-slot replacement and registration are followed
-  by at most ten seconds of read-only NVM polling and, for set, a serving-cell
-  check. No post-reprobe write is issued, and set/clear/reset are never resent.
+  by a ten-second NVM-observation deadline and, for set, a serving-cell check.
+  An in-flight read has its own five-second timeout but is rejected if its
+  result arrives after the stage deadline. No post-reprobe write is issued,
+  and set/clear/reset are never resent.
 - A mutation cannot report verified success until all applicable
   postconditions pass; post-dispatch ambiguity is `outcome_unknown` with no
   automatic retry.

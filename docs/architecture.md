@@ -193,9 +193,11 @@ integers build one reviewed set tuple or the fixed clear tuple; exact command
 acknowledgement starts a ten-second read-only persistence barrier. Reset is
 dispatched only after two matching NVM reads one second apart, then exactly one
 fixed `CFUN=15` is sent. The coordinator keeps the hardware-slot mutation
-exclusion across object replacement, waits for registration, and polls the
-fixed NVM query for at most ten seconds to tolerate bounded post-reset
-convergence. Set additionally requires a matching XMCI serving EARFCN/PCI;
+exclusion across object replacement, waits for registration, and uses a
+ten-second deadline for dispatching/accepting fixed NVM observations to
+tolerate bounded post-reset convergence. An in-flight read retains its own
+five-second command timeout but cannot be accepted after the stage deadline.
+Set additionally requires a matching XMCI serving EARFCN/PCI;
 clear requires the exact NVM clear sentinel. Only NVM reads are repeated;
 set, clear, and reset are never resent automatically. Unexpected state and
 post-dispatch transport uncertainty fail closed.

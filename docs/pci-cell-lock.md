@@ -267,12 +267,14 @@ state query: AT@NVM:DYN_CPS.NAS_ASM.FREQ_LOCK_PARAMS.*??
 Set and clear require the exact response
 `Frequency Lock Configuration Success CPS_MSG_TYPE_ASM_EM_CTRL_CNF`; a bare
 `OK` is rejected. Acknowledgement does not immediately trigger reset. The
-coordinator queries the bounded NVM state once per second for at most ten
-seconds and requires two consecutive exact matches. It then sends one
+coordinator uses a ten-second NVM-observation deadline, spaces read attempts
+one second apart, and requires two consecutive exact matches. It then sends one
 `CFUN=15`, which normally completes with `Core.Cancelled` because the modem
 object disappears. The coordinator retains only internal hardware-slot
 correlation data, observes the new attested object, waits for
-registered/connected state, then polls NVM for at most ten seconds. A valid
+registered/connected state, then uses a ten-second deadline for NVM
+observations. A query dispatched before that deadline retains its own
+five-second timeout, but a late result cannot be accepted. A valid
 but not-yet-converged state repeats only the read-only query. Set additionally
 runs XMCI and matches the serving EARFCN and, when requested, PCI. Clear
 succeeds only when the five-field NVM clear sentinel is exact.
@@ -349,6 +351,12 @@ Completed on `18500.5001.00.05.27.30` / L850-GL / upstream plugin / MBIM
 6. `CFUN=15` cancellation, object disappearance, replacement in about
    14--15 seconds, registration, bearer recovery, and final clear/automatic
    restoration.
+7. An isolated fixed `CFUN=1,1` comparator produced attested replacement
+   generations and passed 3/3 exact-current-cell sets plus 3/3 first clears
+   without restarting the router or ModemManager daemon.
+8. Production r6 retained one fixed `CFUN=15`, added two consecutive pre-reset
+   NVM matches and bounded post-reset reads, and passed 3/3 sets plus 3/3 first
+   clears. The prior first-clear `verification_mismatch` did not recur.
 
 Still not claimed by this matrix:
 

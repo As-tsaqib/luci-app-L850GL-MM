@@ -19,6 +19,81 @@ listed companion behavior on this hardware; it does not claim every L850
 firmware or OpenWrt release. The historical eSIM probe is retained only as
 provenance for a package retired in 0.3.
 
+## Installed 0.6.0-r6 PCI persistence acceptance, 2026-07-29
+
+Static run `30457585212` and OpenWrt SDK run `30457585130` passed for source
+`6ce14aaef45da9094a7413bd89401296dfb8d634`. Static CI compiled and ran the
+new pure NVM policy matrix together with the complete host/static suite. SDK
+CI built and binary-checked separate base and expert OpenWrt 25.12.5
+`ipq40xx/generic` variants. The base binary omitted the expert object and
+fixed command grammar; the expert binary retained the exact reviewed surface.
+
+| Installed expert artifact | SHA-256 |
+|---|---|
+| `l850gl-mm-bridge-0.6.0-r6.apk` | `6f8fd90f63aab8d01913bbd6d69304b19fa2c3e71c06220c17e6e5e7d894d484` |
+| `luci-app-l850gl-mm-0.6.0-r6.apk` | `69a31b3ded34ecabbfa55d3d93a04196ac0efdc9a898527f48bd6434b5e78ed8` |
+| `modemmanager-1.24.0-r10.apk` | `9b46039b963f5766a0a13d767ff77e978f590d2d50226183bd609f462112e60c` |
+
+All downloaded and router-staged checksums matched. An APK simulation admitted
+exactly the r5-to-r6 bridge/LuCI upgrade. The expert ModemManager artifact was
+byte-identical to the installed package, so it was not reinstalled and the
+daemon process was preserved.
+
+The preceding r5 live cycle exposed the failure this release addresses. The
+first clear received the exact firmware acknowledgement, completed reset,
+reprobe, and registration, but its single immediate post-reset NVM read still
+reported the previous exact lock and terminated as `verification_mismatch`.
+An identical second clear with fresh identity succeeded. Release r6 therefore
+does not resend a mutation. It requires two consecutive matching NVM reads one
+second apart before reset, then uses a ten-second observation deadline while
+repeating only the read-only NVM query after registration.
+
+An isolated comparator changed only the fixed reset literal to `AT+CFUN=1,1`.
+Static run `30456402024` and SDK run `30456402102` passed for comparator source
+`c8d7d57e73e983be2b0b5ed2f0644e9aff0911d2`; its expert bridge SHA-256 was
+`52235e2e24286bb67b1b27d54b7a04dcdf9092a9a38e8be056244d97ef4f477e`.
+Only that bridge was temporarily installed. ModemManager and LuCI were not
+replaced.
+
+| Live cycle | Set durations (ms) | First clear durations (ms) | Result |
+|---|---:|---:|---|
+| r5 comparator, `CFUN=1,1`, no NVM barrier | 16554, 16728, 17179 | 16940, 16478, 16992 | 3/3 `applied_verified`; 3/3 first-attempt `cleared_verified` |
+| r6 production, `CFUN=15`, NVM barrier | 17597, 17636, 17345 | 17808, 17376, 17792 | 3/3 `applied_verified`; 3/3 first-attempt `cleared_verified` |
+
+Every operation produced a new attested ModemManager object/generation while
+preserving the ModemManager daemon and router uptime. Registration, connected
+state, exact NVM, and set serving-cell postconditions passed; netifd recovered
+to up/available/not-pending after each reset. The comparator establishes that
+`CFUN=1,1` also performs the required modem replacement on this firmware. It
+does not establish a reason to replace the already reviewed production reset:
+the r6 timings include the intentional one-second persistence barrier and the
+observed first-clear mismatch did not recur in any of the three r6 cycles.
+Production therefore retains one fixed `CFUN=15` and has no reset fallback or
+ladder.
+
+Final installed acceptance established:
+
+- schema 4 with exactly eight base/five expert methods, exact five ACL names,
+  and exactly Overview, Lock, and SMS menu children;
+- invalid PCI 504 rejected as `invalid_argument` and a stale generation
+  rejected as `stale_generation`, both before mutation dispatch;
+- final PCI NVM state `clear`, modem connected/home, power on, connected
+  bearer, and netifd up/available/not-pending;
+- all 29 supported bands remained current, with allowed `3g|4g` and preferred
+  `4g`; no Band/Mode mutation was needed;
+- typed voltage recovered to `3550 mV`; SMS cache was `ready` without exposing
+  a number or body; no live SMS send/delete was run;
+- one 3-carrier B5+B1+B3 result, an immediate accurate `rate_limited` response
+  with `retry_after_ms=4734`, and successful recovery after that deadline;
+- installed and loopback-served hashes matched for API, widgets, CSS, Overview,
+  Lock, and SMS assets;
+- one bridge and one ModemManager process, no retired object, no picocom
+  process, and zero recent bridge warning/error or ModemManager error line.
+
+The final mutation target was the validated current serving B3 EARFCN
+1325/PCI 381. Raw command responses, cell/subscriber identifiers, addresses,
+and SMS content were not retained.
+
 ## Installed 0.6.0-r4 final acceptance, 2026-07-29
 
 Static run `30434665005` and OpenWrt SDK run `30434665450` passed for source

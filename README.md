@@ -149,9 +149,8 @@ opaque ID, modem generation, and (for SMS) messaging generation are present.
 
 ## Packaging
 
-The current source uses the following r6 package metadata. The router retains
-the installed r5 pair until the checksum-verified r6 candidate passes SDK and
-live mutation acceptance:
+The current source and router use the following checksum-verified r6 package
+metadata after SDK and live mutation acceptance:
 
 ```text
 l850gl-mm-bridge   0.6.0-r6 native libmm-glib/GDBus to ubus bridge
@@ -219,6 +218,14 @@ requires two consecutive exact pre-reset NVM observations, polls a valid
 post-reset mismatch for a bounded window, reports the failing verification
 stage, and never resends the write or reset. Its pure policy tests model
 delayed commit, streak reset, malformed input, and post-reset convergence.
+Static run `30457585212` and SDK run `30457585130` passed for `6ce14aa`; the
+checksum-verified pair was installed with ModemManager preserved. Three live
+sets and all three first clear attempts verified successfully. An isolated
+`CFUN=1,1` comparator also passed three cycles and proved modem-object
+replacement without rebooting the router, but production retains the existing
+fixed `CFUN=15` because the prior mismatch did not recur in any of the three r6
+cycles and no second reset strategy was needed. Final NVM was clear and modem,
+bearer, and netifd were connected/healthy.
 
 Live testing on 2026-07-27 validated the fixed grammar and recovery matrix on
 an L850-GL MBIM `2cb7:0007` running firmware

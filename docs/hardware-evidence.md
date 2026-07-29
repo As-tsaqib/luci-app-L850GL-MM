@@ -18,6 +18,26 @@ Never store IMEI, IMSI, ICCID, EID, phone numbers, SMS body, APN credentials,
 PIN/PUK, activation codes, tokens, or assigned IP configuration. Evidence must
 use an allowlist and sanitized fixtures rather than raw diagnostic dumps.
 
+## Installed 0.6.0-r6 PCI persistence evidence
+
+Static run `30457585212` and SDK run `30457585130` passed for source
+`6ce14aa`. The checksum-verified r6 bridge/LuCI pair was installed while the
+byte-identical expert ModemManager package and its running process were
+preserved. Three exact-current-cell set/clear cycles all produced attested
+replacement generations: 3/3 set operations were `applied_verified`, and all
+3 first clear attempts were `cleared_verified`. Final NVM was clear, modem and
+bearer were connected, netifd was up/available/not-pending, and recent bridge
+and ModemManager error counts were zero.
+
+An isolated `CFUN=1,1` comparator at `c8d7d57` also passed 3/3 set and 3/3
+first-clear cycles while preserving router uptime and the ModemManager daemon.
+It proved that this firmware performs object replacement for that command; it
+did not displace the existing production recovery sequence. Production r6
+retains fixed `CFUN=15` and adds the independently testable persistence fix:
+two consecutive pre-reset NVM matches, a single reset dispatch, and bounded
+post-reset read-only NVM polling. Neither write nor reset is automatically
+retried.
+
 ## Installed 0.6.0-r4 evidence
 
 Static run `30434665005` and SDK run `30434665450` passed for source

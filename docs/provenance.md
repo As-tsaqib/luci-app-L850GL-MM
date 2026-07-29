@@ -259,6 +259,22 @@ paths and counts an inactive secondary sentinel as a carrier. Neither its
   3CA/2CA/1CA replacement and input-driven PCI Apply-button behavior. No live
   mutation, scan, or SMS operation was run.
 
+- 2026-07-29: an r5 live PCI cycle exposed a bounded firmware/coordinator race:
+  the first acknowledged clear completed reset/reprobe/registration but a
+  single immediate NVM observation still reported the previous lock; an
+  identical fresh second clear succeeded. Comparator source `c8d7d57` changed
+  only the reset to `CFUN=1,1`; static `30456402024` and SDK `30456402102`
+  passed, and 3/3 set plus 3/3 first-clear live cycles verified replacement,
+  NVM, registration, and network recovery without rebooting the router or
+  replacing the ModemManager daemon.
+- 2026-07-29: r6 source `6ce14aa` added a pure consecutive-match policy, two
+  pre-reset NVM matches, bounded post-reset NVM polling, and stage-specific
+  fail-closed errors while retaining one fixed `CFUN=15`. Static run
+  `30457585212` and SDK run `30457585130` passed. The checksum-verified r6 pair
+  was installed with ModemManager preserved; 3/3 sets and 3/3 first clears
+  verified on their first attempt. Final NVM clear, connected bearer, netifd,
+  CA cooldown recovery, SMS cache, assets, ACL/menu, ownership, and logs passed.
+
 Historical v0.2 schema-1 results remain explicitly labeled and are not
 rewritten as schema-2 package evidence. Firmware command-level live evidence
 and installed schema-2 ubus/LuCI evidence are also reported separately.
