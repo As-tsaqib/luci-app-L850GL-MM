@@ -250,7 +250,7 @@ jobs:
             *) exit 1 ;;
           esac
           test -x "${sdk_root}/scripts/feeds"
-          test -x "${sdk_root}/scripts/config"
+          test -d "${sdk_root}/scripts/config"
           test -f "${sdk_root}/rules.mk"
           echo "root=${sdk_root}" >> "${GITHUB_OUTPUT}"
 
@@ -262,10 +262,35 @@ jobs:
           set -euo pipefail
           cd "${SDK_ROOT}"
           cp feeds.conf.default feeds.conf
-          if grep -Ev \
-            '^[[:space:]]*(#|$)|^[[:space:]]*src-git[-a-z]*([[:space:]]+--[^[:space:]]+)*[[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:]]+\^[0-9a-f]{40}[[:space:]]*$' \
-            feeds.conf; then
-            echo 'Every SDK feed must be pinned to a full Git commit' >&2
+          if ! awk -v version="${OPENWRT_VERSION}" '
+            function reject(reason) {
+              printf "invalid feeds.conf line %d (%s): %s\n", NR, reason, $0 > "/dev/stderr"
+              invalid = 1
+            }
+            /^[[:space:]]*(#|$)/ { next }
+            {
+              if (NF != 3 || $1 !~ /^src-git[-a-z]*$/) {
+                reject("unexpected syntax")
+                next
+              }
+              if ($2 == "base" &&
+                  $3 == "https://git.openwrt.org/openwrt/openwrt.git;v" version) {
+                base_release_tags++
+                next
+              }
+              if ($3 ~ /\^[0-9a-f]{40}$/)
+                next
+              reject("feed is not pinned to a 40-hex commit")
+            }
+            END {
+              if (base_release_tags > 1) {
+                print "duplicate exact base release tag" > "/dev/stderr"
+                invalid = 1
+              }
+              exit invalid
+            }
+          ' feeds.conf; then
+            echo 'Only the exact base release tag or 40-hex feed commits are allowed' >&2
             exit 1
           fi
           ./scripts/feeds update -a 2>&1 | tee "${GITHUB_WORKSPACE}/logs/feeds-update.log"
@@ -284,19 +309,34 @@ jobs:
           cp -a "${modemmanager_tree}/net/modemmanager" feeds/packages/net/
           python3 "${GITHUB_WORKSPACE}/packaging/prepare-modemmanager-expert.py" \
             feeds/packages/net/modemmanager/Makefile
-          grep -Fq 'define Package/modemmanager-l850gl-expert' feeds/packages/net/modemmanager/Makefile
-          grep -Fq 'PROVIDES:=modemmanager' feeds/packages/net/modemmanager/Makefile
-          grep -Fq 'CONFLICTS:=modemmanager' feeds/packages/net/modemmanager/Makefile
-          if grep -Fq 'define Package/modemmanager-l850gl-expert/config' \
-            feeds/packages/net/modemmanager/Makefile; then
-            echo 'Expert package must not import stock-only Kconfig dependencies' >&2
+          modemmanager_makefile='feeds/packages/net/modemmanager/Makefile'
+          modemmanager_config='feeds/packages/net/modemmanager/Config.in'
+          grep -Fqx 'define Package/modemmanager-l850gl-expert' "${modemmanager_makefile}"
+          grep -Fqx 'define Package/modemmanager-l850gl-expert/config' "${modemmanager_makefile}"
+          grep -Fq 'PROVIDES:=modemmanager' "${modemmanager_makefile}"
+          grep -Fq 'CONFLICTS:=modemmanager' "${modemmanager_makefile}"
+          # shellcheck disable=SC2016
+          [ "$(grep -Fxc '$(eval $(call BuildPackage,modemmanager-l850gl-expert))' \
+            "${modemmanager_makefile}")" -eq 1 ]
+          # shellcheck disable=SC2016
+          if grep -Fqx '$(eval $(call BuildPackage,modemmanager))' \
+            "${modemmanager_makefile}" ||
+            grep -Fqx 'define Package/modemmanager' "${modemmanager_makefile}"; then
+            echo 'Stock ModemManager binary registration remains after expert-only transform' >&2
+            exit 1
+          fi
+          [ "$(grep -Ec '^[[:space:]]*depends on PACKAGE_modemmanager-l850gl-expert[[:space:]]*$' \
+            "${modemmanager_config}")" -eq 1 ]
+          if grep -Eq '^[[:space:]]*depends on PACKAGE_modemmanager[[:space:]]*$' \
+            "${modemmanager_config}"; then
+            echo 'Config.in still depends on the retired stock binary symbol' >&2
             exit 1
           fi
           # shellcheck disable=SC2016
           grep -Fq -- '-Dat_command_via_dbus=$(if $(CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS),true,false)' \
-            feeds/packages/net/modemmanager/Makefile
+            "${modemmanager_makefile}"
           grep -Fq -- '-Dbuiltin_plugins=true' \
-            feeds/packages/net/modemmanager/Makefile
+            "${modemmanager_makefile}"
 
           ./scripts/feeds install modemmanager luci-base luci-proto-modemmanager 2>&1 |
             tee "${GITHUB_WORKSPACE}/logs/feeds-install.log"
@@ -315,17 +355,31 @@ jobs:
         run: |
           set -euo pipefail
           cd "${SDK_ROOT}"
-          ./scripts/config -e "${TARGET_SYMBOL}"
-          ./scripts/config -e "${SUBTARGET_SYMBOL}"
-          ./scripts/config -m PACKAGE_modemmanager
-          ./scripts/config -m PACKAGE_modemmanager-l850gl-expert
-          ./scripts/config -m PACKAGE_l850gl-mm-bridge
-          ./scripts/config -m PACKAGE_luci-app-l850gl-mm
-          ./scripts/config -e MODEMMANAGER_WITH_MBIM
-          ./scripts/config -e MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS
-          ./scripts/config -e L850GL_MM_BRIDGE_EXPERT
+          config_symbols=(
+            PACKAGE_modemmanager
+            PACKAGE_modemmanager-l850gl-expert
+            PACKAGE_l850gl-mm-bridge
+            PACKAGE_luci-app-l850gl-mm
+            MODEMMANAGER_WITH_MBIM
+            MODEMMANAGER_WITH_NETIFD
+            MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS
+            L850GL_MM_BRIDGE_EXPERT
+          )
+          for symbol in "${config_symbols[@]}"; do
+            sed -i -e "/^CONFIG_${symbol}=/d" \
+              -e "/^# CONFIG_${symbol} is not set$/d" .config
+          done
+          cat >> .config <<'EOF'
+          # CONFIG_PACKAGE_modemmanager is not set
+          CONFIG_PACKAGE_modemmanager-l850gl-expert=m
+          CONFIG_PACKAGE_l850gl-mm-bridge=m
+          CONFIG_PACKAGE_luci-app-l850gl-mm=m
+          CONFIG_MODEMMANAGER_WITH_MBIM=y
+          CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS=y
+          CONFIG_L850GL_MM_BRIDGE_EXPERT=y
+          EOF
           if grep -q '^config MODEMMANAGER_WITH_NETIFD$' feeds/packages/net/modemmanager/Config.in; then
-            ./scripts/config -e MODEMMANAGER_WITH_NETIFD
+            echo 'CONFIG_MODEMMANAGER_WITH_NETIFD=y' >> .config
           else
             # shellcheck disable=SC2016
             grep -Fq '$(INSTALL_BIN) ./files/lib/netifd/proto/modemmanager.sh' \
@@ -342,7 +396,10 @@ jobs:
           fi
           [ "${defconfig_status}" -eq 0 ]
           grep -Fqx "CONFIG_TARGET_ARCH_PACKAGES=\"${ARCH}\"" .config
-          grep -Fqx 'CONFIG_PACKAGE_modemmanager=m' .config
+          if grep -Eq '^CONFIG_PACKAGE_modemmanager=[my]$' .config; then
+            echo 'Stock ModemManager must not be selected in the expert-only build' >&2
+            exit 1
+          fi
           grep -Fqx 'CONFIG_PACKAGE_modemmanager-l850gl-expert=m' .config
           grep -Fqx 'CONFIG_PACKAGE_l850gl-mm-bridge=m' .config
           grep -Fqx 'CONFIG_PACKAGE_luci-app-l850gl-mm=m' .config
@@ -432,11 +489,13 @@ jobs:
           case "${PACKAGE_FORMAT}" in
             ipk)
               mm_name="modemmanager-l850gl-expert_${MODEMMANAGER_VERSION}-r${MODEMMANAGER_RELEASE}_${ARCH}.ipk"
+              stock_name="modemmanager_${MODEMMANAGER_VERSION}-r${MODEMMANAGER_RELEASE}_${ARCH}.ipk"
               bridge_name="l850gl-mm-bridge_${APP_VERSION}-r${APP_RELEASE}_${ARCH}.ipk"
               luci_name="luci-app-l850gl-mm_${APP_VERSION}-r${APP_RELEASE}_all.ipk"
               ;;
             apk)
               mm_name="modemmanager-l850gl-expert-${MODEMMANAGER_VERSION}-r${MODEMMANAGER_RELEASE}.apk"
+              stock_name="modemmanager-${MODEMMANAGER_VERSION}-r${MODEMMANAGER_RELEASE}.apk"
               bridge_name="l850gl-mm-bridge-${APP_VERSION}-r${APP_RELEASE}.apk"
               luci_name="luci-app-l850gl-mm-${APP_VERSION}-r${APP_RELEASE}.apk"
               ;;
@@ -451,6 +510,11 @@ jobs:
             fi
             cp "${matches[0]}" "${GITHUB_WORKSPACE}/dist/"
           done
+          mapfile -d '' stock_packages < <(find bin/packages -type f -name "${stock_name}" -print0)
+          if [ "${#stock_packages[@]}" -ne 0 ]; then
+            printf 'Expert-only build emitted stock package: %s\n' "${stock_packages[@]}" >&2
+            exit 1
+          fi
 
           if [ "${PACKAGE_FORMAT}" = 'ipk' ]; then
             control_dir="${RUNNER_TEMP}/expert-ipk-control"
@@ -496,7 +560,7 @@ jobs:
             install_command="apk add --allow-untrusted ./${mm_name} ./${bridge_name} ./${luci_name}"
             replacement_note='APK removes the stock world constraint; reverse dependencies may keep its files present until the expert transaction replaces the provider.'
             rollback_remove_command='apk del luci-app-l850gl-mm l850gl-mm-bridge modemmanager-l850gl-expert'
-            rollback_install_command='apk add --allow-untrusted ./<matching-stock-modemmanager.apk>'
+            rollback_install_command="apk add --allow-untrusted ./${stock_name}"
           else
             update_command='opkg update'
             dependency_command='opkg install luci-base luci-proto-modemmanager kmod-usb-acm kmod-usb-net-cdc-mbim kmod-usb-wdm'
@@ -505,7 +569,7 @@ jobs:
             install_command="opkg install ./${mm_name} ./${bridge_name} ./${luci_name}"
             replacement_note='OPKG has no APK-style world constraint. --force-depends intentionally permits the brief local replacement window; run the simulation first and the real install immediately after removal.'
             rollback_remove_command='opkg remove --force-depends luci-app-l850gl-mm l850gl-mm-bridge modemmanager-l850gl-expert'
-            rollback_install_command='opkg install ./<matching-stock-modemmanager.ipk>'
+            rollback_install_command="opkg install ./${stock_name}"
           fi
           cat > "${GITHUB_WORKSPACE}/dist/INSTALL.txt" <<EOF
           L850GL MM 1.0.0 expert bundle
@@ -520,6 +584,10 @@ jobs:
           OpenWrt ${OPENWRT_VERSION} feeds. Keep a stock ModemManager package and
           alternate management/WAN access available: removing it can interrupt
           the modem connection immediately.
+
+          Required local rollback package (not included in this ZIP):
+
+              ${stock_name}
 
           Resolve the companion's feed dependencies while stock ModemManager and
           its WAN are still active:

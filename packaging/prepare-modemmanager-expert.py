@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 As Tsaqib
 # SPDX-License-Identifier: Apache-2.0
 
-"""Add the reviewed L850-GL expert binary package to OpenWrt's pinned recipe."""
+"""Rename OpenWrt's pinned ModemManager binary package for the expert bundle."""
 
 from pathlib import Path
 import re
@@ -14,32 +14,14 @@ SUPPORTED_RECIPES = {
 }
 
 
-EXPERT_DEFINITION_TEMPLATE = r'''
-define Package/modemmanager-l850gl-expert
-  $(Package/modemmanager)
-  TITLE:=ModemManager expert transport for the L850-GL companion
-  PROVIDES:=modemmanager
-  CONFLICTS:=modemmanager
-endef
-
-define Package/modemmanager-l850gl-expert/description
- The upstream OpenWrt ModemManager {recipe_version} package rebuilt with the
- reviewed AT-over-D-Bus transport required by the firmware-gated L850-GL
- expert bridge. It provides and conflicts with the stock modemmanager package.
-endef
-'''
-
-EXPERT_INSTALL = r'''
-define Package/modemmanager-l850gl-expert/install
-  $(Package/modemmanager/install)
-endef
-'''
+EXPERT_PACKAGE = "modemmanager-l850gl-expert"
 
 
-def insert_once(source: str, marker: str, insertion: str) -> str:
-    if source.count(marker) != 1:
-        raise ValueError(f"expected one recipe marker, found {source.count(marker)}: {marker!r}")
-    return source.replace(marker, insertion + "\n" + marker, 1)
+def replace_once(source: str, marker: str, replacement: str) -> str:
+    count = source.count(marker)
+    if count != 1:
+        raise ValueError(f"expected one recipe marker, found {count}: {marker!r}")
+    return source.replace(marker, replacement, 1)
 
 
 def recipe_assignment(source: str, name: str) -> str:
@@ -56,6 +38,11 @@ def main() -> int:
 
     makefile = Path(sys.argv[1])
     source = makefile.read_text(encoding="utf-8").replace("\r\n", "\n")
+    config_in = makefile.with_name("Config.in")
+    if not config_in.is_file():
+        raise ValueError(f"missing sibling ModemManager Config.in: {config_in}")
+    config_source = config_in.read_text(encoding="utf-8").replace("\r\n", "\n")
+
     version = recipe_assignment(source, "PKG_VERSION")
     release = recipe_assignment(source, "PKG_RELEASE")
     if (version, release) not in SUPPORTED_RECIPES:
@@ -71,27 +58,53 @@ def main() -> int:
     ):
         if required not in source:
             raise ValueError(f"pinned ModemManager recipe is missing {required!r}")
-    if "Package/modemmanager-l850gl-expert" in source:
-        raise ValueError("expert package definition already exists")
+    if EXPERT_PACKAGE in source or f"PACKAGE_{EXPERT_PACKAGE}" in config_source:
+        raise ValueError("expert package rename already exists")
 
-    expert_definition = EXPERT_DEFINITION_TEMPLATE.format(
-        recipe_version=f"{version}-r{release}"
-    )
-    source = insert_once(source, "MESON_ARGS += \\\n", expert_definition)
-    source = insert_once(
+    package_header = "define Package/modemmanager\n"
+    source = replace_once(
         source,
-        "define Package/modemmanager-rpcd/install\n",
-        EXPERT_INSTALL,
+        package_header,
+        f"define Package/{EXPERT_PACKAGE}\n"
+        "  PROVIDES:=modemmanager\n"
+        "  CONFLICTS:=modemmanager\n",
     )
-    source = source.replace(
+    for suffix in ("config", "description", "install"):
+        source = replace_once(
+            source,
+            f"define Package/modemmanager/{suffix}\n",
+            f"define Package/{EXPERT_PACKAGE}/{suffix}\n",
+        )
+    source = replace_once(
+        source,
         "$(eval $(call BuildPackage,modemmanager))\n",
-        "$(eval $(call BuildPackage,modemmanager))\n"
-        "$(eval $(call BuildPackage,modemmanager-l850gl-expert))\n",
-        1,
+        f"$(eval $(call BuildPackage,{EXPERT_PACKAGE}))\n",
     )
-    if source.count("$(eval $(call BuildPackage,modemmanager-l850gl-expert))") != 1:
-        raise ValueError("failed to register exactly one expert package")
 
+    dependency = re.compile(
+        r"^([ \t]*depends[ \t]+on[ \t]+)PACKAGE_modemmanager([ \t]*)$",
+        re.MULTILINE,
+    )
+    dependency_matches = list(dependency.finditer(config_source))
+    if len(dependency_matches) != 1:
+        raise ValueError(
+            "expected exactly one Config.in dependency on PACKAGE_modemmanager, "
+            f"found {len(dependency_matches)}"
+        )
+    config_source = dependency.sub(
+        lambda match: (
+            f"{match.group(1)}PACKAGE_{EXPERT_PACKAGE}{match.group(2)}"
+        ),
+        config_source,
+        count=1,
+    )
+
+    if "define Package/modemmanager\n" in source:
+        raise ValueError("stock ModemManager binary package remains after rename")
+    if "$(eval $(call BuildPackage,modemmanager))" in source:
+        raise ValueError("stock ModemManager binary output remains registered")
+
+    config_in.write_text(config_source, encoding="utf-8", newline="\n")
     makefile.write_text(source, encoding="utf-8", newline="\n")
     return 0
 

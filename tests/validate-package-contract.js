@@ -645,56 +645,69 @@ assert.match(staticWorkflow, /make check/);
 const sdkWorkflow = read('.github/workflows/openwrt-sdk.yml');
 const releaseWorkflow = read('.github/workflows/release-bundle.yml');
 const expertRecipeTransformer = read('packaging/prepare-modemmanager-expert.py');
+const expertRecipeTransformerTests = read(
+	'tests/test-prepare-modemmanager-expert.py');
 assert.ok(fs.existsSync(absolute('tests/test-prepare-modemmanager-expert.py')),
 	'the expert recipe transformer must have behavioral tests');
 for (const contract of [
-	'Package/modemmanager-l850gl-expert',
+	'EXPERT_PACKAGE = "modemmanager-l850gl-expert"',
 	'PROVIDES:=modemmanager',
 	'CONFLICTS:=modemmanager',
-	'BuildPackage,modemmanager-l850gl-expert'
-]) {
+	'for suffix in ("config", "description", "install")',
+	'PACKAGE_{EXPERT_PACKAGE}',
+	'stock ModemManager binary package remains after rename',
+	'stock ModemManager binary output remains registered'
+])
 	assert.ok(expertRecipeTransformer.includes(contract),
-		`expert ModemManager recipe transformer must retain ${contract}`);
-}
+		`expert-only ModemManager rename must retain ${contract}`);
 for (const recipe of [ '1.22.0', '20', '1.24.0', '10' ])
 	assert.ok(expertRecipeTransformer.includes(`"${recipe}"`));
-assert.ok(!expertRecipeTransformer.includes(
-	'define Package/modemmanager-l850gl-expert/config'),
-	'expert package must not import the stock-only Config.in dependency');
+assert.ok(expertRecipeTransformer.includes(
+	'expected exactly one Config.in dependency on PACKAGE_modemmanager'));
+for (const contract of [
+	'assertNotIn("define Package/modemmanager\\n", transformed)',
+	'depends on PACKAGE_modemmanager-l850gl-expert'
+])
+	assert.ok(expertRecipeTransformerTests.includes(contract),
+		`expert rename tests must prove ${contract}`);
+assert.match(expertRecipeTransformerTests,
+	/assertNotIn\(\s*"\$\(eval \$\(call BuildPackage,modemmanager\)\)",\s*transformed\s*\)/,
+	'expert rename tests must prove the stock binary output is absent');
 assert.ok(sdkWorkflow.includes("grep -Fq -- '-Dbuiltin_plugins=true'"));
-assert.ok(sdkWorkflow.includes("- 'packaging/**'"),
-	'packaging changes must trigger the SDK workflow');
+assert.ok(!sdkWorkflow.includes('prepare-modemmanager-expert.py'),
+	'the base SDK workflow must not transform the stock ModemManager recipe');
+assert.ok(sdkWorkflow.includes(
+	'The base workflow must use the unmodified stock recipe'));
 assert.ok(sdkWorkflow.includes('error: recursive dependency detected!'),
 	'SDK CI must fail closed on recursive Kconfig diagnostics');
-assert.ok(sdkWorkflow.includes('CONFIG_L850GL_MM_BRIDGE_EXPERT=y'),
-	'SDK CI must exercise the explicit expert build separately');
-assert.ok(sdkWorkflow.includes('CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS=y'));
-assert.ok(sdkWorkflow.includes('package/feeds/packages/modemmanager/compile'),
-	'expert CI must rebuild the matching ModemManager package');
-assert.ok(sdkWorkflow.includes('CONFIG_PACKAGE_modemmanager-l850gl-expert=m'),
-	'expert CI must select the distinguishable ModemManager package');
-assert.ok(sdkWorkflow.includes('modemmanager-l850gl-expert-1.24.0-r10.apk'),
-	'expert bundle must collect the renamed local ModemManager package');
-assert.ok(sdkWorkflow.includes('apk add --simulate --allow-untrusted'),
-	'expert install instructions must require a package-manager simulation');
-assert.ok(sdkWorkflow.indexOf('apk del modemmanager') <
-	sdkWorkflow.indexOf('apk add --simulate --allow-untrusted'),
-	'expert installation must unpin stock before simulating provider replacement');
 assert.ok(sdkWorkflow.includes(
-	'l850gl-mm-1.0.0-arm_cortex-a7_neon-vfpv4-openwrt25-expert.apk.zip'),
-	'primary CI must emit one architecture-scoped expert ZIP');
-assert.ok(sdkWorkflow.includes("grep -Fq -- '-Dat_command_via_dbus=true'"));
-assert.ok(sdkWorkflow.includes('Firmware_Allowlist=18500.5001.00.05.27.30'));
-assert.ok(sdkWorkflow.includes("grep -Fx 'get_carrier_info'"),
-	'expert SDK verification must retain the typed carrier method');
+	'# CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS is not set'));
+assert.ok(sdkWorkflow.includes('# CONFIG_L850GL_MM_BRIDGE_EXPERT is not set'));
+for (const expertBuildContract of [
+	'package/feeds/packages/modemmanager/compile',
+	'dist/expert',
+	'Firmware_Allowlist=',
+	'apk add --simulate --allow-untrusted'
+])
+	assert.ok(!sdkWorkflow.includes(expertBuildContract),
+		`base SDK workflow must not contain ${expertBuildContract}`);
+for (const enabledExpertConfig of [
+	'CONFIG_MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS=y',
+	'CONFIG_L850GL_MM_BRIDGE_EXPERT=y',
+	'CONFIG_PACKAGE_modemmanager-l850gl-expert=m'
+])
+	assert.doesNotMatch(sdkWorkflow,
+		new RegExp(`^\\s+${enabledExpertConfig}$`, 'm'),
+		`base SDK workflow must not enable ${enabledExpertConfig}`);
 assert.ok(sdkWorkflow.includes("grep -Fx 'AT+GTCAINFO?'"),
-	'base/expert SDK verification must gate the reviewed carrier command');
+	'base SDK verification must reject the expert carrier command');
 assert.ok(sdkWorkflow.includes("grep -Fx 'AT+CBC'"),
-	'base/expert SDK verification must gate the reviewed voltage command');
-assert.strictEqual((sdkWorkflow.match(/API_Schema=4/g) || []).length, 2,
-	'both SDK artifact manifests must identify schema 4');
-assert.strictEqual((sdkWorkflow.match(/Release=1\.0\.0-r1/g) || []).length, 2,
-	'both SDK artifact manifests must identify release 1.0.0-r1');
+	'base SDK verification must reject the expert voltage command');
+assert.ok(sdkWorkflow.includes('Expert_Object=absent'));
+assert.strictEqual((sdkWorkflow.match(/API_Schema=4/g) || []).length, 1,
+	'the base SDK artifact manifest must identify schema 4 exactly once');
+assert.strictEqual((sdkWorkflow.match(/Release=1\.0\.0-r1/g) || []).length, 1,
+	'the base SDK artifact manifest must identify release 1.0.0-r1 exactly once');
 assert.ok(!sdkWorkflow.includes('Release=0.6.0-r6'),
 	'the final SDK workflow must not label new artifacts as the previous release');
 assert.ok(!sdkWorkflow.includes('API_Schema=2'));
