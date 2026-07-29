@@ -450,7 +450,7 @@ const carrierResult = {
 	},
 	secondary: [ {
 		index: 2, band: 7, earfcn: 2850, pci: 321,
-		dl_bandwidth_mhz: 15, ul_bandwidth_mhz: 5
+		dl_bandwidth_mhz: 15, ul_bandwidth_mhz: null
 	} ],
 	active_carriers: 2,
 	source: 'modemmanager',
@@ -587,6 +587,23 @@ assert.match(widgets.overviewError(Object.assign({}, overviewResult, {
 'an absent SIM must never carry subscriber identifiers');
 assert.strictEqual(widgets.carrierInfoError(carrierResult, summary), null);
 assert.match(widgets.carrierInfoError(Object.assign({}, carrierResult, {
+	primary: Object.assign({}, carrierResult.primary, { ul_bandwidth_mhz: null })
+}), summary), /malformed/i,
+'the primary carrier must always have a validated numeric uplink bandwidth');
+assert.match(widgets.carrierInfoError(Object.assign({}, carrierResult, {
+	secondary: [ Object.assign({}, carrierResult.secondary[0], {
+		ul_bandwidth_mhz: 5
+	}) ]
+}), summary), /malformed/i,
+'an unverified active secondary uplink must fail closed');
+const secondaryWithoutUplinkBandwidth = Object.assign({}, carrierResult.secondary[0]);
+
+delete secondaryWithoutUplinkBandwidth.ul_bandwidth_mhz;
+assert.match(widgets.carrierInfoError(Object.assign({}, carrierResult, {
+	secondary: [ secondaryWithoutUplinkBandwidth ]
+}), summary), /malformed/i,
+'a downlink-only secondary must carry an explicit null uplink bandwidth');
+assert.match(widgets.carrierInfoError(Object.assign({}, carrierResult, {
 	primary: Object.assign({}, carrierResult.primary, { pci: 504 })
 }), summary), /malformed/i,
 'carrier PCI values outside the LTE range must fail closed');
@@ -603,7 +620,9 @@ assert.match(widgets.carrierInfoError(Object.assign({}, carrierResult, {
 }), summary), /malformed/i,
 'carrier indexes must be unique and reserve index 1 for the primary carrier');
 assert.match(widgets.carrierInfoError(Object.assign({}, carrierResult, {
-	secondary: [ Object.assign({}, carrierResult.primary, { index: 2 }) ],
+	secondary: [ Object.assign({}, carrierResult.secondary[0], {
+		band: 3, earfcn: 1325, pci: 0
+	}) ],
 	active_bands: [ 3 ]
 }), summary), /malformed/i,
 'duplicate public carrier tuples must fail closed even with distinct indexes');
@@ -778,6 +797,8 @@ assert.doesNotMatch(carrierDetailsText, /Primary carrier|#1/,
 	'primary LTE details must start directly with the band');
 assert.match(carrierDetailsText, /Secondary carrier #2.*B7, EARFCN 2850, PCI 321/);
 assert.match(carrierDetailsText, /DL\/UL 20\/10 MHz/);
+assert.match(carrierDetailsText, /DL\/UL 15\/\u2014 MHz/,
+	'a downlink-only secondary must not fabricate an uplink bandwidth');
 assert.doesNotMatch(carrierDetailsText, /Source|Method/,
 	'Overview must not expose internal carrier transport labels');
 const firmwareRows = findKeyValueRows(overviewNode, 'Firmware');
@@ -1894,9 +1915,9 @@ async function testOverviewLoadMerge() {
 
 	assert.deepStrictEqual(calls, [
 		[ 'listModems' ],
+		[ 'getCarrierInfo', 'l850gl-mm-test', 4 ],
 		[ 'getOverview', 'l850gl-mm-test' ],
-		[ 'getLockStatus', 'l850gl-mm-test' ],
-		[ 'getCarrierInfo', 'l850gl-mm-test', 4 ]
+		[ 'getLockStatus', 'l850gl-mm-test' ]
 	]);
 	assert.strictEqual(snapshot.entries[0].overview, overviewResult);
 	assert.strictEqual(snapshot.entries[0].lock, lockResult);
@@ -3194,7 +3215,7 @@ assert.ok(read('htdocs/luci-static/resources/l850gl-mm/widgets.js').includes(
 
 const makefile = read('Makefile');
 assert.ok(makefile.includes('PKG_VERSION:=0.6.0'));
-assert.ok(makefile.includes('PKG_RELEASE:=1'));
+assert.ok(makefile.includes('PKG_RELEASE:=2'));
 assert.ok(makefile.includes(
 	'LUCI_TITLE:=LuCI companion for the L850-GL modem managed by ModemManager'));
 assert.ok(makefile.includes(

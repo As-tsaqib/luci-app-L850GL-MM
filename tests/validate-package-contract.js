@@ -41,7 +41,7 @@ for (const retired of [
 const bridgeMakefile = read('l850gl-mm-bridge/Makefile');
 assert.match(bridgeMakefile, /^PKG_NAME:=l850gl-mm-bridge$/m);
 assert.match(bridgeMakefile, /^PKG_VERSION:=0\.6\.0$/m);
-assert.match(bridgeMakefile, /^PKG_RELEASE:=1$/m);
+assert.match(bridgeMakefile, /^PKG_RELEASE:=2$/m);
 assert.match(bridgeMakefile,
 	/^\s*URL:=https:\/\/github\.com\/As-tsaqib\/luci-app-L850GL-MM$/m);
 assert.match(bridgeMakefile, /^\s*CONFLICTS:=fibocom-mm-bridge$/m,
@@ -241,6 +241,36 @@ for (const exactCommand of [
 }
 assert.ok(l850CaSource.includes('AT+GTCAINFO?'),
 	'the carrier query must remain one reviewed fixed L850 command');
+assert.match(l850CaSource,
+	/if \(ul_bandwidth == CA_BANDWIDTH_SENTINEL\)[\s\S]*?carrier->uplink_active = false/,
+	'the live secondary uplink-bandwidth sentinel must be represented explicitly');
+assert.match(l850CaSource,
+	/if \(carrier->uplink_active\)\s*return L850GL_L850_CA_PARSE_RANGE/,
+	'unverified secondary uplink aggregation must remain fail-closed');
+assert.match(l850CaSource,
+	/!slots\[index\]\.carrier\.uplink_active[\s\S]*?slots\[0\]\.carrier\.ul_earfcn/,
+	'a downlink-only secondary must repeat the validated primary uplink EARFCN');
+assert.doesNotMatch(l850CaSource,
+	/left->ul_earfcn == right->ul_earfcn/,
+	'duplicate public carriers must not be distinguished by an unexported uplink field');
+assert.match(ubusSource,
+	/BLOBMSG_TYPE_UNSPEC,\s*"ul_bandwidth_mhz", NULL, 0U/,
+	'an active downlink-only secondary uplink bandwidth must serialize as explicit null');
+assert.match(widgetsSource,
+	/secondary \?\s*carrier\.ul_bandwidth_mhz === null/,
+	'the frontend must accept explicit null uplink bandwidth only for secondaries');
+for (const fixture of [
+	'valid-live-downlink-only-secondaries.txt',
+	'valid-live-secondaries-before-primary.txt',
+	'valid-inactive-before-primary.txt',
+	'invalid-secondary-copied-ul-mismatch.txt',
+	'invalid-inactive-copied-ul-mismatch.txt',
+	'invalid-unverified-secondary-uplink.txt',
+	'invalid-primary-ul-sentinel.txt'
+]) {
+	assert.ok(fs.existsSync(absolute(`tests/fixtures/ca/${fixture}`)),
+		`missing reviewed carrier fixture: ${fixture}`);
+}
 assert.ok(l850VoltageSource.includes('AT+CBC'),
 	'the voltage query must remain one reviewed fixed L850 command');
 assert.match(sourceMakefile, /\bl850_ca\.c\b/,
@@ -471,7 +501,7 @@ assert.match(init, /command "\$PROG" --foreground/);
 
 const luciMakefile = read('luci-app-l850gl-mm/Makefile');
 assert.match(luciMakefile, /^PKG_VERSION:=0\.6\.0$/m);
-assert.match(luciMakefile, /^PKG_RELEASE:=1$/m);
+assert.match(luciMakefile, /^PKG_RELEASE:=2$/m);
 assert.match(luciMakefile, /^LUCI_URL:=https:\/\/github\.com\/As-tsaqib\/luci-app-L850GL-MM$/m);
 assert.match(luciMakefile, /^LUCI_MAINTAINER:=As Tsaqib <[^>]+>$/m);
 for (const dependency of [

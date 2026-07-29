@@ -162,17 +162,19 @@ with cell scan and mutation, has a 20-second operation deadline around a
 terminal completion. Its 4,096-byte/eight-slot parser requires an index-1
 14-field primary record and index-2..8 10-field secondary records, ignores only
 the exact inactive secondary sentinel, and exports only active bands, primary
-and active secondary band/EARFCN/PCI/DL/UL bandwidth, and the normalized active
-carrier count. Both DL and UL EARFCN must fall within the reported band's
-reviewed ranges; a UL value belonging to another band rejects the complete
-response. Active B29/B32 remain fail-closed until their downlink-only
-uplink/sentinel representation is captured live on the allowlisted firmware.
+and active secondary band/EARFCN/PCI/bandwidth, and the normalized active
+carrier count. The primary requires own-band DL/UL EARFCNs and numeric
+bandwidths. A secondary requires own-band DL values plus the live-verified UL
+bandwidth sentinel `255` and an UL EARFCN equal to the primary UL; it exports
+`ul_bandwidth_mhz: null`. Any independent secondary uplink and active B29/B32
+remain fail-closed until their exact representation is captured live on the
+allowlisted firmware.
 Raw response and MCC/MNC/TAC/cell ID/signal fields never cross ubus. It performs
 no set, clear, reset, NVM write, or serving-cache mutation.
 Fixtures under `tests/fixtures/ca` cover the sanitized live primary/inactive
-shape, an independent active-secondary shape, and invalid sentinels, band/EARFCN
-mismatch including a mismatched UL band, bandwidth, PCI, counts, field shape,
-indexes, duplicates, and terminal text.
+shape, the live B5 primary plus B3/B1 downlink-only secondaries, and invalid
+sentinels, copied-primary-UL mismatch, unverified secondary uplink, bandwidth,
+PCI, counts, field shape, indexes, duplicates, and terminal text.
 
 ## Standard scan path
 

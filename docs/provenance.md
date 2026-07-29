@@ -86,10 +86,13 @@ Commit IDs are evidence anchors, not source-import points.
   OwnNumbers, IMSI, and ICCID only from normalized libmm-glib properties. The
   explicit product-owner identifier disclosure does not authorize logging or
   fixture/evidence capture.
-- Carrier parsing independently validates the reported band's DL and UL EARFCN
-  ranges. No active B29/B32 target-firmware capture exists, so their
-  downlink-only uplink/sentinel form is not inferred from XModem, RooterSource,
-  or a generic band table and remains fail-closed.
+- Carrier parsing independently validates the primary band's DL and UL EARFCN
+  ranges and every secondary band's DL range. The target firmware's active
+  B3/B1 secondaries were captured with UL bandwidth sentinel `255` and an UL
+  EARFCN copied exactly from the B5 primary; only that cross-record secondary
+  shape is admitted. Independent secondary uplink and active B29/B32 forms are
+  not inferred from XModem, RooterSource, or a generic band table and remain
+  fail-closed.
 - The XMCI LTE field schema and community lock-command family were candidate
   evidence only. The 2026-07-27 local target-firmware matrix independently
   proved logical band encoding, PCI wildcard `65535`, clear tuple, NVM state,
@@ -120,10 +123,12 @@ excluded are:
 XModem's inconsistent license notices reinforce the clean-room boundary. At
 snapshot `12cd900`, its carrier implementation uses shell/direct-TTY command
 paths and counts an inactive secondary sentinel as a carrier. Neither its
-implementation nor that behavior was copied. Only user-visible concepts and
-independently corroborated protocol facts informed the new typed parser; the
-independent RooterSource 14/10-field grammar and local sanitized modem response
-were separate checks.
+  implementation nor that behavior was copied. Only user-visible concepts and
+  independently corroborated protocol facts informed the new typed parser; the
+  independent RooterSource 14/10-field grammar and local sanitized modem response
+  were separate checks. RooterSource's independent-secondary-uplink example is
+  retained only as a negative fixture because that shape has not been observed
+  on the allowlisted firmware.
 
 ## Implementation record
 
@@ -220,9 +225,19 @@ were separate checks.
   and historical evidence and are prohibited from coexisting with 0.6.
 - 2026-07-29: version 0.6 adds a strict bounded parser and expert-build
   asynchronous fixed `AT+CBC` query for nullable Overview voltage in
-  millivolts. The provided response shape and synthetic valid/invalid fixtures
-  establish parser input coverage only; SDK installation and router acceptance
-  remain separate evidence until recorded after they occur.
+  millivolts.
+- 2026-07-29: static run `30416321185` and SDK run `30416321209` passed for
+  renamed r1 source `4783633`; checksum-verified `0.6.0-r1` packages were
+  installed and accepted with exact 8/5 method tables, live typed voltage,
+  matching served assets, and no retired service/object. That acceptance is
+  historical r1 evidence and does not validate the later r2 parser change.
+- 2026-07-29: a read-only target query while aggregation was active captured a
+  B5 primary with B3/B1 downlink-only secondaries. Each secondary carried its
+  own valid DL fields, repeated the primary UL EARFCN, and used UL bandwidth
+  sentinel `255`. Release `0.6.0-r2` narrows admission to that exact shape,
+  exports secondary UL bandwidth as null, and keeps unobserved independent
+  secondary uplink fail-closed. Build and installed-router acceptance remain
+  distinct evidence until their run IDs and hashes are recorded.
 
 Historical v0.2 schema-1 results remain explicitly labeled and are not
 rewritten as schema-2 package evidence. Firmware command-level live evidence

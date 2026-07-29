@@ -32,7 +32,9 @@ IMEI and ICCID, and the SIM number only when supplied by the base ModemManager
 snapshot. IMSI remains deliberately hidden. On an expert build it also calls
 the typed `get_carrier_info` method
 every ten seconds and displays active LTE bands, primary/secondary bands,
-active-carrier count, and bounded per-carrier EARFCN/PCI/bandwidth. A base build
+active-carrier count, and bounded per-carrier EARFCN/PCI/bandwidth. A
+downlink-only secondary renders its explicitly nullable uplink bandwidth as an
+em dash instead of inventing a value. A base build
 has no expert object, so the same rows fail closed as unavailable. The browser
 never receives raw command output or cellular location fields.
 

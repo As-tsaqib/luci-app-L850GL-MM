@@ -110,18 +110,21 @@ function loadSnapshots() {
 
 		pruneCarrierCache(summaries);
 		return Promise.all(summaries.map(function(summary) {
-			return Promise.all([
-				api.getOverview(summary.modem_id).catch(transportResult),
-				api.getLockStatus(summary.modem_id).catch(transportResult),
-				api.getCarrierInfo(summary.modem_id, summary.generation)
-					.catch(transportResult)
-			]).then(function(results) {
-				return {
-					summary: summary,
-					overview: results[0],
-					lock: results[1],
-					carrier: selectCarrier(results[2], summary)
-				};
+			return api.getCarrierInfo(summary.modem_id, summary.generation)
+				.catch(transportResult).then(function(carrier) {
+					const selectedCarrier = selectCarrier(carrier, summary);
+
+					return Promise.all([
+						api.getOverview(summary.modem_id).catch(transportResult),
+						api.getLockStatus(summary.modem_id).catch(transportResult)
+					]).then(function(results) {
+						return {
+							summary: summary,
+							overview: results[0],
+							lock: results[1],
+							carrier: selectedCarrier
+						};
+					});
 			});
 		})).then(function(entries) {
 			return { list: listResult, entries: entries };
@@ -238,9 +241,11 @@ function lteBandLabel(band) {
 }
 
 function carrierDetail(role, carrier) {
+	const uplinkBandwidth = carrier.ul_bandwidth_mhz == null ?
+		'\u2014' : carrier.ul_bandwidth_mhz;
 	const detail = _('B%d, EARFCN %d, PCI %d, DL/UL %s/%s MHz').format(
 			carrier.band, carrier.earfcn, carrier.pci,
-			carrier.dl_bandwidth_mhz, carrier.ul_bandwidth_mhz);
+			carrier.dl_bandwidth_mhz, uplinkBandwidth);
 
 	return E('div', { 'class': 'l850gl-mm-carrier-detail' }, role ? [
 		E('strong', {}, [ role ]), ': ', detail

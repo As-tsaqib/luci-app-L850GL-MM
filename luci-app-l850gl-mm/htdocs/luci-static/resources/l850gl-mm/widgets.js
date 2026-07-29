@@ -183,8 +183,10 @@ function lteBandMatchesEarfcn(band, earfcn) {
 	});
 }
 
-function carrierIsValid(carrier) {
+function carrierIsValid(carrier, secondary) {
 	const bandwidths = [ 1.4, 3, 5, 10, 15, 20 ];
+	const hasUplinkBandwidth = isObject(carrier) &&
+		Object.prototype.hasOwnProperty.call(carrier, 'ul_bandwidth_mhz');
 
 	return isObject(carrier) && isUnsigned(carrier.index) &&
 		carrier.index >= 1 && carrier.index <= 8 &&
@@ -193,7 +195,9 @@ function carrierIsValid(carrier) {
 		lteBandMatchesEarfcn(carrier.band, carrier.earfcn) &&
 		isUnsigned(carrier.pci) && carrier.pci <= 503 &&
 		bandwidths.indexOf(carrier.dl_bandwidth_mhz) !== -1 &&
-		bandwidths.indexOf(carrier.ul_bandwidth_mhz) !== -1;
+		hasUplinkBandwidth && (secondary ?
+			carrier.ul_bandwidth_mhz === null :
+			bandwidths.indexOf(carrier.ul_bandwidth_mhz) !== -1);
 }
 
 function carrierInfoError(result, summary) {
@@ -206,9 +210,11 @@ function carrierInfoError(result, summary) {
 	    result.active_bands.length > 8 ||
 	    !result.active_bands.every(function(band) {
 		    return isUnsigned(band) && band >= 1 && band <= 85;
-	    }) || !carrierIsValid(result.primary) || result.primary.index !== 1 ||
+	    }) || !carrierIsValid(result.primary, false) || result.primary.index !== 1 ||
 	    !Array.isArray(result.secondary) || result.secondary.length > 7 ||
-	    !result.secondary.every(carrierIsValid) ||
+	    !result.secondary.every(function(carrier) {
+		return carrierIsValid(carrier, true);
+	    }) ||
 	    !result.secondary.every(function(carrier) { return carrier.index > 1; }) ||
 	    !isUnsigned(result.active_carriers) || result.active_carriers < 1 ||
 	    result.active_carriers > 8 ||

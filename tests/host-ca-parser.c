@@ -81,6 +81,8 @@ main(int argc, char **argv)
 		{ "invalid-bandwidth.txt", L850GL_L850_CA_PARSE_RANGE },
 		{ "invalid-inactive-sentinel.txt", L850GL_L850_CA_PARSE_SENTINEL },
 		{ "invalid-inactive-earfcn.txt", L850GL_L850_CA_PARSE_SENTINEL },
+		{ "invalid-inactive-copied-ul-mismatch.txt",
+			L850GL_L850_CA_PARSE_RANGE },
 		{ "invalid-duplicate-index.txt", L850GL_L850_CA_PARSE_DUPLICATE },
 		{ "invalid-duplicate-carrier.txt", L850GL_L850_CA_PARSE_DUPLICATE },
 		{ "invalid-count-mismatch.txt", L850GL_L850_CA_PARSE_COUNT_MISMATCH },
@@ -88,8 +90,16 @@ main(int argc, char **argv)
 		{ "invalid-secondary-index-one.txt", L850GL_L850_CA_PARSE_RANGE },
 		{ "invalid-trailing-ok.txt", L850GL_L850_CA_PARSE_MALFORMED },
 		{ "invalid-active-sentinel.txt", L850GL_L850_CA_PARSE_SENTINEL },
-		{ "invalid-active-secondary-ul-sentinel.txt",
+		{ "invalid-active-secondary-ul-earfcn-sentinel.txt",
 			L850GL_L850_CA_PARSE_SENTINEL },
+		{ "invalid-primary-ul-sentinel.txt",
+			L850GL_L850_CA_PARSE_SENTINEL },
+		{ "invalid-secondary-copied-ul-mismatch.txt",
+			L850GL_L850_CA_PARSE_RANGE },
+		{ "invalid-unverified-secondary-uplink.txt",
+			L850GL_L850_CA_PARSE_RANGE },
+		{ "invalid-rooter-secondary-uplink.txt",
+			L850GL_L850_CA_PARSE_RANGE },
 		{ "invalid-field-count.txt", L850GL_L850_CA_PARSE_MALFORMED },
 	};
 	size_t index;
@@ -113,19 +123,41 @@ main(int argc, char **argv)
 	assert(info.carriers[0].ul_earfcn == 19325U);
 	assert(info.carriers[0].dl_bandwidth_tenths_mhz == 200U);
 	assert(info.carriers[0].ul_bandwidth_tenths_mhz == 200U);
-
-	assert(parse_fixture(argv[1], "valid-rooter-secondary-shape.txt", &info) ==
+	assert(info.carriers[0].uplink_active);
+	assert(parse_fixture(argv[1], "valid-inactive-before-primary.txt", &info) ==
 		L850GL_L850_CA_PARSE_OK);
-	assert(info.declared_slots == 3U && info.length == 2U);
+	assert(info.declared_slots == 2U && info.length == 1U &&
+		info.carriers[0].primary && info.carriers[0].band == 3U);
+
+	assert(parse_fixture(argv[1],
+		"valid-live-downlink-only-secondaries.txt", &info) ==
+		L850GL_L850_CA_PARSE_OK);
+	assert(info.declared_slots == 3U && info.length == 3U);
 	assert(info.carriers[0].index == 1U && info.carriers[0].primary &&
-		info.carriers[0].band == 3U);
+		info.carriers[0].band == 5U && info.carriers[0].uplink_active &&
+		info.carriers[0].ul_earfcn == 20450U);
 	assert(info.carriers[1].index == 2U && !info.carriers[1].primary &&
-		!info.carriers[1].has_cell_identity && info.carriers[1].band == 1U);
+		!info.carriers[1].has_cell_identity && info.carriers[1].band == 3U);
 	assert(info.carriers[1].mcc == 0U && info.carriers[1].mnc == 0U &&
 		info.carriers[1].tac == 0U && info.carriers[1].cell_id == 0U);
-	assert(info.carriers[1].dl_earfcn == 325U &&
-		info.carriers[1].ul_earfcn == 18325U);
-	assert(info.carriers[1].dl_bandwidth_tenths_mhz == 100U);
+	assert(info.carriers[1].dl_earfcn == 1325U &&
+		info.carriers[1].ul_earfcn == info.carriers[0].ul_earfcn);
+	assert(info.carriers[1].dl_bandwidth_tenths_mhz == 200U &&
+		info.carriers[1].ul_bandwidth_tenths_mhz == 0U &&
+		!info.carriers[1].uplink_active);
+	assert(info.carriers[2].index == 3U && info.carriers[2].band == 1U &&
+		info.carriers[2].dl_earfcn == 325U &&
+		info.carriers[2].ul_earfcn == info.carriers[0].ul_earfcn &&
+		!info.carriers[2].uplink_active);
+	assert(parse_fixture(argv[1],
+		"valid-live-secondaries-before-primary.txt", &info) ==
+		L850GL_L850_CA_PARSE_OK);
+	assert(info.declared_slots == 3U && info.length == 3U &&
+		info.carriers[0].primary && info.carriers[0].band == 5U &&
+		!info.carriers[1].uplink_active &&
+		info.carriers[1].ul_earfcn == info.carriers[0].ul_earfcn &&
+		!info.carriers[2].uplink_active &&
+		info.carriers[2].ul_earfcn == info.carriers[0].ul_earfcn);
 
 	assert(parse_fixture(argv[1], "valid-max-eight.txt", &info) ==
 		L850GL_L850_CA_PARSE_OK);
@@ -137,13 +169,15 @@ main(int argc, char **argv)
 		info.carriers[1].rsrq_tenths_db == -195 &&
 		info.carriers[1].sinr_tenths_db == -500 &&
 		info.carriers[1].dl_bandwidth_tenths_mhz == 14U &&
-		info.carriers[1].ul_bandwidth_tenths_mhz == 14U);
+		info.carriers[1].ul_bandwidth_tenths_mhz == 0U &&
+		!info.carriers[1].uplink_active);
 	assert(info.carriers[7].index == 8U &&
 		info.carriers[7].pci == 503U && info.carriers[7].rsrp_dbm == -44 &&
 		info.carriers[7].rsrq_tenths_db == -25 &&
 		info.carriers[7].sinr_tenths_db == 500 &&
 		info.carriers[7].dl_bandwidth_tenths_mhz == 200U &&
-		info.carriers[7].ul_bandwidth_tenths_mhz == 200U);
+		info.carriers[7].ul_bandwidth_tenths_mhz == 0U &&
+		!info.carriers[7].uplink_active);
 
 	assert(l850gl_l850_ca_parse(valid_crlf, strlen(valid_crlf), &info) ==
 		L850GL_L850_CA_PARSE_OK);

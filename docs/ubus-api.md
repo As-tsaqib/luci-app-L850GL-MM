@@ -331,22 +331,22 @@ Success is bounded typed data only:
   "state": "available",
   "source": "modemmanager",
   "method": "l850-gtcainfo",
-  "active_bands": [3, 7],
+  "active_bands": [5, 3],
   "primary": {
     "index": 1,
-    "band": 3,
-    "earfcn": 1325,
-    "pci": 381,
-    "dl_bandwidth_mhz": 20,
-    "ul_bandwidth_mhz": 20
+    "band": 5,
+    "earfcn": 2450,
+    "pci": 1,
+    "dl_bandwidth_mhz": 10,
+    "ul_bandwidth_mhz": 10
   },
   "secondary": [{
     "index": 2,
-    "band": 7,
-    "earfcn": 3100,
-    "pci": 100,
-    "dl_bandwidth_mhz": 10,
-    "ul_bandwidth_mhz": 10
+    "band": 3,
+    "earfcn": 1325,
+    "pci": 2,
+    "dl_bandwidth_mhz": 20,
+    "ul_bandwidth_mhz": null
   }],
   "active_carriers": 2
 }
@@ -356,19 +356,25 @@ Success is bounded typed data only:
 Lock configuration. `primary` must be index 1. `secondary` contains only active
 index 2..8 slots; an exact inactive sentinel is counted in the declared modem
 response but omitted here. `active_carriers` is therefore exactly one plus the
-number of returned secondaries. Every carrier requires band 1..85, a matching
-pair of LTE downlink and uplink EARFCNs within the reported band's reviewed
-ranges, PCI 0..503, a live SupportedBands match, and DL/UL bandwidth of 1.4, 3,
-5, 10, 15, or 20 MHz. The parser does not accept a merely globally bounded UL
-EARFCN from another band.
+number of returned secondaries. Every carrier requires band 1..85, PCI 0..503,
+a live SupportedBands match, and a reviewed own-band DL EARFCN plus numeric DL
+bandwidth of 1.4, 3, 5, 10, 15, or 20 MHz. The primary additionally requires
+an own-band UL EARFCN and numeric UL bandwidth from the same set. On the sole
+allowlisted firmware, an active secondary is downlink-only: its raw UL
+bandwidth must be the exact `255` sentinel and its raw UL EARFCN must equal the
+validated primary UL EARFCN. Only then is its public `ul_bandwidth_mhz`
+serialized as explicit `null`; no bandwidth is inferred. A numeric or missing
+secondary UL bandwidth is rejected. An inactive secondary must match every
+sentinel field and must also repeat the validated primary UL EARFCN.
 
 The parser accepts at most 4,096 response bytes and eight declared slots. It
 requires the 14-field primary grammar and 10-field secondary grammar, exact
-slot count/index uniqueness, one active primary, and no duplicate active
-carrier. Sentinel, range, count, field-shape, overflow, unexpected-line, and
-band mismatch errors reject the complete response. Although primary cellular
-identity and signal fields are validated structurally, raw response,
-MCC/MNC/TAC/cell ID, RSRP, RSRQ, and SINR are not exported.
+slot count/index uniqueness, one active primary, and no duplicate public
+carrier tuple. Sentinel, copied-primary-UL mismatch, unverified secondary
+uplink, range, count, field-shape, overflow, unexpected-line, and band mismatch
+errors reject the complete response. Although primary cellular identity and
+signal fields are validated structurally, raw response, MCC/MNC/TAC/cell ID,
+RSRP, RSRQ, and SINR are not exported.
 
 LuCI may use the validated primary carrier as a display-only serving EARFCN/PCI
 fallback when `get_overview.serving_cell` is unavailable. This does not mutate

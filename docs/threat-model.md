@@ -155,10 +155,13 @@ length, bad name termination, duplicate fields, and malformed session data.
   It is available only in the expert build on the exact allowlisted tuple; no
   command field crosses ubus. Its parser bounds the response to 4,096 bytes and
   eight slots, enforces the 14-field primary/10-field secondary grammar,
-  validates live bands, paired DL/UL EARFCN ranges, PCI, and bandwidth, ignores
-  only the exact inactive sentinel, and exports no raw output or
-  MCC/MNC/TAC/cell ID/signal fields. Active B29/B32 fail closed until their
-  allowlisted-firmware uplink/sentinel shape has live evidence.
+  validates live bands, primary paired DL/UL ranges, PCI, and bandwidth, and
+  ignores only the exact inactive sentinel. Active secondaries additionally
+  require own-band DL fields, UL bandwidth sentinel `255`, and an UL EARFCN
+  equal to the primary UL; their exported UL bandwidth is null. Independent
+  secondary uplink and active B29/B32 fail closed until their exact
+  allowlisted-firmware shape has live evidence. No raw output or
+  MCC/MNC/TAC/cell ID/signal fields are exported.
 - Modem voltage uses only the expert-build fixed `AT+CBC` query. The parser
   bounds and validates its status/millivolt pair, raw output never crosses
   ubus, cache entries remain generation-bound and time-bounded, and a missing

@@ -4778,8 +4778,12 @@ l850_add_ca_carrier(struct blob_buf *buffer,
 	blobmsg_add_u32(buffer, "pci", carrier->pci);
 	blobmsg_add_double(buffer, "dl_bandwidth_mhz",
 		(gdouble)carrier->dl_bandwidth_tenths_mhz / 10.0);
-	blobmsg_add_double(buffer, "ul_bandwidth_mhz",
-		(gdouble)carrier->ul_bandwidth_tenths_mhz / 10.0);
+	if (carrier->uplink_active)
+		blobmsg_add_double(buffer, "ul_bandwidth_mhz",
+			(gdouble)carrier->ul_bandwidth_tenths_mhz / 10.0);
+	else
+		(void)blobmsg_add_field(buffer, BLOBMSG_TYPE_UNSPEC,
+			"ul_bandwidth_mhz", NULL, 0U);
 }
 
 static void

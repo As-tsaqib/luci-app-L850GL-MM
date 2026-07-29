@@ -106,6 +106,10 @@ on expiry, identity/generation change, malformed/schema-incompatible data,
 transport failure, or any non-transient error. This bounded presentation cache
 prevents expected command cooldown from making Serving Cell flicker without
 turning stale or incompatible data into success.
+Each polling cycle starts and resolves `get_carrier_info` before requesting the
+Overview and Lock snapshots. This gives the user-visible CA read a deterministic
+slot before `get_overview` may start its optional `AT+CBC` voltage refresh; the
+backend still enforces the same single-flight mutex, timeouts, and cooldowns.
 
 On an expert build, Overview separately invokes `get_carrier_info` to obtain
 current LTE carrier aggregation state. The method dispatches only the fixed
@@ -116,12 +120,15 @@ Only one carrier query may run per modem, and it is mutually excluded with an
 expert cell scan or any modem mutation; every terminal completion starts a
 five-second cooldown. The bounded parser accepts at most eight declared slots,
 requires a 14-field index-1 primary record, accepts 10-field index-2..8
-secondary records, ignores only the exact inactive secondary sentinel, and
-requires both DL and UL EARFCN to lie in the reported band's reviewed ranges.
-Active B29/B32 records have no admitted range entry until their live uplink or
-sentinel form is captured and therefore reject the complete response. Output
-contains unique active bands, one primary, active secondaries, a carrier count,
-and per-carrier band/EARFCN/PCI/DL/UL bandwidth. Raw response,
+secondary records, and ignores only the exact inactive secondary sentinel. The
+primary requires paired own-band DL/UL EARFCNs and numeric DL/UL bandwidth. An
+active secondary requires own-band DL fields plus the live-verified combination
+of UL bandwidth sentinel `255` and an UL EARFCN exactly equal to the primary UL;
+its exported UL bandwidth is explicit `null`. Independent secondary uplink and
+active B29/B32 shapes reject the complete response until separately captured.
+The otherwise exact inactive sentinel also has to repeat the primary UL EARFCN.
+Output contains unique active bands, one primary, active secondaries, a carrier
+count, and per-carrier band/EARFCN/PCI/bandwidth. Raw response,
 MCC/MNC/TAC/cell ID, and parsed signal fields are discarded. The base build has
 no such command path or expert object.
 

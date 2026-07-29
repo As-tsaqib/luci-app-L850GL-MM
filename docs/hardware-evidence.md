@@ -136,6 +136,11 @@ Implemented in the current source/host/static contract:
 - frontend retention of a bounded generation-matched last-known-good carrier
   snapshot only across transient `busy`/`rate_limited` polls, while malformed,
   stale, incompatible, and non-transient failures remain fail-closed.
+- a target-firmware active-secondary grammar that requires own-band DL fields,
+  UL bandwidth sentinel `255`, and an UL EARFCN equal to the validated primary
+  UL, with explicit nullable secondary UL bandwidth at the API boundary;
+- carrier-first LuCI polling so the optional voltage refresh cannot repeatedly
+  win the same per-modem expert-command arbitration slot.
 
 The supplied `+CBC: <status>,<millivolts>` shape and sanitized fixtures are
 parser input evidence rather than proof by themselves. Installed 0.6.0-r1 was
@@ -148,6 +153,21 @@ queries and three ten-second full polling cycles remained available, with one
 intentional immediate query producing accurate `rate_limited` and succeeding
 after its deadline. No live scan, SMS write/delete, Band/Mode Lock, or PCI
 mutation was run during this acceptance.
+
+Later on 2026-07-29, while LTE aggregation was active, authenticated HTTP ubus
+and local ubus both reached the r1 backend but received
+`malformed_response`; ACL/session/transport checks all passed. A separate
+approved read-only ModemManager command observation showed one valid B5 primary
+and active B3/B1 secondaries. After subscriber/location fields were discarded,
+the relevant secondary grammar was: own-band DL EARFCN and numeric DL bandwidth,
+an UL EARFCN copied from the B5 primary, and UL bandwidth sentinel `255`. That
+shape explains why the original paired-UL parser passed a non-CA primary poll
+but rejected polls when secondaries appeared. The r2 fixtures retain only
+sanitized structural values. They admit this exact copied-primary-UL/sentinel
+combination, export no raw response, serialize secondary UL bandwidth as null,
+and reject independent secondary uplink until separately observed. This is
+parser input and diagnosis evidence; r2 installed acceptance is recorded only
+after its CI artifacts are installed and tested.
 
 On 2026-07-29, before the renamed build was installed, the existing expert
 bridge was used for a clean read-only `GTCAINFO` parser check. A recently

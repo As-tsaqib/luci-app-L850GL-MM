@@ -50,19 +50,24 @@ display-only serving EARFCN/PCI fallback when that standard cache is empty.
 The same gated, asynchronous command path parses a fixed `AT+CBC` response into
 a nullable modem-voltage value in millivolts. Invalid or unavailable voltage
 data never hides the rest of Overview, and raw command output is never exposed.
+LuCI resolves the carrier query before fetching Overview/Lock so the optional
+voltage refresh cannot repeatedly take the carrier query's arbitration slot.
 
 An expert build also adds read-only LTE carrier aggregation details to
 Overview: active LTE bands, primary and secondary LTE bands, active-carrier
-count, and per-carrier EARFCN, PCI, and downlink/uplink bandwidth. This uses
+count, and per-carrier EARFCN, PCI, and bandwidth. This uses
 only the fixed `AT+GTCAINFO?` query through asynchronous ModemManager command
 arbitration. The typed parser accepts the L850 primary slot's 14-field grammar
 and secondary slots' 10-field grammar, omits inactive sentinel slots, bounds
-the result to eight declared slots/4,096 response bytes, and validates both
-downlink and uplink EARFCN against the reported band's reviewed ranges. Active
-B29/B32 records remain deliberately fail-closed until their firmware-specific
-uplink/sentinel shape is captured live. The API never returns the raw response
-or cellular subscriber/location fields. A base build has no expert object and
-renders these details unavailable.
+the result to eight declared slots/4,096 response bytes, and validates the
+primary's paired DL/UL EARFCNs. An active secondary is accepted only in the
+live-verified downlink-only shape: its own band/DL EARFCN and DL bandwidth are
+valid, its UL bandwidth is sentinel `255`, and its UL EARFCN exactly repeats
+the validated primary UL EARFCN. The API publishes that secondary UL bandwidth
+as `null`; it never fabricates a value. Independent secondary uplink and active
+B29/B32 shapes remain fail-closed until captured on the allowlisted firmware.
+The API never returns the raw response or cellular subscriber/location fields.
+A base build has no expert object and renders these details unavailable.
 
 Lock contains:
 
@@ -139,11 +144,12 @@ opaque ID, modem generation, and (for SMS) messaging generation are present.
 
 ## Packaging
 
-The built and installed package metadata is:
+The current source targets the following r2 package metadata; installed r2
+acceptance is recorded only after its CI artifacts are deployed:
 
 ```text
-l850gl-mm-bridge   0.6.0-r1 native libmm-glib/GDBus to ubus bridge
-luci-app-l850gl-mm 0.6.0-r1 Overview, Lock, and SMS views
+l850gl-mm-bridge   0.6.0-r2 native libmm-glib/GDBus to ubus bridge
+luci-app-l850gl-mm 0.6.0-r2 Overview, Lock, and SMS views
 ```
 
 The retired Status, old Advanced, Settings, radio toggle, generic reset,
@@ -166,12 +172,14 @@ serving fallback flicker, LuCI may retain one structurally valid carrier
 snapshot for at most 30 seconds across only `busy` or `rate_limited` responses
 from the identical opaque modem ID and generation. Expiry, generation change,
 malformed data, schema mismatch, transport failure, or any non-transient error
-still clears it and fails closed. Static run `30416321185` and SDK run
-`30416321209` passed for source `4783633`; the checksum-verified expert pair was
-installed on 2026-07-29 with exact 8/5 new method tables and no retired object.
-Live read-only acceptance returned `3550 mV`, stable ten-second effective
-Serving Cell fallback, matching served assets, and a connected bearer. See the
-dated record below for the bounded test details.
+still clears it and fails closed. For the previous `0.6.0-r1`, static run
+`30416321185` and SDK run `30416321209` passed for source `4783633`; its
+checksum-verified expert pair was installed on 2026-07-29 with exact 8/5 new
+method tables and no retired object. That r1 read-only acceptance returned
+`3550 mV`, stable ten-second effective Serving Cell fallback, matching served
+assets, and a connected bearer. The active-secondary parser correction is r2
+and remains pending CI/install evidence until recorded in the dated validation
+document.
 
 Live testing on 2026-07-27 validated the fixed grammar and recovery matrix on
 an L850-GL MBIM `2cb7:0007` running firmware
@@ -203,6 +211,13 @@ static run `30365531206` and SDK run `30365531207` were checksum-verified,
 installed as 0.5.0-r1, and accepted with one live B3 primary, exact 8/5 method
 tables, responsive served assets, and a healthy connected bearer. See the
 [live record](docs/live-router-validation.md).
+
+On 2026-07-29 a later read-only live query captured active aggregation with a
+B5 primary and B3/B1 downlink-only secondaries. Both secondaries repeated the
+primary UL EARFCN and reported UL bandwidth sentinel `255`. This exposed an
+over-strict r1 parser that rejected a valid modem response as
+`malformed_response`; release r2 admits only that exact cross-record shape and
+keeps every unobserved secondary-uplink form fail-closed.
 
 ## Development
 

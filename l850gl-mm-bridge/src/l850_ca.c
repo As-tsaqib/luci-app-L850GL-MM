@@ -180,13 +180,20 @@ find_band_range(uint32_t band)
 }
 
 static bool
-band_earfcns_are_valid(uint32_t band, uint32_t dl_earfcn,
-		       uint32_t ul_earfcn)
+band_downlink_earfcn_is_valid(uint32_t band, uint32_t dl_earfcn)
 {
 	const struct CaBandRange *range = find_band_range(band);
 
 	return range != NULL &&
-		dl_earfcn >= range->dl_first && dl_earfcn <= range->dl_last &&
+		dl_earfcn >= range->dl_first && dl_earfcn <= range->dl_last;
+}
+
+static bool
+band_uplink_earfcn_is_valid(uint32_t band, uint32_t ul_earfcn)
+{
+	const struct CaBandRange *range = find_band_range(band);
+
+	return range != NULL &&
 		ul_earfcn >= range->ul_first && ul_earfcn <= range->ul_last;
 }
 
@@ -213,23 +220,33 @@ validate_common_carrier(struct L850GLL850CaCarrier *carrier,
 			uint32_t band, uint32_t pci, uint32_t rsrp,
 			uint32_t rsrq, int32_t sinr, uint32_t dl_earfcn,
 			uint32_t ul_earfcn, uint32_t dl_bandwidth,
-			uint32_t ul_bandwidth)
+			uint32_t ul_bandwidth,
+			bool allow_inactive_uplink)
 {
 	if (band == CA_BAND_SENTINEL || pci == CA_PCI_SENTINEL ||
 	    rsrp == CA_RSRP_SENTINEL || rsrq == CA_RSRQ_SENTINEL ||
 	    sinr == CA_SINR_SENTINEL || sinr == 255 ||
 	    dl_earfcn == UINT16_MAX || ul_earfcn == UINT16_MAX ||
-	    dl_bandwidth == CA_BANDWIDTH_SENTINEL ||
-	    ul_bandwidth == CA_BANDWIDTH_SENTINEL)
+	    dl_bandwidth == CA_BANDWIDTH_SENTINEL)
 		return L850GL_L850_CA_PARSE_SENTINEL;
 	if (band == 0U || band > 85U || pci > 503U || rsrp > 97U ||
 	    rsrq > 34U || sinr < -100 || sinr > 100 ||
-	    !band_earfcns_are_valid(band, dl_earfcn, ul_earfcn) ||
+	    !band_downlink_earfcn_is_valid(band, dl_earfcn) ||
 	    !bandwidth_code_to_tenths_mhz(
-		dl_bandwidth, &carrier->dl_bandwidth_tenths_mhz) ||
-	    !bandwidth_code_to_tenths_mhz(
-		ul_bandwidth, &carrier->ul_bandwidth_tenths_mhz))
+		dl_bandwidth, &carrier->dl_bandwidth_tenths_mhz))
 		return L850GL_L850_CA_PARSE_RANGE;
+	if (ul_bandwidth == CA_BANDWIDTH_SENTINEL) {
+		if (!allow_inactive_uplink)
+			return L850GL_L850_CA_PARSE_SENTINEL;
+		carrier->uplink_active = false;
+		carrier->ul_bandwidth_tenths_mhz = 0U;
+	} else {
+		if (!band_uplink_earfcn_is_valid(band, ul_earfcn) ||
+		    !bandwidth_code_to_tenths_mhz(
+			ul_bandwidth, &carrier->ul_bandwidth_tenths_mhz))
+			return L850GL_L850_CA_PARSE_RANGE;
+		carrier->uplink_active = true;
+	}
 	carrier->band = (uint16_t)band;
 	carrier->pci = (uint16_t)pci;
 	carrier->rsrp_dbm = (int16_t)((int32_t)rsrp - 141);
@@ -265,7 +282,7 @@ parse_primary_record(char **fields, struct L850GLL850CaCarrier *carrier)
 		return L850GL_L850_CA_PARSE_RANGE;
 	result = validate_common_carrier(carrier, values[1], values[6],
 		values[7], values[8], sinr, values[10], values[11],
-		values[12], values[13]);
+		values[12], values[13], false);
 	if (result != L850GL_L850_CA_PARSE_OK)
 		return result;
 	carrier->index = 1U;
@@ -303,14 +320,25 @@ parse_secondary_record(char **fields, uint8_t *slot_index, bool *active,
 	    values[6] == 65535U && values[8] == 255U && values[9] == 255U) {
 		if (values[7] > CA_LTE_EARFCN_MAX)
 			return L850GL_L850_CA_PARSE_SENTINEL;
+		carrier->index = *slot_index;
+		carrier->primary = false;
+		carrier->ul_earfcn = values[7];
+		carrier->uplink_active = false;
 		*active = false;
 		return L850GL_L850_CA_PARSE_OK;
 	}
 	result = validate_common_carrier(carrier, values[1], values[2],
 		values[3], values[4], sinr, values[6], values[7], values[8],
-		values[9]);
+		values[9], true);
 	if (result != L850GL_L850_CA_PARSE_OK)
 		return result;
+	/*
+	 * On the allowlisted L850 firmware an active secondary is downlink-only:
+	 * its uplink EARFCN repeats the primary uplink and its uplink bandwidth is
+	 * the exact 255 sentinel.  Do not admit an unverified uplink-CA shape.
+	 */
+	if (carrier->uplink_active)
+		return L850GL_L850_CA_PARSE_RANGE;
 	carrier->index = *slot_index;
 	carrier->primary = false;
 	carrier->has_cell_identity = false;
@@ -323,8 +351,7 @@ carriers_are_duplicate(const struct L850GLL850CaCarrier *left,
 		       const struct L850GLL850CaCarrier *right)
 {
 	return left->band == right->band && left->pci == right->pci &&
-		left->dl_earfcn == right->dl_earfcn &&
-		left->ul_earfcn == right->ul_earfcn;
+		left->dl_earfcn == right->dl_earfcn;
 }
 
 enum L850GLL850CaParseResult
@@ -432,10 +459,8 @@ l850gl_l850_ca_parse(const char *response, size_t response_length,
 			break;
 		}
 		slots[slot_index - 1U].seen = true;
-		if (active) {
-			slots[slot_index - 1U].active = true;
-			slots[slot_index - 1U].carrier = carrier;
-		}
+		slots[slot_index - 1U].active = active;
+		slots[slot_index - 1U].carrier = carrier;
 		record_count++;
 		line = next;
 	}
@@ -449,6 +474,14 @@ l850gl_l850_ca_parse(const char *response, size_t response_length,
 		result = L850GL_L850_CA_PARSE_COUNT_MISMATCH;
 	if (result != L850GL_L850_CA_PARSE_OK)
 		goto out;
+	for (size_t index = 1U; index < declared_slots; index++) {
+		if (!slots[index].carrier.uplink_active &&
+		    slots[index].carrier.ul_earfcn !=
+			slots[0].carrier.ul_earfcn) {
+			result = L850GL_L850_CA_PARSE_RANGE;
+			goto out;
+		}
+	}
 	for (size_t index = 0U; index < declared_slots; index++) {
 		size_t compare;
 

@@ -89,11 +89,15 @@ ModemManager, with a 20-second operation deadline, 15-second command deadline,
 per-modem single-flight exclusion against scans and mutations, and a five-second
 post-completion cooldown. Keep the parser limited to the documented 14-field
 primary and 10-field secondary records, eight declared slots, supported LTE
-bands, paired DL/UL EARFCN band-range validation, exact inactive sentinels, and
-bounded typed output. Active B29/B32 must remain rejected until an allowlisted
-firmware capture establishes their real uplink/sentinel representation. Never
-return raw command output, MCC/MNC/TAC/cell ID, or accept any command text from
-a client.
+bands, paired primary DL/UL EARFCN validation, exact inactive sentinels, and
+bounded typed output. An active secondary is admitted only when its own-band
+DL fields are valid, its UL bandwidth is exactly `255`, and its UL EARFCN
+equals the validated primary UL EARFCN; serialize that absent secondary uplink
+bandwidth as `null`. Do not re-admit independent secondary uplink or active
+B29/B32 shapes without a sanitized allowlisted-firmware capture and fixtures.
+The inactive sentinel's retained UL EARFCN must match the primary as well.
+Never return raw command output, MCC/MNC/TAC/cell ID, or accept any command text
+from a client.
 
 The expert voltage query follows the same arbitration and identity rules. Keep
 its command fixed to `AT+CBC`, its response bounded, and its output limited to

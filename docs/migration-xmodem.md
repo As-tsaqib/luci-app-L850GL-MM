@@ -45,7 +45,7 @@ identifiers, phone numbers, SMS, credentials, or activation codes.
 ## Remove the retired companion
 
 The renamed service and packages must never coexist with the retired pair.
-Before installing 0.6.0-r1, stop and disable the old service, then remove all
+Before installing 0.6.0-r2, stop and disable the old service, then remove all
 old companion packages with the router's package manager:
 
 ```text
@@ -66,7 +66,7 @@ before the renamed pair is unpacked, so files and ACLs cannot overlap.
 
 ## Install 0.6.0
 
-Install the matching checksum-verified 0.6.0-r1 pair only after the retirement
+Install the matching checksum-verified 0.6.0-r2 pair only after the retirement
 checks above pass:
 
 ```text
