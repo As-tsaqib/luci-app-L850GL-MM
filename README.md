@@ -65,7 +65,10 @@ live-verified downlink-only shape: its own band/DL EARFCN and DL bandwidth are
 valid, its UL bandwidth is sentinel `255`, and its UL EARFCN exactly repeats
 the validated primary UL EARFCN. The API publishes that secondary UL bandwidth
 as `null`; it never fabricates a value. Independent secondary uplink and active
-B29/B32 shapes remain fail-closed until captured on the allowlisted firmware.
+secondary SINR code `127` is accepted only as an unavailable, non-exported
+metric after every carrier-defining field passes. Other unexpected signal
+sentinels, independent secondary uplink, and active B29/B32 shapes remain
+fail-closed until captured on the allowlisted firmware.
 The API never returns the raw response or cellular subscriber/location fields.
 A base build has no expert object and renders these details unavailable.
 
@@ -144,12 +147,12 @@ opaque ID, modem generation, and (for SMS) messaging generation are present.
 
 ## Packaging
 
-The current source targets the following r2 package metadata; installed r2
+The current source targets the following r3 package metadata; installed r3
 acceptance is recorded only after its CI artifacts are deployed:
 
 ```text
-l850gl-mm-bridge   0.6.0-r2 native libmm-glib/GDBus to ubus bridge
-luci-app-l850gl-mm 0.6.0-r2 Overview, Lock, and SMS views
+l850gl-mm-bridge   0.6.0-r3 native libmm-glib/GDBus to ubus bridge
+luci-app-l850gl-mm 0.6.0-r3 Overview, Lock, and SMS views
 ```
 
 The retired Status, old Advanced, Settings, radio toggle, generic reset,
@@ -177,9 +180,10 @@ still clears it and fails closed. For the previous `0.6.0-r1`, static run
 checksum-verified expert pair was installed on 2026-07-29 with exact 8/5 new
 method tables and no retired object. That r1 read-only acceptance returned
 `3550 mV`, stable ten-second effective Serving Cell fallback, matching served
-assets, and a connected bearer. The active-secondary parser correction is r2
-and remains pending CI/install evidence until recorded in the dated validation
-document.
+assets, and a connected bearer. Release r2 added the active-secondary uplink
+shape but live repetition exposed a second, metric-only SINR sentinel. Release
+r3 handles that exact observation and remains pending CI/install acceptance
+until recorded in the dated validation document.
 
 Live testing on 2026-07-27 validated the fixed grammar and recovery matrix on
 an L850-GL MBIM `2cb7:0007` running firmware
@@ -216,8 +220,11 @@ On 2026-07-29 a later read-only live query captured active aggregation with a
 B5 primary and B3/B1 downlink-only secondaries. Both secondaries repeated the
 primary UL EARFCN and reported UL bandwidth sentinel `255`. This exposed an
 over-strict r1 parser that rejected a valid modem response as
-`malformed_response`; release r2 admits only that exact cross-record shape and
-keeps every unobserved secondary-uplink form fail-closed.
+`malformed_response`; release r2 admitted only that exact cross-record shape.
+Repeated installed-r2 testing then captured SINR code `127` on otherwise valid
+active secondaries. Release r3 treats only that secondary SINR metric as
+unavailable while keeping every unobserved structural or secondary-uplink form
+fail-closed.
 
 ## Development
 

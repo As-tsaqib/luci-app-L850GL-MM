@@ -32,6 +32,7 @@ struct L850GLL850CaCarrier {
 	bool primary;
 	bool has_cell_identity;
 	bool uplink_active;
+	bool sinr_available;
 	uint16_t band;
 	uint16_t mcc;
 	uint16_t mnc;

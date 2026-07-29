@@ -169,12 +169,16 @@ bandwidth sentinel `255` and an UL EARFCN equal to the primary UL; it exports
 `ul_bandwidth_mhz: null`. Any independent secondary uplink and active B29/B32
 remain fail-closed until their exact representation is captured live on the
 allowlisted firmware.
+An active secondary SINR code `127` is accepted only as an unavailable metric
+after all carrier-defining fields validate; it is not exported and remains
+invalid for the primary.
 Raw response and MCC/MNC/TAC/cell ID/signal fields never cross ubus. It performs
 no set, clear, reset, NVM write, or serving-cache mutation.
 Fixtures under `tests/fixtures/ca` cover the sanitized live primary/inactive
 shape, the live B5 primary plus B3/B1 downlink-only secondaries, and invalid
 sentinels, copied-primary-UL mismatch, unverified secondary uplink, bandwidth,
-PCI, counts, field shape, indexes, duplicates, and terminal text.
+secondary SINR `127`/invalid SINR variants, PCI, counts, field shape, indexes,
+duplicates, and terminal text.
 
 ## Standard scan path
 

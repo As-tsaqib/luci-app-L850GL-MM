@@ -139,6 +139,8 @@ Implemented in the current source/host/static contract:
 - a target-firmware active-secondary grammar that requires own-band DL fields,
   UL bandwidth sentinel `255`, and an UL EARFCN equal to the validated primary
   UL, with explicit nullable secondary UL bandwidth at the API boundary;
+- target-firmware handling for SINR code `127` only as an unavailable,
+  unexported metric on an otherwise valid active secondary;
 - carrier-first LuCI polling so the optional voltage refresh cannot repeatedly
   win the same per-modem expert-command arbitration slot.
 
@@ -165,9 +167,20 @@ shape explains why the original paired-UL parser passed a non-CA primary poll
 but rejected polls when secondaries appeared. The r2 fixtures retain only
 sanitized structural values. They admit this exact copied-primary-UL/sentinel
 combination, export no raw response, serialize secondary UL bandwidth as null,
-and reject independent secondary uplink until separately observed. This is
-parser input and diagnosis evidence; r2 installed acceptance is recorded only
-after its CI artifacts are installed and tested.
+and reject independent secondary uplink until separately observed.
+
+Static run `30420544115` and SDK run `30420570825` then passed for r2 source
+`f5cfa3e`; the checksum-verified `0.6.0-r2` pair was installed while the
+byte-identical ModemManager package remained running. The first typed query
+correctly returned the B5 primary plus B3/B1 secondaries, with two explicit-null
+secondary UL bandwidths. In an eight-query/six-second repetition, seven were
+valid but one still failed closed as `malformed_response`, so r2 was not
+accepted as the final fix. Ten additional sanitized, read-only ModemManager
+observations isolated the remaining live variation: otherwise valid active
+secondaries intermittently use SINR code `127`, while carrier-defining fields
+remain unchanged. Release r3 admits only that metric sentinel on active
+secondaries, keeps it invalid on the primary, and exports no signal field. Its
+installed acceptance remains pending until its own CI artifacts are deployed.
 
 On 2026-07-29, before the renamed build was installed, the existing expert
 bridge was used for a clean read-only `GTCAINFO` parser check. A recently

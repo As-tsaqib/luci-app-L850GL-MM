@@ -221,16 +221,19 @@ validate_common_carrier(struct L850GLL850CaCarrier *carrier,
 			uint32_t rsrq, int32_t sinr, uint32_t dl_earfcn,
 			uint32_t ul_earfcn, uint32_t dl_bandwidth,
 			uint32_t ul_bandwidth,
-			bool allow_inactive_uplink)
+			bool allow_inactive_uplink,
+			bool allow_unavailable_sinr)
 {
 	if (band == CA_BAND_SENTINEL || pci == CA_PCI_SENTINEL ||
 	    rsrp == CA_RSRP_SENTINEL || rsrq == CA_RSRQ_SENTINEL ||
-	    sinr == CA_SINR_SENTINEL || sinr == 255 ||
+	    (sinr == CA_SINR_SENTINEL && !allow_unavailable_sinr) ||
+	    sinr == 255 ||
 	    dl_earfcn == UINT16_MAX || ul_earfcn == UINT16_MAX ||
 	    dl_bandwidth == CA_BANDWIDTH_SENTINEL)
 		return L850GL_L850_CA_PARSE_SENTINEL;
 	if (band == 0U || band > 85U || pci > 503U || rsrp > 97U ||
-	    rsrq > 34U || sinr < -100 || sinr > 100 ||
+	    rsrq > 34U ||
+	    (sinr != CA_SINR_SENTINEL && (sinr < -100 || sinr > 100)) ||
 	    !band_downlink_earfcn_is_valid(band, dl_earfcn) ||
 	    !bandwidth_code_to_tenths_mhz(
 		dl_bandwidth, &carrier->dl_bandwidth_tenths_mhz))
@@ -251,7 +254,9 @@ validate_common_carrier(struct L850GLL850CaCarrier *carrier,
 	carrier->pci = (uint16_t)pci;
 	carrier->rsrp_dbm = (int16_t)((int32_t)rsrp - 141);
 	carrier->rsrq_tenths_db = (int16_t)((int32_t)rsrq * 5 - 195);
-	carrier->sinr_tenths_db = (int16_t)(sinr * 5);
+	carrier->sinr_available = sinr != CA_SINR_SENTINEL;
+	carrier->sinr_tenths_db = carrier->sinr_available ?
+		(int16_t)(sinr * 5) : 0;
 	carrier->dl_earfcn = dl_earfcn;
 	carrier->ul_earfcn = ul_earfcn;
 	return L850GL_L850_CA_PARSE_OK;
@@ -282,7 +287,7 @@ parse_primary_record(char **fields, struct L850GLL850CaCarrier *carrier)
 		return L850GL_L850_CA_PARSE_RANGE;
 	result = validate_common_carrier(carrier, values[1], values[6],
 		values[7], values[8], sinr, values[10], values[11],
-		values[12], values[13], false);
+		values[12], values[13], false, false);
 	if (result != L850GL_L850_CA_PARSE_OK)
 		return result;
 	carrier->index = 1U;
@@ -324,12 +329,13 @@ parse_secondary_record(char **fields, uint8_t *slot_index, bool *active,
 		carrier->primary = false;
 		carrier->ul_earfcn = values[7];
 		carrier->uplink_active = false;
+		carrier->sinr_available = false;
 		*active = false;
 		return L850GL_L850_CA_PARSE_OK;
 	}
 	result = validate_common_carrier(carrier, values[1], values[2],
 		values[3], values[4], sinr, values[6], values[7], values[8],
-		values[9], true);
+		values[9], true, true);
 	if (result != L850GL_L850_CA_PARSE_OK)
 		return result;
 	/*

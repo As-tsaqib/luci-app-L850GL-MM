@@ -19,6 +19,30 @@ listed companion behavior on this hardware; it does not claim every L850
 firmware or OpenWrt release. The historical eSIM probe is retained only as
 provenance for a package retired in 0.3.
 
+## Installed 0.6.0-r2 CA diagnostic, 2026-07-29 (not accepted)
+
+Static run `30420544115` and OpenWrt SDK run `30420570825` passed for source
+`f5cfa3e99ff4fbaf28af5a07d992c5b3d4a1b968`. The expert bundle hashes were:
+
+| Artifact | SHA-256 |
+|---|---|
+| `l850gl-mm-bridge-0.6.0-r2.apk` | `97f8bc72ddbdf4938c6f4a58d64b8796dea4236b84792d1cde9b9d9ccfa3f97a` |
+| `luci-app-l850gl-mm-0.6.0-r2.apk` | `2ade043d2b607911a875f3d87c52213271e90b70fac971306a3ad280c8b4b680` |
+| `modemmanager-1.24.0-r10.apk` | `9b46039b963f5766a0a13d767ff77e978f590d2d50226183bd609f462112e60c` |
+
+The bridge/LuCI pair upgraded from r1 to r2 after an exact APK simulation;
+ModemManager was byte-identical and its PID was preserved. The bridge PID was
+replaced and the exact 8/5 schema-4 method tables republished. The first live
+typed query returned three carriers (B5 primary plus B3/B1 secondaries) and
+both secondary UL bandwidths as explicit null. However, only seven of eight
+queries spaced six seconds apart succeeded; one failed closed as
+`malformed_response`. Ten additional sanitized read-only command observations
+showed that active secondaries intermittently report SINR code `127` while
+their band, PCI, DL EARFCN/bandwidth, copied primary UL EARFCN, and UL sentinel
+remain valid. R2 is therefore diagnostic evidence, not final acceptance; r3
+adds only this live-verified unavailable-SINR case. No scan, SMS mutation,
+Band/Mode mutation, PCI mutation, reset, or bearer operation was run.
+
 ## Installed 0.6.0-r1 schema-4 acceptance, 2026-07-29
 
 Static run `30416321185` and OpenWrt SDK run `30416321209` passed for source

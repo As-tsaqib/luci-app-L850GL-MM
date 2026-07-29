@@ -96,6 +96,8 @@ equals the validated primary UL EARFCN; serialize that absent secondary uplink
 bandwidth as `null`. Do not re-admit independent secondary uplink or active
 B29/B32 shapes without a sanitized allowlisted-firmware capture and fixtures.
 The inactive sentinel's retained UL EARFCN must match the primary as well.
+SINR code `127` may be treated as unavailable only on an otherwise valid active
+secondary; it remains invalid on the primary, and no signal metric is exported.
 Never return raw command output, MCC/MNC/TAC/cell ID, or accept any command text
 from a client.
 

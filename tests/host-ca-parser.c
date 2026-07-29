@@ -94,6 +94,14 @@ main(int argc, char **argv)
 			L850GL_L850_CA_PARSE_SENTINEL },
 		{ "invalid-primary-ul-sentinel.txt",
 			L850GL_L850_CA_PARSE_SENTINEL },
+		{ "invalid-primary-sinr-unavailable.txt",
+			L850GL_L850_CA_PARSE_SENTINEL },
+		{ "invalid-secondary-sinr-255.txt",
+			L850GL_L850_CA_PARSE_SENTINEL },
+		{ "invalid-secondary-sinr-128.txt",
+			L850GL_L850_CA_PARSE_RANGE },
+		{ "invalid-secondary-sinr-unavailable-pci.txt",
+			L850GL_L850_CA_PARSE_RANGE },
 		{ "invalid-secondary-copied-ul-mismatch.txt",
 			L850GL_L850_CA_PARSE_RANGE },
 		{ "invalid-unverified-secondary-uplink.txt",
@@ -124,6 +132,7 @@ main(int argc, char **argv)
 	assert(info.carriers[0].dl_bandwidth_tenths_mhz == 200U);
 	assert(info.carriers[0].ul_bandwidth_tenths_mhz == 200U);
 	assert(info.carriers[0].uplink_active);
+	assert(info.carriers[0].sinr_available);
 	assert(parse_fixture(argv[1], "valid-inactive-before-primary.txt", &info) ==
 		L850GL_L850_CA_PARSE_OK);
 	assert(info.declared_slots == 2U && info.length == 1U &&
@@ -144,11 +153,22 @@ main(int argc, char **argv)
 		info.carriers[1].ul_earfcn == info.carriers[0].ul_earfcn);
 	assert(info.carriers[1].dl_bandwidth_tenths_mhz == 200U &&
 		info.carriers[1].ul_bandwidth_tenths_mhz == 0U &&
-		!info.carriers[1].uplink_active);
+		!info.carriers[1].uplink_active &&
+		info.carriers[1].sinr_available);
 	assert(info.carriers[2].index == 3U && info.carriers[2].band == 1U &&
 		info.carriers[2].dl_earfcn == 325U &&
 		info.carriers[2].ul_earfcn == info.carriers[0].ul_earfcn &&
-		!info.carriers[2].uplink_active);
+		!info.carriers[2].uplink_active &&
+		info.carriers[2].sinr_available);
+	assert(parse_fixture(argv[1],
+		"valid-live-secondary-sinr-unavailable.txt", &info) ==
+		L850GL_L850_CA_PARSE_OK);
+	assert(info.declared_slots == 3U && info.length == 3U &&
+		info.carriers[0].sinr_available &&
+		!info.carriers[1].sinr_available &&
+		info.carriers[1].sinr_tenths_db == 0 &&
+		!info.carriers[2].sinr_available &&
+		info.carriers[2].sinr_tenths_db == 0);
 	assert(parse_fixture(argv[1],
 		"valid-live-secondaries-before-primary.txt", &info) ==
 		L850GL_L850_CA_PARSE_OK);

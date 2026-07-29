@@ -41,7 +41,7 @@ for (const retired of [
 const bridgeMakefile = read('l850gl-mm-bridge/Makefile');
 assert.match(bridgeMakefile, /^PKG_NAME:=l850gl-mm-bridge$/m);
 assert.match(bridgeMakefile, /^PKG_VERSION:=0\.6\.0$/m);
-assert.match(bridgeMakefile, /^PKG_RELEASE:=2$/m);
+assert.match(bridgeMakefile, /^PKG_RELEASE:=3$/m);
 assert.match(bridgeMakefile,
 	/^\s*URL:=https:\/\/github\.com\/As-tsaqib\/luci-app-L850GL-MM$/m);
 assert.match(bridgeMakefile, /^\s*CONFLICTS:=fibocom-mm-bridge$/m,
@@ -248,6 +248,9 @@ assert.match(l850CaSource,
 	/if \(carrier->uplink_active\)\s*return L850GL_L850_CA_PARSE_RANGE/,
 	'unverified secondary uplink aggregation must remain fail-closed');
 assert.match(l850CaSource,
+	/sinr == CA_SINR_SENTINEL && !allow_unavailable_sinr/,
+	'the live unavailable SINR sentinel must be scoped to reviewed secondary records');
+assert.match(l850CaSource,
 	/!slots\[index\]\.carrier\.uplink_active[\s\S]*?slots\[0\]\.carrier\.ul_earfcn/,
 	'a downlink-only secondary must repeat the validated primary uplink EARFCN');
 assert.doesNotMatch(l850CaSource,
@@ -262,11 +265,16 @@ assert.match(widgetsSource,
 for (const fixture of [
 	'valid-live-downlink-only-secondaries.txt',
 	'valid-live-secondaries-before-primary.txt',
+	'valid-live-secondary-sinr-unavailable.txt',
 	'valid-inactive-before-primary.txt',
 	'invalid-secondary-copied-ul-mismatch.txt',
 	'invalid-inactive-copied-ul-mismatch.txt',
 	'invalid-unverified-secondary-uplink.txt',
-	'invalid-primary-ul-sentinel.txt'
+	'invalid-primary-ul-sentinel.txt',
+	'invalid-primary-sinr-unavailable.txt',
+	'invalid-secondary-sinr-255.txt',
+	'invalid-secondary-sinr-128.txt',
+	'invalid-secondary-sinr-unavailable-pci.txt'
 ]) {
 	assert.ok(fs.existsSync(absolute(`tests/fixtures/ca/${fixture}`)),
 		`missing reviewed carrier fixture: ${fixture}`);
@@ -501,7 +509,7 @@ assert.match(init, /command "\$PROG" --foreground/);
 
 const luciMakefile = read('luci-app-l850gl-mm/Makefile');
 assert.match(luciMakefile, /^PKG_VERSION:=0\.6\.0$/m);
-assert.match(luciMakefile, /^PKG_RELEASE:=2$/m);
+assert.match(luciMakefile, /^PKG_RELEASE:=3$/m);
 assert.match(luciMakefile, /^LUCI_URL:=https:\/\/github\.com\/As-tsaqib\/luci-app-L850GL-MM$/m);
 assert.match(luciMakefile, /^LUCI_MAINTAINER:=As Tsaqib <[^>]+>$/m);
 for (const dependency of [

@@ -161,7 +161,9 @@ length, bad name termination, duplicate fields, and malformed session data.
   equal to the primary UL; their exported UL bandwidth is null. Independent
   secondary uplink and active B29/B32 fail closed until their exact
   allowlisted-firmware shape has live evidence. No raw output or
-  MCC/MNC/TAC/cell ID/signal fields are exported.
+  MCC/MNC/TAC/cell ID/signal fields are exported. SINR code `127` is admitted
+  only as an unavailable metric on an otherwise fully valid active secondary;
+  it remains invalid on the primary.
 - Modem voltage uses only the expert-build fixed `AT+CBC` query. The parser
   bounds and validates its status/millivolt pair, raw output never crosses
   ubus, cache entries remain generation-bound and time-bounded, and a missing

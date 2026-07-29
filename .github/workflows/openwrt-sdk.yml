@@ -306,8 +306,8 @@ jobs:
           [ "${#packages[@]}" -eq 2 ]
           for package in "${packages[@]}"; do
             case "$(basename "${package}")" in
-              l850gl-mm-bridge-0.6.0-r2.apk|l850gl-mm-bridge_0.6.0-r2_*.ipk|\
-              luci-app-l850gl-mm-0.6.0-r2.apk|luci-app-l850gl-mm_0.6.0-r2_all.ipk) ;;
+              l850gl-mm-bridge-0.6.0-r3.apk|l850gl-mm-bridge_0.6.0-r3_*.ipk|\
+              luci-app-l850gl-mm-0.6.0-r3.apk|luci-app-l850gl-mm_0.6.0-r3_all.ipk) ;;
               *) echo "Unexpected package release: ${package}" >&2; exit 1 ;;
             esac
           done
@@ -317,7 +317,7 @@ jobs:
             echo 'Target=ipq40xx/generic'
             echo 'Package_Architecture=arm_cortex-a7_neon-vfpv4'
             echo 'API_Schema=4'
-            echo 'Release=0.6.0-r2'
+            echo 'Release=0.6.0-r3'
             echo 'Expert_Object=absent'
             echo 'ModemManager_Recipe=1.24.0-r10'
             echo "Source_Commit=${GITHUB_SHA}"
@@ -426,7 +426,7 @@ jobs:
             \( -name 'l850gl-mm-bridge-*.apk' -o -name 'l850gl-mm-bridge_*.ipk' \) -print0)
           [ "${#bridge[@]}" -eq 1 ]
           case "$(basename "${bridge[0]}")" in
-            l850gl-mm-bridge-0.6.0-r2.apk|l850gl-mm-bridge_0.6.0-r2_*.ipk) ;;
+            l850gl-mm-bridge-0.6.0-r3.apk|l850gl-mm-bridge_0.6.0-r3_*.ipk) ;;
             *) echo "Unexpected expert bridge release: ${bridge[0]}" >&2; exit 1 ;;
           esac
           cp "${bridge[0]}" "${GITHUB_WORKSPACE}/dist/expert/"
@@ -444,7 +444,7 @@ jobs:
             echo 'Target=ipq40xx/generic'
             echo 'Package_Architecture=arm_cortex-a7_neon-vfpv4'
             echo 'API_Schema=4'
-            echo 'Release=0.6.0-r2'
+            echo 'Release=0.6.0-r3'
             echo 'Expert_Object=l850gl.mm.l850'
             echo 'ModemManager_AT_Command_Via_DBus=enabled'
             echo 'ModemManager_Package=1.24.0-r10'

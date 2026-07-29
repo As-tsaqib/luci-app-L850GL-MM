@@ -374,7 +374,9 @@ carrier tuple. Sentinel, copied-primary-UL mismatch, unverified secondary
 uplink, range, count, field-shape, overflow, unexpected-line, and band mismatch
 errors reject the complete response. Although primary cellular identity and
 signal fields are validated structurally, raw response, MCC/MNC/TAC/cell ID,
-RSRP, RSRQ, and SINR are not exported.
+RSRP, RSRQ, and SINR are not exported. On an otherwise valid active secondary,
+SINR code `127` is the sole live-verified unavailable-metric sentinel and is
+accepted without inventing a numeric SINR; it remains invalid on the primary.
 
 LuCI may use the validated primary carrier as a display-only serving EARFCN/PCI
 fallback when `get_overview.serving_cell` is unavailable. This does not mutate

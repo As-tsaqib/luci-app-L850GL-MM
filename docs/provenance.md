@@ -236,8 +236,15 @@ paths and counts an inactive secondary sentinel as a carrier. Neither its
   own valid DL fields, repeated the primary UL EARFCN, and used UL bandwidth
   sentinel `255`. Release `0.6.0-r2` narrows admission to that exact shape,
   exports secondary UL bandwidth as null, and keeps unobserved independent
-  secondary uplink fail-closed. Build and installed-router acceptance remain
-  distinct evidence until their run IDs and hashes are recorded.
+  secondary uplink fail-closed.
+- 2026-07-29: r2 static run `30420544115` and SDK run `30420570825` passed for
+  `f5cfa3e`, and its checksum-verified package pair was installed without
+  replacing ModemManager. Seven of eight spaced typed queries succeeded; one
+  remained malformed. Ten sanitized read-only observations then captured SINR
+  code `127` on otherwise valid active B3/B1 secondaries. Release r3 treats
+  only that secondary metric as unavailable/non-exported and leaves every
+  carrier-defining sentinel fail-closed. R3 CI/install acceptance remains
+  separate evidence until recorded.
 
 Historical v0.2 schema-1 results remain explicitly labeled and are not
 rewritten as schema-2 package evidence. Firmware command-level live evidence

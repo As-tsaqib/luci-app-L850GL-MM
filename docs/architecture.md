@@ -127,6 +127,9 @@ of UL bandwidth sentinel `255` and an UL EARFCN exactly equal to the primary UL;
 its exported UL bandwidth is explicit `null`. Independent secondary uplink and
 active B29/B32 shapes reject the complete response until separately captured.
 The otherwise exact inactive sentinel also has to repeat the primary UL EARFCN.
+An otherwise valid active secondary may use SINR code `127` to mean that metric
+is unavailable; this does not relax its band, PCI, RSRP, RSRQ, EARFCN, or
+bandwidth checks, and parsed signal fields remain unexported.
 Output contains unique active bands, one primary, active secondaries, a carrier
 count, and per-carrier band/EARFCN/PCI/bandwidth. Raw response,
 MCC/MNC/TAC/cell ID, and parsed signal fields are discarded. The base build has
