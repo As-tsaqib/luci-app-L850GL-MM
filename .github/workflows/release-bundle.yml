@@ -269,16 +269,25 @@ jobs:
             }
             /^[[:space:]]*(#|$)/ { next }
             {
-              if (NF != 3 || $1 !~ /^src-git[-a-z]*$/) {
+              if ($1 !~ /^src-git[-a-z]*$/) {
                 reject("unexpected syntax")
                 next
               }
-              if ($2 == "base" &&
-                  $3 == "https://git.openwrt.org/openwrt/openwrt.git;v" version) {
+              field_index = 2
+              while (field_index <= NF && $field_index ~ /^--[^[:space:]]+$/)
+                field_index++
+              if (NF - field_index + 1 != 2) {
+                reject("unexpected feed fields")
+                next
+              }
+              feed_name = $field_index
+              feed_url = $(field_index + 1)
+              if (feed_name == "base" &&
+                  feed_url == "https://git.openwrt.org/openwrt/openwrt.git;v" version) {
                 base_release_tags++
                 next
               }
-              if ($3 ~ /\^[0-9a-f]{40}$/)
+              if (feed_url ~ /\^[0-9a-f]{40}$/)
                 next
               reject("feed is not pinned to a 40-hex commit")
             }
@@ -355,7 +364,10 @@ jobs:
         run: |
           set -euo pipefail
           cd "${SDK_ROOT}"
+          touch .config
           config_symbols=(
+            "${TARGET_SYMBOL}"
+            "${SUBTARGET_SYMBOL}"
             PACKAGE_modemmanager
             PACKAGE_modemmanager-l850gl-expert
             PACKAGE_l850gl-mm-bridge
@@ -369,6 +381,7 @@ jobs:
             sed -i -e "/^CONFIG_${symbol}=/d" \
               -e "/^# CONFIG_${symbol} is not set$/d" .config
           done
+          printf 'CONFIG_%s=y\n' "${TARGET_SYMBOL}" "${SUBTARGET_SYMBOL}" >> .config
           cat >> .config <<'EOF'
           # CONFIG_PACKAGE_modemmanager is not set
           CONFIG_PACKAGE_modemmanager-l850gl-expert=m

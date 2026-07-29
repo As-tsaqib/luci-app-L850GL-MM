@@ -735,6 +735,13 @@ for (const typo of [
 assert.ok(releaseWorkflow.includes('24.10.8'));
 assert.ok(releaseWorkflow.includes('25.12.5'));
 assert.ok(!releaseWorkflow.includes('24.10.7'));
+assert.ok(releaseWorkflow.includes(
+	'while (field_index <= NF && $field_index ~ /^--[^[:space:]]+$/)'),
+	'release feed validation must accept pinned SDK feeds with options');
+assert.ok(releaseWorkflow.includes('touch .config'));
+assert.ok(releaseWorkflow.includes(
+	'printf \'CONFIG_%s=y\\n\' "${TARGET_SYMBOL}" "${SUBTARGET_SYMBOL}" >> .config'),
+	'release configuration must initialize target-specific SDKs without .config');
 assert.ok(releaseWorkflow.includes('23abaa6f3b0fdfd76b570031107e5718476ff0c8'));
 assert.ok(releaseWorkflow.includes('d011c4fb8af70795928937ad5195479cc4ff6de9'));
 assert.ok(releaseWorkflow.includes("package_format='ipk'"));
