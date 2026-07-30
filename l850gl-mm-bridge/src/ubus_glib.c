@@ -1146,6 +1146,30 @@ remote_error_has_suffix(const gchar *remote, const gchar *suffix)
 }
 
 static gboolean
+mm_core_error_is_timeout(const GError *error)
+{
+#if MM_CHECK_VERSION(1, 24, 0)
+	return error != NULL &&
+		g_error_matches(error, MM_CORE_ERROR, MM_CORE_ERROR_TIMEOUT);
+#else
+	(void)error;
+	return FALSE;
+#endif
+}
+
+static gboolean
+mm_core_error_is_throttled(const GError *error)
+{
+#if MM_CHECK_VERSION(1, 24, 0)
+	return error != NULL &&
+		g_error_matches(error, MM_CORE_ERROR, MM_CORE_ERROR_THROTTLED);
+#else
+	(void)error;
+	return FALSE;
+#endif
+}
+
+static gboolean
 sms_error_is_timeout_or_transport(GError *error, const gchar *remote)
 {
 	if (error == NULL)
@@ -1156,12 +1180,12 @@ sms_error_is_timeout_or_transport(GError *error, const gchar *remote)
 		g_error_matches(error, G_IO_ERROR, G_IO_ERROR_BROKEN_PIPE) ||
 		g_error_matches(error, G_DBUS_ERROR, G_DBUS_ERROR_NO_REPLY) ||
 		g_error_matches(error, G_DBUS_ERROR, G_DBUS_ERROR_TIMEOUT) ||
-		g_error_matches(error, MM_CORE_ERROR, MM_CORE_ERROR_TIMEOUT) ||
+		mm_core_error_is_timeout(error) ||
 		g_error_matches(error, MM_MOBILE_EQUIPMENT_ERROR,
 			MM_MOBILE_EQUIPMENT_ERROR_NETWORK_TIMEOUT) ||
 		g_error_matches(error, G_DBUS_ERROR, G_DBUS_ERROR_SERVICE_UNKNOWN) ||
 		g_error_matches(error, G_DBUS_ERROR, G_DBUS_ERROR_NAME_HAS_NO_OWNER) ||
-		g_error_matches(error, MM_CORE_ERROR, MM_CORE_ERROR_TIMEOUT) ||
+		mm_core_error_is_timeout(error) ||
 		g_error_matches(error, MM_MESSAGE_ERROR,
 			MM_MESSAGE_ERROR_NETWORK_TIMEOUT) ||
 		g_error_matches(error, MM_MOBILE_EQUIPMENT_ERROR,
@@ -1272,7 +1296,7 @@ normalize_sms_error(GError *error, SmsOperation *operation)
 		return (SmsNormalizedError){ "storage_full",
 			sms_error_message("storage_full"), FALSE };
 	if (g_error_matches(error, MM_CORE_ERROR, MM_CORE_ERROR_IN_PROGRESS) ||
-	    g_error_matches(error, MM_CORE_ERROR, MM_CORE_ERROR_THROTTLED) ||
+	    mm_core_error_is_throttled(error) ||
 	    g_error_matches(error, MM_MOBILE_EQUIPMENT_ERROR,
 		MM_MOBILE_EQUIPMENT_ERROR_SIM_BUSY) ||
 	    g_error_matches(error, MM_MESSAGE_ERROR,
@@ -1296,7 +1320,7 @@ normalize_sms_error(GError *error, SmsOperation *operation)
 	    remote_error_has_suffix(remote, ".Message.InvalidIndex"))
 		return (SmsNormalizedError){ "not_found",
 			sms_error_message("not_found"), FALSE };
-	if (g_error_matches(error, MM_CORE_ERROR, MM_CORE_ERROR_TIMEOUT) ||
+	if (mm_core_error_is_timeout(error) ||
 	    g_error_matches(error, MM_MESSAGE_ERROR,
 		MM_MESSAGE_ERROR_NETWORK_TIMEOUT) ||
 	    g_error_matches(error, MM_MOBILE_EQUIPMENT_ERROR,
@@ -3376,7 +3400,7 @@ normalize_advanced_error(GError *error, AdvancedOperation *operation)
 		return (AdvancedNormalizedError){ "invalid_argument",
 			advanced_error_message("invalid_argument"), FALSE };
 	if (g_error_matches(error, MM_CORE_ERROR, MM_CORE_ERROR_IN_PROGRESS) ||
-	    g_error_matches(error, MM_CORE_ERROR, MM_CORE_ERROR_THROTTLED) ||
+	    mm_core_error_is_throttled(error) ||
 	    g_error_matches(error, MM_MOBILE_EQUIPMENT_ERROR,
 		MM_MOBILE_EQUIPMENT_ERROR_SIM_BUSY) ||
 	    remote_error_has_suffix(remote, ".Core.InProgress") ||
@@ -4456,7 +4480,7 @@ l850_normalize_error(GError *error, gboolean timed_out,
 	if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_TIMED_OUT) ||
 	    g_error_matches(error, G_DBUS_ERROR, G_DBUS_ERROR_NO_REPLY) ||
 	    g_error_matches(error, G_DBUS_ERROR, G_DBUS_ERROR_TIMEOUT) ||
-	    g_error_matches(error, MM_CORE_ERROR, MM_CORE_ERROR_TIMEOUT) ||
+	    mm_core_error_is_timeout(error) ||
 	    remote_error_has_suffix(remote, ".Core.Timeout"))
 		return (L850NormalizedError){ "timeout", TRUE };
 	if (g_error_matches(error, G_DBUS_ERROR,
@@ -4482,7 +4506,7 @@ l850_normalize_error(GError *error, gboolean timed_out,
 		".MobileEquipment.NotSupported"))
 		return (L850NormalizedError){ "unsupported_firmware", FALSE };
 	if (g_error_matches(error, MM_CORE_ERROR, MM_CORE_ERROR_IN_PROGRESS) ||
-	    g_error_matches(error, MM_CORE_ERROR, MM_CORE_ERROR_THROTTLED) ||
+	    mm_core_error_is_throttled(error) ||
 	    remote_error_has_suffix(remote, ".Core.InProgress") ||
 	    remote_error_has_suffix(remote, ".Core.Throttled"))
 		return (L850NormalizedError){ "busy", TRUE };

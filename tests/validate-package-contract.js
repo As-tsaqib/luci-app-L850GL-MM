@@ -101,6 +101,29 @@ const sourceMakefile = read('l850gl-mm-bridge/src/Makefile');
 const widgetsSource = read(
 	'luci-app-l850gl-mm/htdocs/luci-static/resources/l850gl-mm/widgets.js');
 
+const mmCore124Compatibility = ubusSource.match(
+	/static gboolean\nmm_core_error_is_timeout[\s\S]*?\n}\n\nstatic gboolean\nmm_core_error_is_throttled[\s\S]*?\n}/);
+assert.ok(mmCore124Compatibility,
+	'libmm-glib 1.24-only core errors must have one compatibility boundary');
+assert.strictEqual((mmCore124Compatibility[0].match(
+	/#if MM_CHECK_VERSION\(1, 24, 0\)/g) || []).length, 2,
+	'both 1.24-only core errors must be compile-time version guarded');
+assert.strictEqual((mmCore124Compatibility[0].match(
+	/MM_CORE_ERROR_TIMEOUT/g) || []).length, 1);
+assert.strictEqual((mmCore124Compatibility[0].match(
+	/MM_CORE_ERROR_THROTTLED/g) || []).length, 1);
+assert.doesNotMatch(ubusSource.replace(mmCore124Compatibility[0], ''),
+	/MM_CORE_ERROR_(?:TIMEOUT|THROTTLED)/,
+	'1.24-only enum constants must not escape their compatibility boundary');
+assert.match(ubusSource,
+	/g_error_matches\(error, G_IO_ERROR, G_IO_ERROR_TIMED_OUT\)/,
+	'1.22 builds must retain the GIO timeout fallback');
+assert.match(ubusSource, /remote_error_has_suffix\(remote, "\.Core\.Timeout"\)/,
+	'1.22 builds must retain the remote timeout-name fallback');
+assert.match(ubusSource,
+	/remote_error_has_suffix\(remote, "\.Core\.Throttled"\)/,
+	'1.22 builds must retain the remote throttled-name fallback');
+
 assert.match(bridgeHeader, /#define L850GL_MM_API_SCHEMA 4U/);
 assert.match(bridgeHeader, /#define L850GL_MM_BRIDGE_VERSION "1\.0\.0"/);
 assert.match(sourceMakefile, /L850GL_MM_EXPERT/);
