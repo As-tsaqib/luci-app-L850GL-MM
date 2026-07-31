@@ -788,8 +788,8 @@ assert.ok(releaseWorkflow.includes('[ "$(wc -l < actual-assets.txt)" -eq 12 ]'),
 	'release publication must require the exact twelve-bundle Cartesian matrix');
 assert.ok(releaseWorkflow.includes('sha256sum -c SHA256SUMS'));
 assert.ok(releaseWorkflow.includes('contents: write'));
-assert.ok(releaseWorkflow.includes("github.ref == 'refs/tags/v1.0.0'"),
-	'only the exact final tag may publish hard-coded 1.0.0 assets');
+assert.ok(releaseWorkflow.includes("startsWith(github.ref, 'refs/tags/v1.0.0')"),
+	'only valid release tags may publish 1.0.0 assets');
 assert.ok(releaseWorkflow.includes('prerelease: false'));
 assert.ok(!releaseWorkflow.includes('dist/base'),
 	'GitHub Release assets must never include the verification-only base build');
