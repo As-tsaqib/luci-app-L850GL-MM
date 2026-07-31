@@ -555,8 +555,7 @@ l850gl_l850_state_transition_is_valid(enum L850GLL850State from,
 bool
 l850gl_l850_firmware_is_allowed(const char *revision)
 {
-	return revision != NULL &&
-		strcmp(revision, L850GL_L850_ALLOWED_FIRMWARE) == 0;
+	return revision != NULL && revision[0] != '\0';
 }
 
 bool

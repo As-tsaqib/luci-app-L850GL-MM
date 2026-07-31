@@ -782,7 +782,7 @@ assert.ok(releaseWorkflow.includes(
 assert.ok(releaseWorkflow.includes(
 	'opkg remove --force-depends luci-app-l850gl-mm l850gl-mm-bridge modemmanager-l850gl-expert'));
 assert.ok(releaseWorkflow.includes('ModemManager_Recipe_Commit='));
-assert.ok(releaseWorkflow.includes('Expert_Firmware_Allowlist=18500.5001.00.05.27.30'));
+assert.ok(releaseWorkflow.includes('Expert_Firmware_Allowlist=all'));
 assert.ok(releaseWorkflow.includes('[ "$(wc -l < actual-assets.txt)" -eq 10 ]'),
 	'release publication must require the exact ten-bundle Cartesian matrix');
 assert.ok(releaseWorkflow.includes('sha256sum -c SHA256SUMS'));

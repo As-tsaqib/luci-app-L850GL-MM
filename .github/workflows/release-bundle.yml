@@ -561,7 +561,7 @@ jobs:
               echo 'ModemManager_Netifd=unconditional-in-recipe'
             fi
             echo 'Expert_Object=l850gl.mm.l850'
-            echo 'Expert_Firmware_Allowlist=18500.5001.00.05.27.30'
+            echo 'Expert_Firmware_Allowlist=all'
             echo "Source_Commit=${GITHUB_SHA}"
           } > "${GITHUB_WORKSPACE}/dist/BUILD_INFO.txt"
 

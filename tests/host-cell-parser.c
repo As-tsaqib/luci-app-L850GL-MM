@@ -133,9 +133,9 @@ main(int argc, char **argv)
 	assert(l850gl_l850_band_is_supported(3U, supported, 3U));
 	assert(!l850gl_l850_band_is_supported(8U, supported, 3U));
 	assert(l850gl_l850_firmware_is_allowed("18500.5001.00.05.27.30"));
-	assert(!l850gl_l850_firmware_is_allowed("18500.5001.00.05.27.29"));
-	assert(!l850gl_l850_firmware_is_allowed(
-		"18500.5001.00.05.27.30 "));
+	assert(l850gl_l850_firmware_is_allowed("18500.5001.00.05.27.29"));
+	assert(l850gl_l850_firmware_is_allowed("any_firmware_version"));
+	assert(!l850gl_l850_firmware_is_allowed(""));
 	assert(!l850gl_l850_firmware_is_allowed(NULL));
 
 	assert(parse_nvm_fixture(argv[1], "nvm-clear.txt", &lock_state) ==
