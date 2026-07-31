@@ -3440,7 +3440,7 @@ assert.ok(read('htdocs/luci-static/resources/l850gl-mm/widgets.js').includes(
 
 const makefile = read('Makefile');
 assert.ok(makefile.includes('PKG_VERSION:=1.0.0'));
-assert.ok(makefile.includes('PKG_RELEASE:=1'));
+assert.ok(makefile.includes('PKG_RELEASE:=2'));
 assert.ok(makefile.includes(
 	'LUCI_TITLE:=LuCI companion for the L850-GL modem managed by ModemManager'));
 assert.ok(makefile.includes(

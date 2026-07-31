@@ -41,7 +41,7 @@ for (const retired of [
 const bridgeMakefile = read('l850gl-mm-bridge/Makefile');
 assert.match(bridgeMakefile, /^PKG_NAME:=l850gl-mm-bridge$/m);
 assert.match(bridgeMakefile, /^PKG_VERSION:=1\.0\.0$/m);
-assert.match(bridgeMakefile, /^PKG_RELEASE:=1$/m);
+assert.match(bridgeMakefile, /^PKG_RELEASE:=2$/m);
 assert.match(bridgeMakefile,
 	/^\s*URL:=https:\/\/github\.com\/As-tsaqib\/luci-app-L850GL-MM$/m);
 assert.match(bridgeMakefile, /^\s*CONFLICTS:=fibocom-mm-bridge$/m,
@@ -603,7 +603,7 @@ assert.match(init, /command "\$PROG" --foreground/);
 
 const luciMakefile = read('luci-app-l850gl-mm/Makefile');
 assert.match(luciMakefile, /^PKG_VERSION:=1\.0\.0$/m);
-assert.match(luciMakefile, /^PKG_RELEASE:=1$/m);
+assert.match(luciMakefile, /^PKG_RELEASE:=2$/m);
 assert.match(luciMakefile, /^LUCI_URL:=https:\/\/github\.com\/As-tsaqib\/luci-app-L850GL-MM$/m);
 assert.match(luciMakefile, /^LUCI_MAINTAINER:=As Tsaqib <[^>]+>$/m);
 for (const dependency of [
@@ -729,8 +729,8 @@ assert.ok(sdkWorkflow.includes("grep -Fx 'AT+CBC'"),
 assert.ok(sdkWorkflow.includes('Expert_Object=absent'));
 assert.strictEqual((sdkWorkflow.match(/API_Schema=4/g) || []).length, 1,
 	'the base SDK artifact manifest must identify schema 4 exactly once');
-assert.strictEqual((sdkWorkflow.match(/Release=1\.0\.0-r1/g) || []).length, 1,
-	'the base SDK artifact manifest must identify release 1.0.0-r1 exactly once');
+assert.strictEqual((sdkWorkflow.match(/Release=1\.0\.0-r2/g) || []).length, 1,
+	'the base SDK artifact manifest must identify release 1.0.0-r2 exactly once');
 assert.ok(!sdkWorkflow.includes('Release=0.6.0-r6'),
 	'the final SDK workflow must not label new artifacts as the previous release');
 assert.ok(!sdkWorkflow.includes('API_Schema=2'));
@@ -743,6 +743,7 @@ for (const arch of [
 	'aarch64_generic',
 	'aarch64_cortex-a53',
 	'arm_cortex-a7_neon-vfpv4',
+	'mips_24kc',
 	'mipsel_24kc',
 	'x86_64'
 ]) {
@@ -783,8 +784,8 @@ assert.ok(releaseWorkflow.includes(
 	'opkg remove --force-depends luci-app-l850gl-mm l850gl-mm-bridge modemmanager-l850gl-expert'));
 assert.ok(releaseWorkflow.includes('ModemManager_Recipe_Commit='));
 assert.ok(releaseWorkflow.includes('Expert_Firmware_Allowlist=all'));
-assert.ok(releaseWorkflow.includes('[ "$(wc -l < actual-assets.txt)" -eq 10 ]'),
-	'release publication must require the exact ten-bundle Cartesian matrix');
+assert.ok(releaseWorkflow.includes('[ "$(wc -l < actual-assets.txt)" -eq 12 ]'),
+	'release publication must require the exact twelve-bundle Cartesian matrix');
 assert.ok(releaseWorkflow.includes('sha256sum -c SHA256SUMS'));
 assert.ok(releaseWorkflow.includes('contents: write'));
 assert.ok(releaseWorkflow.includes("github.ref == 'refs/tags/v1.0.0'"),

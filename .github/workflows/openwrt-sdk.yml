@@ -327,8 +327,8 @@ jobs:
           [ "${#packages[@]}" -eq 2 ]
           for package in "${packages[@]}"; do
             case "$(basename "${package}")" in
-              l850gl-mm-bridge-1.0.0-r1.apk|l850gl-mm-bridge_1.0.0-r1_*.ipk|\
-              luci-app-l850gl-mm-1.0.0-r1.apk|luci-app-l850gl-mm_1.0.0-r1_all.ipk) ;;
+              l850gl-mm-bridge-1.0.0-r2.apk|l850gl-mm-bridge_1.0.0-r2_*.ipk|\
+              luci-app-l850gl-mm-1.0.0-r2.apk|luci-app-l850gl-mm_1.0.0-r2_all.ipk) ;;
               *) echo "Unexpected package release: ${package}" >&2; exit 1 ;;
             esac
           done
@@ -338,7 +338,7 @@ jobs:
             echo 'Target=ipq40xx/generic'
             echo 'Package_Architecture=arm_cortex-a7_neon-vfpv4'
             echo 'API_Schema=4'
-            echo 'Release=1.0.0-r1'
+            echo 'Release=1.0.0-r2'
             echo 'Expert_Object=absent'
             echo 'ModemManager_Recipe=1.24.0-r10'
             echo "Source_Commit=${GITHUB_SHA}"

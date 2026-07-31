@@ -43,6 +43,7 @@ jobs:
             aarch64_generic
             aarch64_cortex-a53
             arm_cortex-a7_neon-vfpv4
+            mips_24kc
             mipsel_24kc
             x86_64
           )
@@ -73,6 +74,12 @@ jobs:
                 subtarget='generic'
                 target_symbol='TARGET_ipq40xx'
                 subtarget_symbol='TARGET_ipq40xx_generic'
+                ;;
+              mips_24kc)
+                target='ath79'
+                subtarget='generic'
+                target_symbol='TARGET_ath79'
+                subtarget_symbol='TARGET_ath79_generic'
                 ;;
               mipsel_24kc)
                 target='ramips'
@@ -545,7 +552,7 @@ jobs:
 
           {
             echo 'Application=luci-app-L850GL-MM'
-            echo 'Release=1.0.0-r1'
+            echo 'Release=1.0.0-r2'
             echo 'API_Schema=4'
             echo "OpenWrt=${OPENWRT_VERSION}"
             echo "Target=${TARGET}/${SUBTARGET}"
@@ -696,6 +703,7 @@ jobs:
             aarch64_generic
             aarch64_cortex-a53
             arm_cortex-a7_neon-vfpv4
+            mips_24kc
             mipsel_24kc
             x86_64
           )
@@ -708,7 +716,7 @@ jobs:
           find . -maxdepth 1 -type f -name '*.zip' \
             -printf '%f\n' | sort > actual-assets.txt
           diff -u expected-assets.txt actual-assets.txt
-          [ "$(wc -l < actual-assets.txt)" -eq 10 ]
+          [ "$(wc -l < actual-assets.txt)" -eq 12 ]
 
           while IFS= read -r bundle; do
             case "${bundle}" in
@@ -719,16 +727,16 @@ jobs:
                 arch="${bundle#luci-app-l850gl-mm-1.0.0-}"
                 arch="${arch%-openwrt24.ipk.zip}"
                 mm_name="modemmanager-l850gl-expert_${mm_version}-r${mm_release}_${arch}.ipk"
-                bridge_name="l850gl-mm-bridge_1.0.0-r1_${arch}.ipk"
-                luci_name='luci-app-l850gl-mm_1.0.0-r1_all.ipk'
+                bridge_name="l850gl-mm-bridge_1.0.0-r2_${arch}.ipk"
+                luci_name='luci-app-l850gl-mm_1.0.0-r2_all.ipk'
                 ;;
               *-openwrt25.apk.zip)
                 format='apk'
                 arch="${bundle#luci-app-l850gl-mm-1.0.0-}"
                 arch="${arch%-openwrt25.apk.zip}"
                 mm_name='modemmanager-l850gl-expert-1.24.0-r10.apk'
-                bridge_name='l850gl-mm-bridge-1.0.0-r1.apk'
-                luci_name='luci-app-l850gl-mm-1.0.0-r1.apk'
+                bridge_name='l850gl-mm-bridge-1.0.0-r2.apk'
+                luci_name='luci-app-l850gl-mm-1.0.0-r2.apk'
                 ;;
               *) exit 1 ;;
             esac
@@ -766,8 +774,8 @@ jobs:
           name: luci-app-L850GL-MM ${{ github.ref_name }} bundled packages
           body: |
             Stable schema-4 L850-GL ModemManager companion with Overview, Lock,
-            and SMS. This release contains ten expert-only bundles for OpenWrt
-            24.10.8/IPK and 25.12.5/APK across five package architectures.
+            and SMS. This release contains twelve expert-only bundles for OpenWrt
+            24.10.8/IPK and 25.12.5/APK across six package architectures.
 
             Select the ZIP matching both the exact OpenWrt release and package
             architecture, verify the outer and inner SHA256SUMS, and follow its

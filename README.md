@@ -153,8 +153,8 @@ Version 1.0.0 packages the accepted r6 behavior with a distinguishable expert
 ModemManager identity:
 
 ```text
-l850gl-mm-bridge               1.0.0-r1 expert libmm-glib/GDBus to ubus bridge
-luci-app-l850gl-mm             1.0.0-r1 Overview, Lock, and SMS views
+l850gl-mm-bridge               1.0.0-r2 expert libmm-glib/GDBus to ubus bridge
+luci-app-l850gl-mm             1.0.0-r2 Overview, Lock, and SMS views
 modemmanager-l850gl-expert     matching upstream OpenWrt recipe with reviewed AT transport
 ```
 
@@ -163,13 +163,13 @@ primary SIM-slot switch, and old eSIM addon are not part of 1.0.0. APN,
 route, DNS, credentials, and all connection settings remain in OpenWrt's
 existing Network / Interfaces UI.
 
-The v1.0.0 release publishes ten target-specific expert bundles and no base
+The v1.0.0 release publishes twelve target-specific expert bundles and no base
 release asset:
 
 | OpenWrt | ModemManager expert | Format | Architectures |
 |---|---|---|---|
-| 24.10.8 | 1.22.0-r20 | IPK | `aarch64_cortex-a53`, `aarch64_generic`, `arm_cortex-a7_neon-vfpv4`, `mipsel_24kc`, `x86_64` |
-| 25.12.5 | 1.24.0-r10 | APK | `aarch64_cortex-a53`, `aarch64_generic`, `arm_cortex-a7_neon-vfpv4`, `mipsel_24kc`, `x86_64` |
+| 24.10.8 | 1.22.0-r20 | IPK | `aarch64_cortex-a53`, `aarch64_generic`, `arm_cortex-a7_neon-vfpv4`, `mips_24kc`, `mipsel_24kc`, `x86_64` |
+| 25.12.5 | 1.24.0-r10 | APK | `aarch64_cortex-a53`, `aarch64_generic`, `arm_cortex-a7_neon-vfpv4`, `mips_24kc`, `mipsel_24kc`, `x86_64` |
 
 Each ZIP is for exactly one OpenWrt version and package architecture. It
 contains `modemmanager-l850gl-expert`, the matching expert bridge and LuCI
