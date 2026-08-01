@@ -163,13 +163,13 @@ primary SIM-slot switch, and old eSIM addon are not part of 1.0.0. APN,
 route, DNS, credentials, and all connection settings remain in OpenWrt's
 existing Network / Interfaces UI.
 
-The v1.0.0-r3 release publishes twelve target-specific expert bundles and no
+The v1.0.0-r3 release publishes fourteen target-specific expert bundles and no
 base release asset:
 
 | OpenWrt | ModemManager expert | Format | Architectures |
 |---|---|---|---|
-| 24.10.8 | 1.22.0-r20 | IPK | `aarch64_cortex-a53`, `aarch64_generic`, `arm_cortex-a7_neon-vfpv4`, `mips_24kc`, `mipsel_24kc`, `x86_64` |
-| 25.12.5 | 1.24.0-r10 | APK | `aarch64_cortex-a53`, `aarch64_generic`, `arm_cortex-a7_neon-vfpv4`, `mips_24kc`, `mipsel_24kc`, `x86_64` |
+| 24.10.8 | 1.22.0-r20 | IPK | `aarch64_cortex-a53`, `aarch64_cortex-a72`, `aarch64_generic`, `arm_cortex-a7_neon-vfpv4`, `mips_24kc`, `mipsel_24kc`, `x86_64` |
+| 25.12.5 | 1.24.0-r10 | APK | `aarch64_cortex-a53`, `aarch64_cortex-a72`, `aarch64_generic`, `arm_cortex-a7_neon-vfpv4`, `mips_24kc`, `mipsel_24kc`, `x86_64` |
 
 Each ZIP is for exactly one OpenWrt version and package architecture. It
 contains `modemmanager-l850gl-expert`, the matching expert bridge and LuCI
@@ -191,7 +191,7 @@ changing API schema 4 or the accepted r6 modem state machines. Its release
 gate requires each three-package expert ZIP and checksum manifest to pass its
 target SDK build and package checks. The stock-to-expert transaction and
 installed runtime were also exercised on the one live target identified in
-the dated record; that hardware result is not generalized to the other eleven
+the dated record; that hardware result is not generalized to the other thirteen
 compile-only targets.
 
 Version 0.6.0 renames the active packages, service, ACLs, paths, and ubus

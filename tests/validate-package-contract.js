@@ -793,6 +793,7 @@ assert.ok(!sdkWorkflow.includes('LPAC_'));
 for (const arch of [
 	'aarch64_generic',
 	'aarch64_cortex-a53',
+	'aarch64_cortex-a72',
 	'arm_cortex-a7_neon-vfpv4',
 	'mips_24kc',
 	'mipsel_24kc',
@@ -802,11 +803,18 @@ for (const arch of [
 		`release matrix must include canonical architecture ${arch}`);
 }
 for (const typo of [
-	'aarch64_cortex_a53', 'arm_cortex_a7-neon-vfvp4', 'mipsl_24kc', 'x86-64'
+	'aarch64_cortex_a53', 'aarch64_cortex_a72',
+	'arm_cortex_a7-neon-vfvp4', 'mipsl_24kc', 'x86-64'
 ]) {
 	assert.ok(!releaseWorkflow.includes(typo),
 		`release matrix must not use non-canonical architecture ${typo}`);
 }
+assert.match(releaseWorkflow,
+	/aarch64_cortex-a72\)\s+target='mvebu'\s+subtarget='cortexa72'\s+target_symbol='TARGET_mvebu'\s+subtarget_symbol='TARGET_mvebu_cortexa72'/,
+	'aarch64_cortex-a72 must map to the mvebu/cortexa72 SDK target');
+assert.match(releaseWorkflow,
+	/refs\/heads\/release\/1\.0\.0-r3 \]\]; then\s+arches=\(aarch64_cortex-a72 x86_64\)/,
+	'r3 branch smoke must compile both the newly added Cortex-A72 and x86_64');
 assert.ok(releaseWorkflow.includes('24.10.8'));
 assert.ok(releaseWorkflow.includes('25.12.5'));
 assert.ok(!releaseWorkflow.includes('24.10.7'));
@@ -844,8 +852,8 @@ assert.ok(releaseWorkflow.includes('L850GL MM 1.0.0-r3 expert bundle'),
 	'generated installation guide must identify the exact r3 release');
 assert.ok(releaseWorkflow.includes('- release/1.0.0-r3'));
 assert.ok(releaseWorkflow.includes("- 'v1.0.0-r3'"));
-assert.ok(releaseWorkflow.includes('[ "$(wc -l < actual-assets.txt)" -eq 12 ]'),
-	'release publication must require the exact twelve-bundle Cartesian matrix');
+assert.ok(releaseWorkflow.includes('[ "$(wc -l < actual-assets.txt)" -eq 14 ]'),
+	'release publication must require the exact fourteen-bundle Cartesian matrix');
 assert.ok(releaseWorkflow.includes('sha256sum -c SHA256SUMS'));
 assert.ok(releaseWorkflow.includes('contents: write'));
 assert.ok(releaseWorkflow.includes(

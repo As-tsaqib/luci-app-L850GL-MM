@@ -42,13 +42,14 @@ jobs:
           all_arches=(
             aarch64_generic
             aarch64_cortex-a53
+            aarch64_cortex-a72
             arm_cortex-a7_neon-vfpv4
             mips_24kc
             mipsel_24kc
             x86_64
           )
           if [[ "${RELEASE_REF}" == refs/heads/release/1.0.0-r3 ]]; then
-            arches=(x86_64)
+            arches=(aarch64_cortex-a72 x86_64)
           else
             arches=("${all_arches[@]}")
           fi
@@ -68,6 +69,12 @@ jobs:
                 subtarget='filogic'
                 target_symbol='TARGET_mediatek'
                 subtarget_symbol='TARGET_mediatek_filogic'
+                ;;
+              aarch64_cortex-a72)
+                target='mvebu'
+                subtarget='cortexa72'
+                target_symbol='TARGET_mvebu'
+                subtarget_symbol='TARGET_mvebu_cortexa72'
                 ;;
               arm_cortex-a7_neon-vfpv4)
                 target='ipq40xx'
@@ -703,6 +710,7 @@ jobs:
           arches=(
             aarch64_generic
             aarch64_cortex-a53
+            aarch64_cortex-a72
             arm_cortex-a7_neon-vfpv4
             mips_24kc
             mipsel_24kc
@@ -717,7 +725,7 @@ jobs:
           find . -maxdepth 1 -type f -name '*.zip' \
             -printf '%f\n' | sort > actual-assets.txt
           diff -u expected-assets.txt actual-assets.txt
-          [ "$(wc -l < actual-assets.txt)" -eq 12 ]
+          [ "$(wc -l < actual-assets.txt)" -eq 14 ]
 
           while IFS= read -r bundle; do
             case "${bundle}" in
@@ -775,8 +783,8 @@ jobs:
           name: luci-app-L850GL-MM ${{ github.ref_name }} bundled packages
           body: |
             Stable schema-4 L850-GL ModemManager companion with Overview, Lock,
-            and SMS. This release contains twelve expert-only bundles for OpenWrt
-            24.10.8/IPK and 25.12.5/APK across six package architectures.
+            and SMS. This release contains fourteen expert-only bundles for OpenWrt
+            24.10.8/IPK and 25.12.5/APK across seven package architectures.
 
             Expert PCI/EARFCN admission is independent of the reported firmware
             revision after exact L850-GL MBIM 2cb7:0007 hardware attestation.
