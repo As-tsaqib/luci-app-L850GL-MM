@@ -902,6 +902,10 @@ msgstr ""
 msgid "The request is bound to the currently displayed opaque modem identity and generation."
 msgstr ""
 
+#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:977
+msgid "The reviewed PCI command profile is unavailable on this attested modem. Cell scan remains independently available when advertised, while mutation fails closed."
+msgstr ""
+
 #: htdocs/luci-static/resources/view/l850gl-mm/lock.js:863
 msgid "The selected scan result is malformed and was not copied."
 msgstr ""
@@ -932,10 +936,6 @@ msgstr ""
 
 #: htdocs/luci-static/resources/view/l850gl-mm/sms.js:1090
 msgid "There are no deletable SMS messages in this view."
-msgstr ""
-
-#: htdocs/luci-static/resources/view/l850gl-mm/lock.js:977
-msgid "This firmware is not in the live-validated mutation allowlist. Standard ModemManager cell scan may still be attempted when advertised, but no vendor fallback, lock tuple, or reset sequence will be guessed."
 msgstr ""
 
 #: htdocs/luci-static/resources/view/l850gl-mm/overview.js:152

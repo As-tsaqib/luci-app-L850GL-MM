@@ -513,7 +513,7 @@ const expertResult = {
 	state: 'unsupported_firmware',
 	error: {
 		code: 'unsupported_firmware',
-		message: 'Firmware is not in the live-validated allowlist',
+		message: 'The expert command is not supported by this modem firmware',
 		retryable: false
 	}
 };
@@ -525,7 +525,7 @@ const availableExpertResult = {
 	generation: 4,
 	state: 'available',
 	mutable: true,
-	reason: 'live-validated-firmware-and-nvm-state',
+	reason: 'runtime-command-and-nvm-state-validated',
 	lock: {
 		state: 'configured_exact',
 		enabled: true,
@@ -3323,6 +3323,8 @@ assert.ok(lockSource.includes("result.state !== 'scan_ready'"));
 assert.ok(lockSource.includes("result.source !== 'modemmanager'"));
 assert.ok(lockSource.includes("'unsupported_build'"));
 assert.ok(lockSource.includes("'unsupported_firmware'"));
+assert.ok(lockSource.includes('The reviewed PCI command profile is unavailable on this attested modem.'));
+assert.ok(!lockSource.includes('live-validated mutation allowlist'));
 assert.ok(lockSource.includes("error.code === 'outcome_unknown'"));
 assert.ok(lockSource.includes('replacementIdentityIsValid'));
 assert.ok(lockSource.includes("'applied_verified'"));
@@ -3440,7 +3442,7 @@ assert.ok(read('htdocs/luci-static/resources/l850gl-mm/widgets.js').includes(
 
 const makefile = read('Makefile');
 assert.ok(makefile.includes('PKG_VERSION:=1.0.0'));
-assert.ok(makefile.includes('PKG_RELEASE:=2'));
+assert.ok(makefile.includes('PKG_RELEASE:=3'));
 assert.ok(makefile.includes(
 	'LUCI_TITLE:=LuCI companion for the L850-GL modem managed by ModemManager'));
 assert.ok(makefile.includes(

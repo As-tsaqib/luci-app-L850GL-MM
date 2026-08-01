@@ -139,9 +139,12 @@ length, bad name termination, duplicate fields, and malformed session data.
   PCI/EARFCN/RSRP/RSRQ, permits only reviewed sentinels in discarded fields,
   and rejects truncation, extra fields, encoding errors, overflow, and
   oversized output.
-- The firmware allowlist contains exactly `18500.5001.00.05.27.30`, added only
-  after the dated live command/recovery matrix. Other revisions cannot use the
-  XMCI fallback or any mutation.
+- Firmware revision is not an authorization boundary. Every revision remains
+  confined to exact L850-GL/plugin/MBIM/`2cb7:0007` attestation, fixed commands,
+  typed input, bounded runtime parsers, and verified postconditions. An
+  unsupported command or malformed response fails closed. Firmware
+  `18500.5001.00.05.27.30` is the revision with the dated live
+  command/recovery matrix, not an admission allowlist.
 - Commands are compiled-in fixed grammar built only from typed bounded
   integers; no browser command, path, wildcard, RAT, SIM ID, or band encoding
   is accepted.
@@ -156,7 +159,8 @@ length, bad name termination, duplicate fields, and malformed session data.
   postconditions pass; post-dispatch ambiguity is `outcome_unknown` with no
   automatic retry.
 - Carrier aggregation has a distinct fixed read-only `AT+GTCAINFO?` command.
-  It is available only in the expert build on the exact allowlisted tuple; no
+  It is available only in the expert build on the exact attested L850-GL
+  hardware scope, independent of revision; no
   command field crosses ubus. Its parser bounds the response to 4,096 bytes and
   eight slots, enforces the 14-field primary/10-field secondary grammar,
   validates live bands, primary paired DL/UL ranges, PCI, and bandwidth, and
@@ -164,7 +168,7 @@ length, bad name termination, duplicate fields, and malformed session data.
   require own-band DL fields, UL bandwidth sentinel `255`, and an UL EARFCN
   equal to the primary UL; their exported UL bandwidth is null. Independent
   secondary uplink and active B29/B32 fail closed until their exact
-  allowlisted-firmware shape has live evidence. No raw output or
+  response shape has live evidence. No raw output or
   MCC/MNC/TAC/cell ID/signal fields are exported. SINR code `127` is admitted
   only as an unavailable metric on an otherwise fully valid active secondary;
   it remains invalid on the primary.
@@ -224,7 +228,8 @@ D-Bus APIs cannot prove rollback after a write reached hardware. In-memory SMS
 dedupe cannot provide exactly-once delivery across eviction or restart.
 
 The PCI command/recovery matrix is live-validated only for one exact
-hardware/firmware tuple; it does not establish behavior for another firmware.
+hardware/firmware tuple. Other L850-GL revisions are eligible under the same
+runtime fail-closed controls, but that does not claim they have been live-tested.
 Unavailable-cell timeout, unplug mid-operation, ModemManager restart
 mid-state-machine, and full-router reboot persistence remain unverified. The
 schema-1 v0.2 read/incoming-SMS evidence still does not establish current live

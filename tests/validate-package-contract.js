@@ -38,10 +38,18 @@ for (const retired of [
 		`${retired} must remain retired from the 1.0 product tree`);
 }
 
+const contributing = read('CONTRIBUTING.md');
+assert.match(contributing,
+	/Firmware revision is display\s+metadata, not an admission input; do not add a revision allowlist\./,
+	'contributor policy must keep firmware revision out of runtime admission');
+assert.doesNotMatch(contributing,
+	/build- and firmware-gated|allowlisted-firmware capture|exact model\/firmware\/composition evidence/,
+	'contributor policy must not restore obsolete revision-gated expert behavior');
+
 const bridgeMakefile = read('l850gl-mm-bridge/Makefile');
 assert.match(bridgeMakefile, /^PKG_NAME:=l850gl-mm-bridge$/m);
 assert.match(bridgeMakefile, /^PKG_VERSION:=1\.0\.0$/m);
-assert.match(bridgeMakefile, /^PKG_RELEASE:=2$/m);
+assert.match(bridgeMakefile, /^PKG_RELEASE:=3$/m);
 assert.match(bridgeMakefile,
 	/^\s*URL:=https:\/\/github\.com\/As-tsaqib\/luci-app-L850GL-MM$/m);
 assert.match(bridgeMakefile, /^\s*CONFLICTS:=fibocom-mm-bridge$/m,
@@ -134,11 +142,21 @@ assert.match(smsPolicySource,
 	/static const gchar domain\[\] = "l850gl-mm-send-sms-v1"/,
 	'SMS request digests must use the rebranded domain separator');
 const sourceWithoutRequiredUpstreamBrand = bridgeSource
-	.replaceAll('"fibocom"', '"upstream-plugin-or-manufacturer"')
-	.replaceAll('"fibocomwireless"', '"upstream-manufacturer"')
-	.replaceAll('"fibocomwirelessinc"', '"upstream-manufacturer-inc"');
+	.replaceAll('"fibocom"', '"upstream-plugin"');
 assert.doesNotMatch(sourceWithoutRequiredUpstreamBrand, /fibocom/i,
-	'legacy branding may remain only in required upstream plugin/manufacturer literals');
+	'legacy branding may remain only in the required upstream plugin literal');
+
+const admissionGate = bridgeInventorySource.match(
+	/static gboolean\nis_exact_l850gl\(MMModem \*modem\)[\s\S]*?\n}/);
+assert.ok(admissionGate, 'the L850-GL ModemManager admission gate must exist');
+assert.match(admissionGate[0],
+	/mm_modem_get_plugin\(modem\)[\s\S]*?g_ascii_strcasecmp\(plugin, "fibocom"\)/,
+	'admission must require the upstream Fibocom plugin');
+assert.match(admissionGate[0],
+	/normalize_alnum\(mm_modem_get_model\(modem\)\)[\s\S]*?g_str_equal\(model, "l850gl"\)/,
+	'admission must use the normalized L850-GL model, independent of OEM manufacturer text');
+assert.doesNotMatch(admissionGate[0], /mm_modem_get_manufacturer\s*\(/,
+	'firmware-dependent manufacturer text must not control modem admission');
 
 const baseTable = ubusSource.match(
 	/static const struct ubus_method l850gl_methods\[\][\s\S]*?\n\};/);
@@ -377,6 +395,14 @@ assert.match(bridgeInventorySource, /connect->serial\s*!=\s*bridge->connect_seri
 	'stale asynchronous reconnect attempts must be rejected');
 assert.match(bridgeInventorySource, /l850gl_hardware_attest_l850_mbim\s*\(/,
 	'mutations must fail closed on exact live USB hardware');
+assert.strictEqual((ubusSource.match(/mm_modem_get_revision\s*\(/g) || []).length, 2,
+	'firmware revision may be exported for display only and must not control runtime behavior');
+assert.doesNotMatch(ubusSource,
+	/\bl850_firmware_allowed\b|\bl850gl_l850_firmware_is_allowed\b|firmware-not-live-validated/,
+	'expert runtime control flow must not depend on a firmware revision allowlist');
+assert.doesNotMatch(l850CellSource + l850CellHeader,
+	/L850GL_L850_ALLOWED_FIRMWARE|l850gl_l850_firmware_is_allowed/,
+	'the dead firmware revision predicate and constant must remain removed');
 
 assert.match(ubusSource, /l850gl_modem_attest_mutation_target\s*\(/);
 assert.match(ubusSource, /mm_modem_set_current_bands\s*\(/,
@@ -395,7 +421,7 @@ assert.match(ubusSource,
 	'expert cell scan cooldown must start only from common completion');
 assert.match(ubusSource, /l850_modem_has_active_scan\s*\(/,
 	'expert cell scan must enforce one active scan per modem');
-assert.match(ubusSource, /standard-modemmanager-get-cell-info/);
+assert.match(ubusSource, /standard-with-l850-xmci-fallback/);
 assert.match(ubusSource, /l850gl_l850_nvm_parse\s*\(/);
 assert.match(ubusSource,
 	/#define L850_NVM_COMMAND_TIMEOUT_SECONDS 5U/,
@@ -469,8 +495,8 @@ assert.match(scanMethod,
 assert.doesNotMatch(scanMethod,
 	/l850_last_scan_completed_at\s*=\s*now/,
 	'the cell scan cooldown must not start when a scan is dispatched');
-assert.doesNotMatch(scanMethod, /l850_firmware_allowed\s*\(/,
-	'standard GetCellInfo must be attempted before any unavailable vendor fallback');
+assert.doesNotMatch(scanMethod, /mm_modem_get_revision\s*\(/,
+	'standard GetCellInfo and its runtime fallback must be revision-independent');
 assert.match(l850CaHeader,
 	/#define L850GL_L850_CA_QUERY_COOLDOWN_SECONDS 5U/,
 	'expert carrier reads must have an exact five-second cooldown');
@@ -495,6 +521,31 @@ assert.match(ubusSource, /L850_VOLTAGE_RETRY_SECONDS 10U/,
 assert.match(ubusSource,
 	/l850_voltage_refresh[\s\S]*?l850_modem_has_active_scan\(ubus, modem\)[\s\S]*?l850_modem_has_active_carrier_query\(ubus, modem\)/,
 	'voltage refresh must not overlap a PCI scan or carrier command');
+const lockStatusUnavailable = ubusSource.match(
+	/static void\nl850_status_complete_unavailable\([\s\S]*?\n}/);
+assert.ok(lockStatusUnavailable,
+	'the runtime lock-status unavailable envelope must be discoverable');
+assert.match(lockStatusUnavailable[0], /add_common\(&buffer, TRUE\)/,
+	'a lock-status command failure must remain an ok=true capability envelope');
+assert.match(lockStatusUnavailable[0],
+	/add_modem_identity\(&buffer, operation->modem\)/,
+	'the unavailable lock status must retain the captured modem identity');
+assert.match(lockStatusUnavailable[0],
+	/blobmsg_add_u8\(&buffer, "mutable", FALSE\)/,
+	'a failed runtime lock-status observation must be non-mutable');
+assert.match(lockStatusUnavailable[0], /"runtime-lock-status-unavailable"/);
+assert.match(lockStatusUnavailable[0],
+	/l850_add_scan_capability\(&buffer, operation->ubus, operation->modem\)/,
+	'a failed NVM status read must preserve independently available cell scan');
+const lockStatusReady = ubusSource.match(
+	/static void\nl850_status_ready\([\s\S]*?\n}/);
+assert.ok(lockStatusReady, 'the runtime lock-status callback must be discoverable');
+assert.match(lockStatusReady[0],
+	/error != NULL \|\| response == NULL[\s\S]*?l850_status_complete_unavailable/,
+	'command failures after identity validation must retain the scan envelope');
+assert.match(lockStatusReady[0],
+	/parse_result != L850GL_L850_CELL_PARSE_OK[\s\S]*?l850_status_complete_unavailable\(operation, "malformed_response"\)/,
+	'malformed NVM data must retain the scan envelope');
 assert.match(ubusSource,
 	/L850_CARRIER_OPERATION_TIMEOUT_MS 20000U/,
 	'carrier info async work must be bounded to twenty seconds');
@@ -603,7 +654,7 @@ assert.match(init, /command "\$PROG" --foreground/);
 
 const luciMakefile = read('luci-app-l850gl-mm/Makefile');
 assert.match(luciMakefile, /^PKG_VERSION:=1\.0\.0$/m);
-assert.match(luciMakefile, /^PKG_RELEASE:=2$/m);
+assert.match(luciMakefile, /^PKG_RELEASE:=3$/m);
 assert.match(luciMakefile, /^LUCI_URL:=https:\/\/github\.com\/As-tsaqib\/luci-app-L850GL-MM$/m);
 assert.match(luciMakefile, /^LUCI_MAINTAINER:=As Tsaqib <[^>]+>$/m);
 for (const dependency of [
@@ -729,8 +780,8 @@ assert.ok(sdkWorkflow.includes("grep -Fx 'AT+CBC'"),
 assert.ok(sdkWorkflow.includes('Expert_Object=absent'));
 assert.strictEqual((sdkWorkflow.match(/API_Schema=4/g) || []).length, 1,
 	'the base SDK artifact manifest must identify schema 4 exactly once');
-assert.strictEqual((sdkWorkflow.match(/Release=1\.0\.0-r2/g) || []).length, 1,
-	'the base SDK artifact manifest must identify release 1.0.0-r2 exactly once');
+assert.strictEqual((sdkWorkflow.match(/Release=1\.0\.0-r3/g) || []).length, 1,
+	'the base SDK artifact manifest must identify release 1.0.0-r3 exactly once');
 assert.ok(!sdkWorkflow.includes('Release=0.6.0-r6'),
 	'the final SDK workflow must not label new artifacts as the previous release');
 assert.ok(!sdkWorkflow.includes('API_Schema=2'));
@@ -783,13 +834,28 @@ assert.ok(releaseWorkflow.includes(
 assert.ok(releaseWorkflow.includes(
 	'opkg remove --force-depends luci-app-l850gl-mm l850gl-mm-bridge modemmanager-l850gl-expert'));
 assert.ok(releaseWorkflow.includes('ModemManager_Recipe_Commit='));
-assert.ok(releaseWorkflow.includes('Expert_Firmware_Allowlist=all'));
+assert.ok(releaseWorkflow.includes('Expert_Firmware_Revision_Gate=none'));
+assert.ok(releaseWorkflow.includes(
+	'Expert_Hardware_Attestation=L850-GL-MBIM-2cb7:0007'));
+assert.ok(!releaseWorkflow.includes('Expert_Firmware_Allowlist='),
+	'release metadata must not retain a firmware revision allowlist');
+assert.ok(releaseWorkflow.includes('APP_RELEASE: \'3\''));
+assert.ok(releaseWorkflow.includes('L850GL MM 1.0.0-r3 expert bundle'),
+	'generated installation guide must identify the exact r3 release');
+assert.ok(releaseWorkflow.includes('- release/1.0.0-r3'));
+assert.ok(releaseWorkflow.includes("- 'v1.0.0-r3'"));
 assert.ok(releaseWorkflow.includes('[ "$(wc -l < actual-assets.txt)" -eq 12 ]'),
 	'release publication must require the exact twelve-bundle Cartesian matrix');
 assert.ok(releaseWorkflow.includes('sha256sum -c SHA256SUMS'));
 assert.ok(releaseWorkflow.includes('contents: write'));
-assert.ok(releaseWorkflow.includes("startsWith(github.ref, 'refs/tags/v1.0.0')"),
-	'only valid release tags may publish 1.0.0 assets');
+assert.ok(releaseWorkflow.includes(
+	"github.ref == 'refs/tags/v1.0.0-r3'"),
+	'only the exact v1.0.0-r3 tag may publish hard-coded r3 assets');
+assert.ok(!releaseWorkflow.includes("'v1.0.0*'"),
+	'release tags must not use a prefix wildcard');
+assert.ok(!releaseWorkflow.includes(
+	"startsWith(github.ref, 'refs/tags/v1.0.0')"),
+	'release publication must not accept arbitrary v1.0.0-prefixed tags');
 assert.ok(releaseWorkflow.includes('prerelease: false'));
 assert.ok(!releaseWorkflow.includes('dist/base'),
 	'GitHub Release assets must never include the verification-only base build');

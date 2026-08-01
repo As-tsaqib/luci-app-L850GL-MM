@@ -120,9 +120,12 @@ pci_lock = { state, mutable, reason }
 ```
 
 The base build always reports `pci_lock.state = unsupported_build` and does
-not publish the expert object. An expert binary reports `available` only for
-the exact live-validated hardware/firmware tuple, `busy` during mutation or
-cooldown, and `unsupported_firmware` for every other revision.
+not publish the expert object. An expert binary advertises the PCI path only
+for an exactly attested L850-GL/plugin/MBIM/`2cb7:0007`; the subsequent
+`cell_lock_status` response is mutable only after valid runtime NVM state.
+Firmware revision is informational and is not an admission input. The
+compatibility state `unsupported_firmware` denotes an actual unsupported
+runtime command, not a revision allowlist rejection.
 
 ### `set_bands(modem_id, generation, bands, confirm)`
 
@@ -235,7 +238,7 @@ Returns the mutation state independently from scan capability:
 {
   "state": "available",
   "mutable": true,
-  "reason": "live-validated-firmware-and-nvm-state",
+  "reason": "runtime-command-and-nvm-state-validated",
   "lock": {
     "state": "configured_exact",
     "enabled": true,
@@ -248,7 +251,7 @@ Returns the mutation state independently from scan capability:
   "scan": {
     "state": "available",
     "available": true,
-    "reason": "standard-with-live-validated-xmci-fallback",
+    "reason": "standard-with-l850-xmci-fallback",
     "source": "modemmanager"
   }
 }
@@ -260,8 +263,9 @@ that a scan or a per-modem mutation is still active and does not include
 `rate_limited` status includes the ceil-rounded remaining cooldown in
 `retry_after_ms`. The nested lock is a bounded NVM configuration observation
 (`clear`, `configured_earfcn`, or `configured_exact`), not a serving-cell
-postcondition. Unsupported firmware still advertises a standard-only scan when
-ready.
+postcondition. Unsupported or malformed runtime lock-state output makes
+mutation non-mutable while the independently evaluated scan capability remains
+present.
 
 ### `cell_scan(modem_id, generation)`
 
@@ -297,18 +301,18 @@ per-modem cooldown. A request during that cooldown returns retryable
 `rate_limited` with an accurate, ceil-rounded `retry_after_ms`; rejected `busy`
 and `rate_limited` requests do not restart the cooldown.
 
-On the allowlisted firmware, standard GetCellInfo is unsupported and the
-bridge falls back to its fixed XMCI query through ModemManager. `method` is
-`standard-cell-info` or `l850-xmci`. Other firmware receives no vendor
-fallback.
+When standard GetCellInfo is unsupported, every attested L850-GL revision may
+fall back to the fixed XMCI query through ModemManager. `method` is
+`standard-cell-info` or `l850-xmci`; unsupported commands and malformed output
+fail closed.
 
 ### `get_carrier_info(modem_id, generation)`
 
 This read-only expert method is absent from a base build. It requires exact
-L850-GL/upstream-plugin/MBIM/`2cb7:0007` attestation, the sole allowlisted firmware,
-live supported LTE bands, and the current generation. It dispatches only the
-compiled-in `AT+GTCAINFO?` query through asynchronous ModemManager; no request
-field can select or alter a command.
+L850-GL/upstream-plugin/MBIM/`2cb7:0007` attestation, live supported LTE bands,
+and the current generation. It has no firmware-revision gate and dispatches
+only the compiled-in `AT+GTCAINFO?` query through asynchronous ModemManager; no
+request field can select or alter a command.
 
 Only one carrier query may run per modem and it is mutually excluded with a
 cell scan, voltage refresh, or any modem mutation. An overlap returns retryable `busy` without a
@@ -359,8 +363,8 @@ response but omitted here. `active_carriers` is therefore exactly one plus the
 number of returned secondaries. Every carrier requires band 1..85, PCI 0..503,
 a live SupportedBands match, and a reviewed own-band DL EARFCN plus numeric DL
 bandwidth of 1.4, 3, 5, 10, 15, or 20 MHz. The primary additionally requires
-an own-band UL EARFCN and numeric UL bandwidth from the same set. On the sole
-allowlisted firmware, an active secondary is downlink-only: its raw UL
+an own-band UL EARFCN and numeric UL bandwidth from the same set. In the
+live-tested response grammar, an active secondary is downlink-only: its raw UL
 bandwidth must be the exact `255` sentinel and its raw UL EARFCN must equal the
 validated primary UL EARFCN. Only then is its public `ul_bandwidth_mhz`
 serialized as explicit `null`; no bandwidth is inferred. A numeric or missing
@@ -384,7 +388,7 @@ the backend serving-cell cache and is never attempted from a rejected or
 malformed carrier response.
 
 B29 and B32 are downlink-only LTE bands whose active `GTCAINFO` uplink/sentinel
-representation has not been captured on the allowlisted firmware. An active
+representation has not been captured on the live-tested hardware. An active
 B29/B32 record therefore fails closed even if ModemManager lists that band in
 SupportedBands. Admission requires a future sanitized live capture plus parser
 fixtures; no value is guessed from 3GPP tables or reference-project code.
@@ -395,8 +399,9 @@ fixtures; no value is guessed from 3GPP tables or reference-project code.
 
 Confirmation is mandatory. EARFCN must map to a live supported band; optional
 PCI is 0..503. The implementation validates typed input, exact hardware,
-firmware, cooldown, and the shared mutation lock, then dispatches only the
-compiled-in set or clear tuple. Exact command acknowledgement starts a
+generation, live bands, cooldown, and the shared mutation lock, then dispatches
+only the compiled-in set or clear tuple. Firmware revision is not consulted.
+Exact command acknowledgement starts a
 ten-second pre-reset verification deadline: two consecutive matching NVM reads
 one second apart are required before one fixed reset. Hardware-slot
 replacement correlation and registration follow. Post-reset NVM observations

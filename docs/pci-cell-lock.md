@@ -13,19 +13,21 @@ builders, rate limiting, cancellation, timeout, shared mutation locking, and
 the reset/reprobe/registration/postcondition state machine. It adds the
 read-only `get_carrier_info` sibling method described below. Version 0.6 also
 adds an expert-only fixed `AT+CBC` Overview voltage refresh, which does not
-change this object or the PCI mutation grammar, allowlist, recovery sequence,
+change this object or the PCI mutation grammar, hardware scope, recovery sequence,
 or postconditions.
 
 Firmware `18500.5001.00.05.27.30` completed the approved live matrix on
-2026-07-27 and is the only allowlist entry. Exact and EARFCN-only set, clear,
+2026-07-27. Exact and EARFCN-only set, clear,
 `CFUN=15`, object replacement, registration and bearer recovery, NVM state,
 and serving-cell postconditions were observed through ModemManager's command
-queue. Every other firmware, non-L850 model, non-MBIM composition, plugin
-mismatch, or failed `2cb7:0007` attestation remains fail-closed.
+queue. Runtime admission is revision-independent: every L850-GL firmware
+revision is eligible after exact model/plugin/MBIM/`2cb7:0007` attestation.
+Unsupported commands, malformed responses, non-L850 models, non-MBIM
+composition, plugin mismatch, or failed hardware attestation remain fail-closed.
 
-Status is therefore: implemented and live-verified for that one
-hardware/firmware tuple at command level and through the prior installed
-schema-2 expert package. Installed schema-3 v0.4 additionally verified the
+Status is therefore: implemented without a firmware-revision gate and
+live-verified for that one hardware/firmware tuple at command level and through
+the prior installed schema-2 expert package. Installed schema-3 v0.4 additionally verified the
 expert capability, NVM status, and XMCI scan on the same tuple while leaving the
 existing lock untouched. Exact set and clear returned replacement opaque
 identities and verified postconditions; an authorized HTTP `/ubus` session also
@@ -47,7 +49,7 @@ claim in the preceding paragraph applies specifically to the expert backend
 scan admission/cooldown delta; PCI mutation behavior was not changed or rerun.
 Schema-4 0.5.0-r1 SDK/package installation and read-only post-install
 validation passed on 2026-07-28. The CA addition does not extend the PCI
-mutation allowlist, and no PCI mutation or cell scan was repeated in that run.
+mutation hardware scope, and no PCI mutation or cell scan was repeated in that run.
 
 ## 4PDA community evidence
 
@@ -148,14 +150,18 @@ requires a new snapshot and confirmation.
   `busy`; because its completion cannot be predicted, that state has no
   `retry_after_ms`.
 
-Unsupported firmware makes mutation `unsupported_firmware` while standard scan
-may still be advertised. On the exact allowlisted firmware, `cell_lock_status`
-queries a fixed NVM path asynchronously and exports only `clear`,
+An unsupported runtime command may retain the compatibility state
+`unsupported_firmware`, but revision presence or value is never tested.
+Standard scan remains independently advertised. On every attested L850-GL
+revision, `cell_lock_status` queries a fixed NVM path asynchronously and exports
+only `clear`,
 `configured_earfcn`, or `configured_exact`; this status read is not itself a
-serving-cell postcondition.
+serving-cell postcondition. Unsupported or malformed NVM output makes mutation
+non-mutable while preserving the independent scan capability.
 
 `get_carrier_info` is a read-only expert method used by Overview. It is exact
-hardware/firmware gated and dispatches only the fixed `AT+GTCAINFO?` command
+hardware gated, revision-independent, and dispatches only the fixed
+`AT+GTCAINFO?` command
 through asynchronous ModemManager. It is single-flight and mutually excluded
 with cell scan and mutation, has a 20-second operation deadline around a
 15-second command timeout, and starts a five-second cooldown after every
@@ -168,7 +174,7 @@ bandwidths. A secondary requires own-band DL values plus the live-verified UL
 bandwidth sentinel `255` and an UL EARFCN equal to the primary UL; it exports
 `ul_bandwidth_mhz: null`. Any independent secondary uplink and active B29/B32
 remain fail-closed until their exact representation is captured live on the
-allowlisted firmware.
+tested L850-GL hardware.
 An active secondary SINR code `127` is accepted only as an unavailable metric
 after all carrier-defining fields validate; it is not exported and remains
 invalid for the primary.
@@ -208,10 +214,11 @@ normalizes LTE objects only:
 - MCC/MNC, TAC, cell ID, and other raw identifiers are not exported.
 
 Success is `scan_ready`, `source: modemmanager`, and a bounded `cells` array.
-The target L850 returns `Core.Unsupported` for GetCellInfo. Only on the exact
-allowlisted firmware does that error dispatch fixed `AT+XMCI=1` through
+The tested L850 returns `Core.Unsupported` for GetCellInfo. On every attested
+L850-GL revision that error may dispatch fixed `AT+XMCI=1` through
 asynchronous `mm_modem_command()`; the browser cannot supply or alter it.
-Success identifies `method` as `standard-cell-info` or `l850-xmci`.
+Success identifies `method` as `standard-cell-info` or `l850-xmci`. An
+unsupported XMCI command or malformed response fails closed.
 
 ## Vendor parser contract
 
@@ -247,14 +254,16 @@ EARFCN-only NVM states plus inconsistent/extra-field rejection.
 
 The handlers enforce typed fields and confirmation. EARFCN must map to a live
 supported LTE band, optional PCI must be 0..503, and hardware, generation,
-firmware, cooldown, and the shared mutation lock are checked before dispatch.
+cooldown, and the shared mutation lock are checked before dispatch. Firmware
+revision is not checked. Exact command acknowledgement and the bounded NVM
+postconditions fail closed after dispatch.
 The target firmware's own help response established this six-field signature:
 
 ```text
 freq_lock(sim_id, rat, band, inter_frequency_lock_enable, frequency, psc_pci)
 ```
 
-The only compiled-in target-firmware grammar is:
+The only compiled-in L850-GL grammar is:
 
 ```text
 exact:       AT@SIC:FREQ_LOCK(0,3,<logical-band>,1,<earfcn>,<pci>)
@@ -364,7 +373,7 @@ Still not claimed by this matrix:
 - physical unplug or ModemManager restart during the state machine;
 - persistence across a full router reboot.
 
-Those remaining fault/persistence cases do not broaden the allowlist and do
-not weaken the runtime timeout, cancellation, identity, attestation, or
-fail-closed checks. They remain explicit follow-up evidence rather than an
+Those remaining fault/persistence cases do not change the revision-independent
+admission policy and do not weaken the runtime timeout, cancellation, identity,
+attestation, or fail-closed checks. They remain explicit follow-up evidence rather than an
 invitation to guess recovery commands.

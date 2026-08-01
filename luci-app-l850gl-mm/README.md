@@ -51,9 +51,11 @@ unrestricted internally, uses standard ModemManager bands, and requires
 confirmation. The PCI
 section discovers the optional `l850gl.mm.l850` expert object through its
 status call. It remains disabled on the base build. In an expert build,
-standard cell scan is independently gated from mutation. The exact
-live-validated firmware can use the fixed set/clear/reprobe/verification state
-machine; all other firmware remains fail-closed. Expert scans are single-flight
+standard cell scan is independently gated from mutation. Every L850-GL firmware
+revision is eligible after exact model/plugin/MBIM/`2cb7:0007` hardware
+attestation; unsupported commands and malformed runtime responses fail closed.
+Firmware `18500.5001.00.05.27.30` is the revision that has completed the live
+set/clear/reprobe/verification matrix. Expert scans are single-flight
 per modem with a five-second cooldown beginning only after completion. The
 expert carrier query is independently single-flight against scans and mutations
 and uses the same five-second completion-based cooldown; it never accepts

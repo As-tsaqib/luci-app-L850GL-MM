@@ -974,7 +974,7 @@ function renderPciLock(controller, entry, state, index) {
 		children.push(E('div', { 'class': 'alert-message warning' }, [
 			status.state === 'unsupported_build' ?
 				_('PCI lock is absent from this base build. Install an explicitly reviewed expert build to expose the typed expert object.') :
-				_('This firmware is not in the live-validated mutation allowlist. Standard ModemManager cell scan may still be attempted when advertised, but no vendor fallback, lock tuple, or reset sequence will be guessed.')
+				_('The reviewed PCI command profile is unavailable on this attested modem. Cell scan remains independently available when advertised, while mutation fails closed.')
 		]));
 	}
 	children.push(E('div', {

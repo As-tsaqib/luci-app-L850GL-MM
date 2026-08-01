@@ -553,12 +553,6 @@ l850gl_l850_state_transition_is_valid(enum L850GLL850State from,
 }
 
 bool
-l850gl_l850_firmware_is_allowed(const char *revision)
-{
-	return revision != NULL && revision[0] != '\0';
-}
-
-bool
 l850gl_l850_build_set_command(uint32_t earfcn, bool has_pci, uint16_t pci,
 			       char *command, size_t command_size)
 {

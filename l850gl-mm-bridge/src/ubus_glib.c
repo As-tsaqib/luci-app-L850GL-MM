@@ -260,7 +260,6 @@ static gboolean l850_modem_has_active_scan(L850GLUbus *ubus,
 					    L850GLModem *modem);
 static gboolean l850_modem_has_active_carrier_query(L850GLUbus *ubus,
 						    L850GLModem *modem);
-static gboolean l850_firmware_allowed(L850GLModem *modem);
 static gboolean l850_voltage_cache_is_fresh(L850GLModem *modem,
 					    gint64 now);
 static void l850_voltage_refresh(L850GLUbus *ubus, L850GLModem *modem);
@@ -2315,10 +2314,6 @@ add_pci_feature(struct blob_buf *buffer, const gchar *name,
 	if (!l850gl_modem_attest_mutation_target(modem))
 		add_feature(buffer, name, "unsupported", FALSE,
 			"exact-l850-mbim-hardware-not-attested");
-	else if (!l850gl_l850_firmware_is_allowed(
-			 mm_modem_get_revision(modem->modem)))
-		add_feature(buffer, name, "unsupported_firmware", FALSE,
-			"firmware-not-live-validated");
 	else if (modem->mutation_busy || retry_after > 0U ||
 		 l850_modem_has_active_mutation(ubus, modem))
 		add_feature(buffer, name, "busy", FALSE,
@@ -2326,7 +2321,7 @@ add_pci_feature(struct blob_buf *buffer, const gchar *name,
 			"per-modem-mutation-in-progress");
 	else
 		add_feature(buffer, name, "available", TRUE,
-			"live-validated-l850-command-state-machine");
+			"attested-l850gl-command-state-machine");
 #else
 	(void)ubus;
 	(void)modem;
@@ -3794,8 +3789,7 @@ l850_voltage_ready(GObject *source, GAsyncResult *result, gpointer user_data)
 	    source == G_OBJECT(modem->modem)) {
 		modem->l850_voltage_refresh_pending = FALSE;
 		if (error == NULL && response != NULL &&
-		    l850gl_modem_attest_mutation_target(modem) &&
-		    l850_firmware_allowed(modem)) {
+		    l850gl_modem_attest_mutation_target(modem)) {
 			response_length = strnlen(response,
 				L850GL_L850_VOLTAGE_MAX_RESPONSE + 1U);
 			if (l850gl_l850_voltage_parse(response, response_length,
@@ -3828,7 +3822,7 @@ l850_voltage_refresh(L850GLUbus *ubus, L850GLModem *modem)
 	     now - modem->l850_voltage_last_attempt_at <
 		(gint64)L850_VOLTAGE_RETRY_SECONDS * G_USEC_PER_SEC) ||
 	    !l850gl_modem_attest_mutation_target(modem) ||
-	    !l850_firmware_allowed(modem) || modem->mutation_busy ||
+	    modem->mutation_busy ||
 	    l850_modem_has_active_mutation(ubus, modem) ||
 	    l850_modem_has_active_scan(ubus, modem) ||
 	    l850_modem_has_active_carrier_query(ubus, modem))
@@ -3859,7 +3853,7 @@ l850_error_message(const gchar *code)
 	if (g_str_equal(code, "unsupported"))
 		return "The exact L850-GL MBIM hardware could not be attested";
 	if (g_str_equal(code, "unsupported_firmware"))
-		return "Firmware is not in the live-validated allowlist";
+		return "The expert command is not supported by this modem firmware";
 	if (g_str_equal(code, "rate_limited"))
 		return "The expert modem query is rate limited";
 	if (g_str_equal(code, "timeout"))
@@ -3947,13 +3941,6 @@ l850_requested_modem(L850GLUbus *ubus, struct blob_attr **parsed,
 	return modem;
 }
 
-static gboolean
-l850_firmware_allowed(L850GLModem *modem)
-{
-	return l850gl_l850_firmware_is_allowed(
-		mm_modem_get_revision(modem->modem));
-}
-
 static gboolean l850_band_is_supported(L850GLModem *modem, guint16 band);
 static L850NormalizedError l850_normalize_error(GError *error,
 						gboolean timed_out,
@@ -4005,9 +3992,7 @@ l850_add_scan_capability(struct blob_buf *buffer, L850GLUbus *ubus,
 		blobmsg_add_string(buffer, "state", "available");
 		blobmsg_add_u8(buffer, "available", TRUE);
 		blobmsg_add_string(buffer, "reason",
-			l850_firmware_allowed(modem) ?
-			"standard-with-live-validated-xmci-fallback" :
-			"standard-modemmanager-get-cell-info-only");
+			"standard-with-l850-xmci-fallback");
 	}
 	blobmsg_add_string(buffer, "source", "modemmanager");
 	blobmsg_close_table(buffer, scan);
@@ -4109,6 +4094,22 @@ l850_status_complete_error(L850StatusOperation *operation, const gchar *code,
 }
 
 static void
+l850_status_complete_unavailable(L850StatusOperation *operation,
+				 const gchar *state)
+{
+	struct blob_buf buffer = {};
+
+	blob_buf_init(&buffer, 0);
+	add_common(&buffer, TRUE);
+	add_modem_identity(&buffer, operation->modem);
+	blobmsg_add_string(&buffer, "state", state);
+	blobmsg_add_u8(&buffer, "mutable", FALSE);
+	blobmsg_add_string(&buffer, "reason", "runtime-lock-status-unavailable");
+	l850_add_scan_capability(&buffer, operation->ubus, operation->modem);
+	l850_status_complete_buffer(operation, &buffer);
+}
+
+static void
 l850_status_ready(GObject *source, GAsyncResult *result, gpointer user_data)
 {
 	L850StatusOperation *operation = user_data;
@@ -4134,14 +4135,13 @@ l850_status_ready(GObject *source, GAsyncResult *result, gpointer user_data)
 	if (error != NULL || response == NULL) {
 		normalized = l850_normalize_error(error, operation->timed_out,
 			operation->transport_lost);
-		l850_status_complete_error(operation, normalized.code,
-			normalized.retryable);
+		l850_status_complete_unavailable(operation, normalized.code);
 		return;
 	}
 	parse_result = l850gl_l850_nvm_parse(response, strlen(response),
 		&lock_state);
 	if (parse_result != L850GL_L850_CELL_PARSE_OK) {
-		l850_status_complete_error(operation, "malformed_response", FALSE);
+		l850_status_complete_unavailable(operation, "malformed_response");
 		return;
 	}
 	blob_buf_init(&buffer, 0);
@@ -4154,7 +4154,7 @@ l850_status_ready(GObject *source, GAsyncResult *result, gpointer user_data)
 	blobmsg_add_string(&buffer, "state", mutable ? "available" : "busy");
 	blobmsg_add_u8(&buffer, "mutable", mutable);
 	blobmsg_add_string(&buffer, "reason", mutable ?
-		"live-validated-firmware-and-nvm-state" :
+		"runtime-command-and-nvm-state-validated" :
 		(retry_after > 0U ? "advanced-cooldown" :
 		 "per-modem-mutation-in-progress"));
 	if (retry_after > 0U)
@@ -4198,7 +4198,6 @@ method_cell_lock_status(struct ubus_context *context,
 	struct blob_attr *parsed[__L850_STATUS_MAX] = {};
 	const gchar *error_code;
 	L850GLModem *modem;
-	struct blob_buf buffer = {};
 	L850StatusOperation *operation;
 
 	(void)method;
@@ -4215,17 +4214,6 @@ method_cell_lock_status(struct ubus_context *context,
 	if (!l850_supported_lte_bands_available(modem))
 		return send_l850_error(context, request, modem, "not_ready", TRUE,
 			0U);
-	if (!l850_firmware_allowed(modem)) {
-		blob_buf_init(&buffer, 0);
-		add_common(&buffer, TRUE);
-		add_modem_identity(&buffer, modem);
-		blobmsg_add_string(&buffer, "state", "unsupported_firmware");
-		blobmsg_add_u8(&buffer, "mutable", FALSE);
-		blobmsg_add_string(&buffer, "reason",
-			"firmware-not-live-validated");
-		l850_add_scan_capability(&buffer, ubus, modem);
-		return send_buffer(context, request, &buffer);
-	}
 	operation = l850_status_operation_new(ubus, modem, context, request);
 	mm_modem_command(operation->modem->modem,
 		l850gl_l850_nvm_query_command(), L850_COMMAND_TIMEOUT_SECONDS,
@@ -4612,8 +4600,7 @@ l850_scan_ready(GObject *source, GAsyncResult *result, gpointer user_data)
 		return;
 	}
 	if (error != NULL) {
-		if (l850_error_is_unsupported(error) &&
-		    l850_firmware_allowed(operation->modem)) {
+		if (l850_error_is_unsupported(error)) {
 			g_list_free_full(cells, g_object_unref);
 			operation->vendor_fallback = TRUE;
 			mm_modem_command(operation->modem->modem,
@@ -4904,10 +4891,6 @@ l850_carrier_ready(GObject *source, GAsyncResult *result, gpointer user_data)
 		l850_carrier_complete_error(operation, "unsupported", FALSE);
 		return;
 	}
-	if (!l850_firmware_allowed(operation->modem)) {
-		l850_carrier_complete_error(operation, "unsupported_firmware", FALSE);
-		return;
-	}
 	if (error != NULL || response == NULL) {
 		normalized = l850_normalize_error(error, operation->timed_out,
 			operation->transport_lost);
@@ -4982,9 +4965,6 @@ method_get_carrier_info(struct ubus_context *context,
 	if (modem->mutation_busy || l850_modem_has_active_scan(ubus, modem) ||
 	    l850_modem_has_active_carrier_query(ubus, modem))
 		return send_l850_error(context, request, modem, "busy", TRUE, 0U);
-	if (!l850_firmware_allowed(modem))
-		return send_l850_error(context, request, modem,
-			"unsupported_firmware", FALSE, 0U);
 	if (!l850_supported_lte_bands_available(modem))
 		return send_l850_error(context, request, modem, "not_ready", TRUE,
 			0U);
@@ -5156,8 +5136,7 @@ l850_mutation_original_is_valid(L850MutationOperation *operation,
 	if (operation->original == NULL || !operation->original->live ||
 	    operation->original->generation != operation->original_generation ||
 	    source != G_OBJECT(operation->original->modem) ||
-	    !l850gl_modem_attest_mutation_target(operation->original) ||
-	    !l850_firmware_allowed(operation->original))
+	    !l850gl_modem_attest_mutation_target(operation->original))
 		return FALSE;
 	physdev = mm_modem_get_physdev(operation->original->modem);
 	return physdev != NULL && g_str_equal(physdev, operation->physdev);
@@ -5174,8 +5153,7 @@ l850_mutation_replacement_is_valid(L850MutationOperation *operation,
 	    operation->replacement->generation !=
 		operation->replacement_generation ||
 	    source != G_OBJECT(operation->replacement->modem) ||
-	    !l850gl_modem_attest_mutation_target(operation->replacement) ||
-	    !l850_firmware_allowed(operation->replacement))
+	    !l850gl_modem_attest_mutation_target(operation->replacement))
 		return FALSE;
 	physdev = mm_modem_get_physdev(operation->replacement->modem);
 	return physdev != NULL && g_str_equal(physdev, operation->physdev);
@@ -5351,8 +5329,7 @@ l850_mutation_find_replacement(L850MutationOperation *operation,
 			continue;
 		physdev = mm_modem_get_physdev(candidate->modem);
 		if (physdev == NULL || !g_str_equal(physdev, operation->physdev) ||
-		    !l850gl_modem_attest_mutation_target(candidate) ||
-		    !l850_firmware_allowed(candidate))
+		    !l850gl_modem_attest_mutation_target(candidate))
 			continue;
 		if (match != NULL) {
 			*ambiguous = TRUE;
@@ -5738,9 +5715,6 @@ method_set_cell_lock(struct ubus_context *context, struct ubus_object *object,
 	if (!l850_band_is_supported(modem, band))
 		return send_l850_error(context, request, modem,
 			"not_ready", TRUE, 0U);
-	if (!l850_firmware_allowed(modem))
-		return send_l850_error(context, request, modem,
-			"unsupported_firmware", FALSE, 0U);
 	retry_after = advanced_retry_after_ms(ubus, modem);
 	if (modem->mutation_busy || modem->l850_voltage_refresh_pending ||
 	    retry_after > 0U)
@@ -5778,9 +5752,6 @@ method_clear_cell_lock(struct ubus_context *context,
 		return send_l850_error(context, request, NULL, error_code,
 			g_str_equal(error_code, "dependency_unavailable") ||
 			g_str_equal(error_code, "busy"), 0U);
-	if (!l850_firmware_allowed(modem))
-		return send_l850_error(context, request, modem,
-			"unsupported_firmware", FALSE, 0U);
 	if (!l850_supported_lte_bands_available(modem))
 		return send_l850_error(context, request, modem, "not_ready", TRUE,
 			0U);
@@ -5925,7 +5896,8 @@ connect_ubus(L850GLUbus *ubus)
 	install_fd_source(ubus);
 	g_message("companion API published as l850gl.mm");
 #ifdef L850GL_MM_EXPERT
-	g_message("expert API published as l850gl.mm.l850 (one live-validated firmware)");
+	g_message("expert API published as l850gl.mm.l850 "
+		"(all L850-GL firmware revisions; hardware-attested)");
 #endif
 	return TRUE;
 }

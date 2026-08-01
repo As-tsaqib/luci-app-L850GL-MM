@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - release/1.0.0
+      - release/1.0.0-r3
     tags:
-      - 'v1.0.0*'
+      - 'v1.0.0-r3'
     paths:
       - '.github/workflows/release-bundle.yml'
       - 'packaging/**'
@@ -47,7 +47,7 @@ jobs:
             mipsel_24kc
             x86_64
           )
-          if [[ "${RELEASE_REF}" == refs/heads/release/1.0.0 ]]; then
+          if [[ "${RELEASE_REF}" == refs/heads/release/1.0.0-r3 ]]; then
             arches=(x86_64)
           else
             arches=("${all_arches[@]}")
@@ -134,7 +134,7 @@ jobs:
       matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
     env:
       APP_VERSION: '1.0.0'
-      APP_RELEASE: '2'
+      APP_RELEASE: '3'
       ARCH: ${{ matrix.arch }}
       TARGET: ${{ matrix.target }}
       SUBTARGET: ${{ matrix.subtarget }}
@@ -552,7 +552,7 @@ jobs:
 
           {
             echo 'Application=luci-app-L850GL-MM'
-            echo 'Release=1.0.0-r2'
+            echo 'Release=1.0.0-r3'
             echo 'API_Schema=4'
             echo "OpenWrt=${OPENWRT_VERSION}"
             echo "Target=${TARGET}/${SUBTARGET}"
@@ -568,7 +568,8 @@ jobs:
               echo 'ModemManager_Netifd=unconditional-in-recipe'
             fi
             echo 'Expert_Object=l850gl.mm.l850'
-            echo 'Expert_Firmware_Allowlist=all'
+            echo 'Expert_Firmware_Revision_Gate=none'
+            echo 'Expert_Hardware_Attestation=L850-GL-MBIM-2cb7:0007'
             echo "Source_Commit=${GITHUB_SHA}"
           } > "${GITHUB_WORKSPACE}/dist/BUILD_INFO.txt"
 
@@ -592,7 +593,7 @@ jobs:
             rollback_install_command="opkg install ./${stock_name}"
           fi
           cat > "${GITHUB_WORKSPACE}/dist/INSTALL.txt" <<EOF
-          L850GL MM 1.0.0 expert bundle
+          L850GL MM 1.0.0-r3 expert bundle
 
           OpenWrt: ${OPENWRT_VERSION}
           Target: ${TARGET}/${SUBTARGET}
@@ -679,7 +680,7 @@ jobs:
   release:
     name: Publish stable GitHub Release
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v1.0.0')
+    if: github.ref == 'refs/tags/v1.0.0-r3'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -727,16 +728,16 @@ jobs:
                 arch="${bundle#luci-app-l850gl-mm-1.0.0-}"
                 arch="${arch%-openwrt24.ipk.zip}"
                 mm_name="modemmanager-l850gl-expert_${mm_version}-r${mm_release}_${arch}.ipk"
-                bridge_name="l850gl-mm-bridge_1.0.0-r2_${arch}.ipk"
-                luci_name='luci-app-l850gl-mm_1.0.0-r2_all.ipk'
+                bridge_name="l850gl-mm-bridge_1.0.0-r3_${arch}.ipk"
+                luci_name='luci-app-l850gl-mm_1.0.0-r3_all.ipk'
                 ;;
               *-openwrt25.apk.zip)
                 format='apk'
                 arch="${bundle#luci-app-l850gl-mm-1.0.0-}"
                 arch="${arch%-openwrt25.apk.zip}"
                 mm_name='modemmanager-l850gl-expert-1.24.0-r10.apk'
-                bridge_name='l850gl-mm-bridge-1.0.0-r2.apk'
-                luci_name='luci-app-l850gl-mm-1.0.0-r2.apk'
+                bridge_name='l850gl-mm-bridge-1.0.0-r3.apk'
+                luci_name='luci-app-l850gl-mm-1.0.0-r3.apk'
                 ;;
               *) exit 1 ;;
             esac
@@ -776,6 +777,12 @@ jobs:
             Stable schema-4 L850-GL ModemManager companion with Overview, Lock,
             and SMS. This release contains twelve expert-only bundles for OpenWrt
             24.10.8/IPK and 25.12.5/APK across six package architectures.
+
+            Expert PCI/EARFCN admission is independent of the reported firmware
+            revision after exact L850-GL MBIM 2cb7:0007 hardware attestation.
+            The fixed mutation and recovery sequence has been live-verified on
+            firmware 18500.5001.00.05.27.30; other L850-GL revisions retain the
+            same bounded parsing, generation, timeout, and postcondition checks.
 
             Select the ZIP matching both the exact OpenWrt release and package
             architecture, verify the outer and inner SHA256SUMS, and follow its

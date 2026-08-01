@@ -107,11 +107,14 @@ Commit IDs are evidence anchors, not source-import points.
   `CFUN=15`, reprobe/registration, and serving-cell postconditions.
 - Stock OpenWrt keeps generic AT-over-D-Bus disabled. The base 1.0 verification build must
   keep it disabled and omit the expert object.
-- Firmware `18500.5001.00.05.27.30` is the sole PCI mutation allowlist entry,
-  based on the dated local matrix rather than a public post.
+- Firmware `18500.5001.00.05.27.30` is the sole revision with a completed local
+  PCI mutation matrix. It is retained as live-validation provenance rather than
+  a runtime admission allowlist; every L850-GL revision is eligible after exact
+  hardware attestation and remains subject to fail-closed runtime validation.
 
 A USB ID, manual, community trace, synthetic fixture, or successful parser test
-does not establish hardware mutation support. Every future allowlist claim must
+does not establish live hardware mutation behavior. Every future live-support
+claim must
 name exact model, firmware, composition, fixture, date, command/clear/reset
 matrix, recovery result, and serving-cell postcondition.
 
@@ -136,7 +139,7 @@ paths and counts an inactive secondary sentinel as a carrier. Neither its
   independent RooterSource 14/10-field grammar and local sanitized modem response
   were separate checks. RooterSource's independent-secondary-uplink example is
   retained only as a negative fixture because that shape has not been observed
-  on the allowlisted firmware.
+  on the live-tested firmware.
 
 ## Implementation record
 
@@ -165,7 +168,7 @@ paths and counts an inactive secondary sentinel as a carrier. Neither its
 - 2026-07-27: an approved local matrix on the exact L850-GL MBIM firmware proved
   XMCI, exact and EARFCN-only set, clear, `CFUN=15`, NVM state, object
   replacement, registration/bearer recovery, and serving-cell postconditions.
-  The fixed typed grammar and one-entry allowlist were then implemented.
+  The fixed typed grammar and then-current one-entry allowlist were implemented.
 - 2026-07-27: the expert SDK artifact was changed to rebuild/package the
   unmodified OpenWrt ModemManager recipe with its reviewed command-transport
   option; the base artifact keeps that option disabled.
@@ -282,6 +285,11 @@ paths and counts an inactive secondary sentinel as a carrier. Neither its
   was installed with ModemManager preserved; 3/3 sets and 3/3 first clears
   verified on their first attempt. Final NVM clear, connected bearer, netifd,
   CA cooldown recovery, SMS cache, assets, ACL/menu, ownership, and logs passed.
+- 2026-08-01: firmware revision was removed as a runtime admission input. Exact
+  L850-GL/plugin/MBIM/`2cb7:0007` attestation, fixed typed commands, bounded
+  parsers, NVM verification, and mutation postconditions remain mandatory.
+  Firmware `18500.5001.00.05.27.30` remains the only live-tested matrix and is
+  not generalized as evidence for other revisions.
 
 Historical v0.2 schema-1 results remain explicitly labeled and are not
 rewritten as schema-2 package evidence. Firmware command-level live evidence

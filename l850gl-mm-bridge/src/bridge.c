@@ -253,14 +253,12 @@ static gboolean
 is_exact_l850gl(MMModem *modem)
 {
 	const gchar *plugin = mm_modem_get_plugin(modem);
-	g_autofree gchar *manufacturer = NULL;
+	g_autofree gchar *model = NULL;
 
 	if (plugin == NULL || g_ascii_strcasecmp(plugin, "fibocom") != 0)
 		return FALSE;
-	manufacturer = normalize_alnum(mm_modem_get_manufacturer(modem));
-	return g_str_equal(manufacturer, "fibocom") ||
-		g_str_equal(manufacturer, "fibocomwireless") ||
-		g_str_equal(manufacturer, "fibocomwirelessinc");
+	model = normalize_alnum(mm_modem_get_model(modem));
+	return g_str_equal(model, "l850gl");
 }
 
 gboolean

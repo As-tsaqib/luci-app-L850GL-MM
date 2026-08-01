@@ -149,8 +149,10 @@ tests then proved, one candidate at a time:
 
 The stored evidence uses sanitized values; live TAC, cell ID, subscriber data,
 addresses, and command logs were not added as fixtures. This complete local
-matrix, rather than community text, permits the one exact firmware allowlist
-entry `18500.5001.00.05.27.30`.
+matrix, rather than community text, establishes firmware
+`18500.5001.00.05.27.30` as the sole live-tested revision. Runtime admission is
+revision-independent and still requires exact hardware attestation and
+fail-closed command, parser, NVM, and postcondition checks.
 
 ## Community evidence is not local validation
 
@@ -172,7 +174,7 @@ post supplies the target model/firmware/composition together with exact set,
 clear, one reset/apply path, reprobe correlation, registration recovery, and a
 serving EARFCN/PCI postcondition. The local 2026-07-27 matrix supplied that
 missing proof independently; public posts are retained as provenance, not as
-the allowlist authority.
+live-validation authority.
 
 ## Current 1.0.0 evidence status
 
@@ -295,7 +297,7 @@ agreed on MBIM. This evidence validates the target grammar and expected
 normalization only; it is not a live `get_carrier_info` ubus or LuCI result.
 No active B29/B32 `GTCAINFO` capture exists. Those downlink-only bands therefore
 remain fail-closed as active carriers until their exact uplink/sentinel form is
-observed on the allowlisted firmware and added with fixtures; SupportedBands
+observed on live L850-GL hardware and added with fixtures; SupportedBands
 advertisement alone is not sufficient evidence.
 
 Live-validated through installed 0.5.0-r1 packages:
@@ -381,7 +383,7 @@ Live-validated through installed 0.4.0-r1 expert packages:
 
 The installed v0.4 run did not repeat PCI set/clear/reset or SMS send/delete.
 PCI mutation remains command-level and schema-2-package live-verified on the
-same exact allowlisted tuple; v0.4 additionally verified expert capability,
+same exact tested tuple; v0.4 additionally verified expert capability,
 NVM status, and XMCI scan while leaving the existing lock untouched.
 
 ## Version 0.3.0 evidence status
@@ -399,7 +401,8 @@ Implemented and covered by source/host/static tests:
   overflow, duplicate/extra NVM keys, and oversized responses;
 - asynchronous standard GetCellInfo normalization, fixed XMCI fallback, and
   64-cell bound;
-- exact firmware allowlist, typed-only command builder, reset/reprobe/
+- revision-independent exact L850-GL hardware admission, typed-only command
+  builder, reset/reprobe/
   registration coordinator, NVM and serving-cell postconditions.
 
 Not yet live-validated for 0.3.0:
@@ -409,7 +412,7 @@ Not yet live-validated for 0.3.0:
 - SMS send/delete and pagination with more than 100 stored messages;
 - Band Lock automatic/subset/recovery and outcome-unknown behavior;
 
-Live-validated through installed 0.3.0-r1 packages on the allowlisted tuple:
+Live-validated through installed 0.3.0-r1 packages on the tested tuple:
 
 - checksum-verified base and expert artifacts from SDK run `30261750513`;
 - router-matched ModemManager 1.24.0-r10 expert replacement at INFO log level;
@@ -424,7 +427,7 @@ Live-validated through installed 0.3.0-r1 packages on the allowlisted tuple:
 - installed three-menu layout and the five exact ACL grants;
 - no raw PCI command text in the normal system log.
 
-Live-validated at command/hardware level on the exact allowlisted tuple:
+Live-validated at command/hardware level on the exact tested tuple:
 
 - XMCI scan, exact lock, EARFCN-only lock, clear, reset, reprobe, registration,
   bearer recovery, NVM verification, and serving-cell verification.
@@ -461,7 +464,9 @@ In a maintenance window with alternate management access:
 
 ## Remaining PCI evidence
 
-The allowlisted firmware has proven the positive set/clear/recovery matrix.
+Firmware `18500.5001.00.05.27.30` has proven the positive
+set/clear/recovery matrix. Other revisions are eligible under the same runtime
+controls but are not represented by this live evidence.
 The following fault and persistence cases remain explicit follow-up work:
 
 - unavailable-cell registration timeout;
@@ -471,8 +476,8 @@ The following fault and persistence cases remain explicit follow-up work:
 
 Runtime handling for these cases remains bounded and fail-closed: exact
 identity/attestation checks, cancellation, deadlines, `outcome_unknown`, and no
-automatic retry. No additional firmware may be allowlisted without its own
-complete dated matrix.
+automatic retry. A live-validation claim for any additional firmware still
+requires its own complete dated matrix; it is not a runtime admission gate.
 
 ## NCM boundary
 

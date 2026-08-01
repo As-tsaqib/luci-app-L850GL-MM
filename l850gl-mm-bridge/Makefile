@@ -5,7 +5,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=l850gl-mm-bridge
 PKG_VERSION:=1.0.0
-PKG_RELEASE:=2
+PKG_RELEASE:=3
 
 PKG_MAINTAINER:=As Tsaqib <0xfiqks@gmail.com>
 PKG_LICENSE:=GPL-2.0-or-later
@@ -37,9 +37,10 @@ define Package/l850gl-mm-bridge/config
 		depends on MODEMMANAGER_WITH_AT_COMMAND_VIA_DBUS
 		default n
 		help
-		  Publish l850gl.mm.l850 with fixed, typed commands for the exact
-		  live-validated L850-GL firmware allowlist. This requires a matching
-		  ModemManager build that enables reviewed AT command transport.
+		  Publish l850gl.mm.l850 with fixed, typed commands after exact
+		  L850-GL MBIM 2cb7:0007 hardware attestation. Firmware revision is
+		  not an admission gate. This requires a matching ModemManager build
+		  that enables reviewed AT command transport.
 endef
 
 define Package/l850gl-mm-bridge/description
@@ -49,8 +50,8 @@ define Package/l850gl-mm-bridge/description
  native ModemManager API. It never dials or creates or deletes bearers. Its
  schema-4 mode-policy endpoint changes only allowedmode and preferredmode on
  the uniquely bound netifd interface. The base build never executes AT commands; the explicit expert
- build can dispatch only its compiled-in, firmware-gated L850 grammar through
- ModemManager's asynchronous command queue.
+ build can dispatch only its compiled-in L850 grammar after exact hardware
+ attestation through ModemManager's asynchronous command queue.
 endef
 
 define Build/Prepare

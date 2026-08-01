@@ -126,9 +126,10 @@ Writes are separate maintenance actions, not migration prerequisites.
   network. Verify the unique ModemManager interface binding and alternate
   management path before applying one reviewed change at a time.
 - Do not run live cell scan, PCI lock, clear, or reset without explicit user
-  permission. The expert path is mutable only on the exact live-validated
-  L850-GL hardware/firmware tuple; all other revisions remain
-  `unsupported_firmware`.
+  permission. The expert path accepts every firmware revision only after exact
+  L850-GL/plugin/MBIM/`2cb7:0007` attestation. Unsupported commands, malformed
+  runtime responses, stale generations, and failed postconditions remain
+  non-mutable or fail closed. Revision text is informational.
 
 After a stale-generation or `outcome_unknown` response, refresh the live modem
 and do not retry until its state makes a new request safe.
@@ -172,7 +173,7 @@ together.
 
 If a separately approved band test disrupts WAN, use the prepared alternate
 management path and restore automatic `["any"]` only after the modem object and
-generation have been refreshed. For the allowlisted expert firmware, PCI
+generation have been refreshed. For an attested expert modem, PCI
 rollback is the typed `clear_cell_lock` action followed by its reset/reprobe and
 exact NVM-clear verification. Never issue a copied raw clear tuple, and do not
 blindly retry an `outcome_unknown` result.
