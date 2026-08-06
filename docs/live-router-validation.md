@@ -55,6 +55,41 @@ cell identity, SMS, APN, or assigned-network data was retained. No PCI set,
 clear, reset, band/mode mutation, or SMS mutation was run. This establishes
 read-protocol compatibility for `.27.16`; it is not a live mutation claim.
 
+## Installed 1.0.0-r2 runtime-protocol acceptance, 2026-08-07
+
+GitHub Actions static run `31128844576` passed the complete pinned host/static
+suite for source `1fba4bd`. Target-only release-bundle run `31128839901` then
+built and verified exactly OpenWrt 24.10.8
+`arm_cortex-a7_neon-vfpv4`, including the pinned expert ModemManager
+1.22.0-r20 recipe, expert binary string contract, package metadata, and bundle
+checksums. The downloaded bundle and all five entries in its inner
+`SHA256SUMS` were verified again before staging.
+
+Only `l850gl-mm-bridge` and `luci-app-l850gl-mm` were upgraded from
+1.0.0-r1 to 1.0.0-r2. The installed expert ModemManager package and running
+daemon were preserved. The two-package OPKG simulation named exactly those two
+upgrades; their on-router hashes matched the Actions bundle before the real
+transaction.
+
+Post-install validation on firmware `18500.5001.00.05.27.16` proved:
+
+- schema 4 and the exact eight base/five expert method tables;
+- a parser-valid clear NVM observation with `cell_lock_status = available` and
+  mutation advertised only after the runtime protocol query succeeded;
+- typed carrier data through fixed `GTCAINFO`, typed voltage `3550 mV`, and a
+  successful fixed-XMCI scan with exactly one serving record;
+- three subsequent six-second polling cycles with base PCI capability, NVM
+  status, and carrier state all continuously `available`;
+- modem state `connected`, bearer connected, and the same ModemManager process
+  before and after package installation and every read-only probe;
+- matching installed and loopback-served LuCI Lock asset hashes, with no
+  bridge warning or unexpected error entry.
+
+No PCI set, clear, reset, mode/band mutation, SMS mutation, ModemManager
+restart, or router reboot was performed. The three `daemon.err`-facility lines
+at bridge start were ordinary GLib `Message` startup notices (base API,
+expert API, and version published), not runtime failures.
+
 ## Stock ModemManager to expert alpha reinstall, 2026-07-30
 
 An OpenWrt 25.12.5 `arm_cortex-a7_neon-vfpv4` router was first returned to the

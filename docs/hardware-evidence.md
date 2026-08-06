@@ -35,6 +35,15 @@ grammar accepts both observed clear encodings while continuing to require
 band, or SMS mutation was performed. This is read-only protocol evidence and
 does not extend the historical `.27.30` live mutation matrix by inference.
 
+The matching 1.0.0-r2 package was subsequently accepted read-only on this
+router. GitHub Actions runs `31128844576` (static) and `31128839901` (exact
+OpenWrt 24.10.8 ARMv7 expert bundle) passed for source `1fba4bd`; local and
+on-router package checksums matched. The bridge/LuCI pair was upgraded without
+reinstalling or restarting expert ModemManager. NVM status, carrier, voltage,
+and XMCI returned typed success; three repeated poll cycles remained available
+with modem and bearer connected and the ModemManager process preserved. No PCI
+or other mutation was used to obtain this acceptance.
+
 ## Stock-to-expert alpha package evidence
 
 On 2026-07-30, OpenWrt 25.12.5
