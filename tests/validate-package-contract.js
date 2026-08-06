@@ -777,6 +777,18 @@ for (const typo of [
 assert.ok(releaseWorkflow.includes('24.10.8'));
 assert.ok(releaseWorkflow.includes('25.12.5'));
 assert.ok(!releaseWorkflow.includes('24.10.7'));
+assert.ok(releaseWorkflow.includes('package_architecture:'),
+	'release dispatch must support selecting one package architecture');
+assert.ok(releaseWorkflow.includes('openwrt_version:'),
+	'release dispatch must support selecting one OpenWrt release');
+assert.ok(releaseWorkflow.includes('arches=("${DISPATCH_ARCH}")'),
+	'the selected dispatch architecture must narrow the build matrix');
+assert.ok(releaseWorkflow.includes(
+	'openwrt_versions=("${DISPATCH_OPENWRT_VERSION}")'),
+	'the selected OpenWrt release must narrow the build matrix');
+assert.ok(releaseWorkflow.includes('arches=("${all_arches[@]}")') &&
+	releaseWorkflow.includes('openwrt_versions=(24.10.8 25.12.5)'),
+	'default dispatch and stable release behavior must retain the full matrix');
 assert.ok(releaseWorkflow.includes(
 	'while (field_index <= NF && $field_index ~ /^--[^[:space:]]+$/)'),
 	'release feed validation must accept pinned SDK feeds with options');

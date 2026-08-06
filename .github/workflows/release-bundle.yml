@@ -5,6 +5,28 @@ name: Release bundles
 
 on:
   workflow_dispatch:
+    inputs:
+      package_architecture:
+        description: 'Package architecture to build (all keeps the release matrix)'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - aarch64_generic
+          - aarch64_cortex-a53
+          - arm_cortex-a7_neon-vfpv4
+          - mipsel_24kc
+          - x86_64
+      openwrt_version:
+        description: 'OpenWrt release to build (all keeps both release formats)'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - '24.10.8'
+          - '25.12.5'
   push:
     branches:
       - release/1.0.0
@@ -36,6 +58,8 @@ jobs:
         shell: bash
         env:
           RELEASE_REF: ${{ github.ref }}
+          DISPATCH_ARCH: ${{ inputs.package_architecture || 'all' }}
+          DISPATCH_OPENWRT_VERSION: ${{ inputs.openwrt_version || 'all' }}
         run: |
           set -euo pipefail
 
@@ -48,8 +72,26 @@ jobs:
           )
           if [[ "${RELEASE_REF}" == refs/heads/release/1.0.0 ]]; then
             arches=(x86_64)
-          else
+          elif [[ "${DISPATCH_ARCH}" == all ]]; then
             arches=("${all_arches[@]}")
+          else
+            case "${DISPATCH_ARCH}" in
+              aarch64_generic|aarch64_cortex-a53|arm_cortex-a7_neon-vfpv4|mipsel_24kc|x86_64)
+                arches=("${DISPATCH_ARCH}")
+                ;;
+              *) exit 1 ;;
+            esac
+          fi
+
+          if [[ "${DISPATCH_OPENWRT_VERSION}" == all ]]; then
+            openwrt_versions=(24.10.8 25.12.5)
+          else
+            case "${DISPATCH_OPENWRT_VERSION}" in
+              24.10.8|25.12.5)
+                openwrt_versions=("${DISPATCH_OPENWRT_VERSION}")
+                ;;
+              *) exit 1 ;;
+            esac
           fi
 
           json='{"include":['
@@ -89,7 +131,7 @@ jobs:
               *) exit 1 ;;
             esac
 
-            for openwrt_version in 24.10.8 25.12.5; do
+            for openwrt_version in "${openwrt_versions[@]}"; do
               case "${openwrt_version}" in
                 24.10.8)
                   openwrt_major='openwrt24'
