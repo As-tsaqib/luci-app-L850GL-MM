@@ -286,6 +286,13 @@ but not-yet-converged state repeats only the read-only query. Set additionally
 runs XMCI and matches the serving EARFCN and, when requested, PCI. Clear
 succeeds only when the five-field NVM clear sentinel is exact.
 
+Observed compatible firmware may instead finish the dispatched `CFUN=15`
+with an unclassified command failure even though object replacement proceeds.
+That generic error does not establish either success or failure: the same
+bounded slot-reprobe and all postconditions remain mandatory. Known
+permission, unsupported, busy, not-ready, and policy failures are terminal.
+The reset is never resent.
+
 The observed target-firmware NVM invariants are:
 
 ```text

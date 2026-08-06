@@ -56,3 +56,17 @@ l850gl_nvm_verifier_observe(L850GLNvmVerifier *verifier,
 	return verifier->consecutive_matches >= required ?
 		L850GL_NVM_DECISION_READY : L850GL_NVM_DECISION_RETRY;
 }
+
+bool
+l850gl_reset_finish_should_reprobe(L850GLResetFinish finish)
+{
+	switch (finish) {
+	case L850GL_RESET_FINISH_CLEAN:
+	case L850GL_RESET_FINISH_UNCERTAIN:
+	case L850GL_RESET_FINISH_UNCLASSIFIED_FAILURE:
+		return true;
+	case L850GL_RESET_FINISH_DEFINITE_FAILURE:
+	default:
+		return false;
+	}
+}

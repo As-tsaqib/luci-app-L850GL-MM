@@ -154,8 +154,8 @@ Version 1.0.0 packages the accepted r6 behavior with a distinguishable expert
 ModemManager identity:
 
 ```text
-l850gl-mm-bridge               1.0.0-r2 expert libmm-glib/GDBus to ubus bridge
-luci-app-l850gl-mm             1.0.0-r2 Overview, Lock, and SMS views
+l850gl-mm-bridge               1.0.0-r3 expert libmm-glib/GDBus to ubus bridge
+luci-app-l850gl-mm             1.0.0-r3 Overview, Lock, and SMS views
 modemmanager-l850gl-expert     matching upstream OpenWrt recipe with reviewed AT transport
 ```
 
@@ -187,12 +187,18 @@ hardware-, ACL-, and build-gated.
 
 ## Evidence status
 
-Version 1.0.0 changes release packaging and version identity, not API schema 4
-or the accepted r6 modem state machines. Its release gate requires each
+Version 1.0.0 keeps API schema 4 and packages the accepted modem state
+machines under the final identities. Release r2 replaced the firmware revision
+comparison with exact hardware attestation plus bounded runtime protocol
+probing. Release r3 additionally handles an observed reset-completion variant:
+an unclassified `CFUN=15` command failure is not accepted as success or treated
+as a terminal result. It enters the same bounded hardware-slot reprobe and must
+still prove replacement, registration, NVM, and (for set) serving-cell
+postconditions. Known permission, policy, busy, and unsupported failures remain
+terminal, and no write or reset is resent. The release gate requires each
 three-package expert ZIP and checksum manifest to pass its target SDK build and
-package checks. The stock-to-expert transaction and installed runtime were
-also exercised on the one live target identified in the dated record; that
-hardware result is not generalized to the other nine compile-only targets.
+package checks. Live hardware results remain scoped to the dated target and
+are not generalized to compile-only targets.
 
 Version 0.6.0 renames the active packages, service, ACLs, paths, and ubus
 objects; the retired names are migration/history identifiers only and must not

@@ -587,7 +587,7 @@ jobs:
 
           {
             echo 'Application=luci-app-L850GL-MM'
-            echo 'Release=1.0.0-r2'
+            echo 'Release=1.0.0-r3'
             echo 'API_Schema=4'
             echo "OpenWrt=${OPENWRT_VERSION}"
             echo "Target=${TARGET}/${SUBTARGET}"
@@ -761,16 +761,16 @@ jobs:
                 arch="${bundle#luci-app-l850gl-mm-1.0.0-}"
                 arch="${arch%-openwrt24.ipk.zip}"
                 mm_name="modemmanager-l850gl-expert_${mm_version}-r${mm_release}_${arch}.ipk"
-                bridge_name="l850gl-mm-bridge_1.0.0-r2_${arch}.ipk"
-                luci_name='luci-app-l850gl-mm_1.0.0-r2_all.ipk'
+                bridge_name="l850gl-mm-bridge_1.0.0-r3_${arch}.ipk"
+                luci_name='luci-app-l850gl-mm_1.0.0-r3_all.ipk'
                 ;;
               *-openwrt25.apk.zip)
                 format='apk'
                 arch="${bundle#luci-app-l850gl-mm-1.0.0-}"
                 arch="${arch%-openwrt25.apk.zip}"
                 mm_name='modemmanager-l850gl-expert-1.24.0-r10.apk'
-                bridge_name='l850gl-mm-bridge-1.0.0-r2.apk'
-                luci_name='luci-app-l850gl-mm-1.0.0-r2.apk'
+                bridge_name='l850gl-mm-bridge-1.0.0-r3.apk'
+                luci_name='luci-app-l850gl-mm-1.0.0-r3.apk'
                 ;;
               *) exit 1 ;;
             esac

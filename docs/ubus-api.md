@@ -407,6 +407,14 @@ Set additionally verifies the serving EARFCN and optional PCI. Only the
 read-only NVM query may repeat. The set/clear tuple and reset are never resent
 automatically.
 
+`CFUN=15` normally completes as `Core.Cancelled` when the old modem object
+disappears. An unclassified command failure after reset dispatch is also
+ambiguous on observed compatible firmware: it enters the same bounded
+hardware-slot reprobe and is never itself accepted as success. Known
+permission, unsupported, busy, not-ready, and policy failures remain terminal.
+Only a replacement that passes registration, post-reset NVM, and the set
+serving-cell checks can produce a verified result.
+
 The ubus request remains deferred through verification. Success therefore
 contains the replacement's new opaque identity, not the stale input identity:
 

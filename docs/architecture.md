@@ -205,6 +205,15 @@ clear requires the exact NVM clear sentinel. Only NVM reads are repeated;
 set, clear, and reset are never resent automatically. Unexpected state and
 post-dispatch transport uncertainty fail closed.
 
+`CFUN=15` normally completes as `Core.Cancelled` when the modem disappears.
+One protocol-compatible firmware was also observed returning an unclassified
+command failure while replacement still occurred. That generic completion is
+therefore treated only as ambiguous: the coordinator enters the same bounded
+hardware-slot reprobe and can succeed only from the full replacement,
+registration, NVM, and serving-cell postconditions. Known permission,
+unsupported, busy, not-ready, and policy failures remain terminal before
+reprobe.
+
 ## Asynchronous lifetime
 
 All D-Bus calls are asynchronous and carry a `GCancellable`. The bridge keeps
@@ -212,9 +221,9 @@ the ubus request deferred until callback completion, timeout, object removal,
 or transport loss. The operation owns references to the original modem and
 interface proxy. Cancellation does not by itself prove that a dispatched write
 did not execute, which is why post-dispatch uncertainty is distinct from an
-ordinary retryable failure. A reset-triggered `Core.Cancelled` is treated as
-post-dispatch uncertainty and resolved only by replacement, registration, NVM,
-and (for set) serving-cell postconditions.
+ordinary retryable failure. A reset-triggered `Core.Cancelled` or unclassified
+command failure is treated as post-dispatch uncertainty and resolved only by
+replacement, registration, NVM, and (for set) serving-cell postconditions.
 
 Loss of the ubus socket cancels deferred operations and starts bounded reconnect
 backoff. Loss of the ModemManager name clears live inventory and reconnects

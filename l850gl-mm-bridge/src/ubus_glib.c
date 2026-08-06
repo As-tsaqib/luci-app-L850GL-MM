@@ -5196,7 +5196,8 @@ l850_mutation_reset_ready(GObject *source, GAsyncResult *result,
 	L850MutationOperation *operation = user_data;
 	g_autoptr(GError) error = NULL;
 	g_autofree gchar *response = NULL;
-	L850NormalizedError normalized;
+	L850NormalizedError normalized = { "operation_failed", FALSE };
+	L850GLResetFinish finish = L850GL_RESET_FINISH_CLEAN;
 
 	response = mm_modem_command_finish(MM_MODEM(source), result, &error);
 	operation->command_pending = FALSE;
@@ -5207,15 +5208,28 @@ l850_mutation_reset_ready(GObject *source, GAsyncResult *result,
 		return;
 	}
 	if (error != NULL &&
-	    !l850_mutation_error_is_uncertain(operation, error)) {
+	    l850_mutation_error_is_uncertain(operation, error)) {
+		finish = L850GL_RESET_FINISH_UNCERTAIN;
+	} else if (error != NULL) {
 		normalized = l850_normalize_error(error, FALSE, FALSE);
+		finish = g_str_equal(normalized.code, "unavailable") ?
+			L850GL_RESET_FINISH_UNCLASSIFIED_FAILURE :
+			L850GL_RESET_FINISH_DEFINITE_FAILURE;
+	}
+	if (!l850gl_reset_finish_should_reprobe(finish)) {
 		l850_mutation_complete_failure(operation,
 			"lock_applied_reset_required",
-			g_str_equal(normalized.code, "unavailable") ?
-			"operation_failed" : normalized.code, FALSE);
+			normalized.code, FALSE);
 		return;
 	}
-	/* CFUN=15 normally removes the source object and completes as Cancelled. */
+	/*
+	 * CFUN=15 normally removes the source object and completes as Cancelled.
+	 * Some protocol-compatible firmware instead returns an unclassified
+	 * command failure while still replacing the modem. Never infer success
+	 * from that error: enter the same bounded hardware-slot reprobe and require
+	 * registration plus NVM/serving postconditions. Known policy, permission,
+	 * busy, and unsupported failures remain terminal above.
+	 */
 	l850_mutation_start_reprobe(operation);
 }
 

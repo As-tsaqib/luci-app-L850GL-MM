@@ -41,7 +41,7 @@ for (const retired of [
 const bridgeMakefile = read('l850gl-mm-bridge/Makefile');
 assert.match(bridgeMakefile, /^PKG_NAME:=l850gl-mm-bridge$/m);
 assert.match(bridgeMakefile, /^PKG_VERSION:=1\.0\.0$/m);
-assert.match(bridgeMakefile, /^PKG_RELEASE:=2$/m);
+assert.match(bridgeMakefile, /^PKG_RELEASE:=3$/m);
 assert.match(bridgeMakefile,
 	/^\s*URL:=https:\/\/github\.com\/As-tsaqib\/luci-app-L850GL-MM$/m);
 assert.match(bridgeMakefile, /^\s*CONFLICTS:=fibocom-mm-bridge$/m,
@@ -466,6 +466,24 @@ assert.match(mutationNvmReady,
 assert.strictEqual((ubusSource.match(
 	/l850_mutation_start_reset\(operation\);/g) || []).length, 1,
 	'the coordinator must have exactly one reset transition and no fallback');
+const mutationResetReadyStart = ubusSource.indexOf(
+	'\nl850_mutation_reset_ready(');
+const mutationResetReadyEnd = ubusSource.indexOf(
+	'\nstatic void\nl850_mutation_start_reset(', mutationResetReadyStart);
+assert.ok(mutationResetReadyStart > 0 &&
+	mutationResetReadyEnd > mutationResetReadyStart,
+	'the concrete reset completion callback must be discoverable');
+const mutationResetReady = ubusSource.slice(mutationResetReadyStart,
+	mutationResetReadyEnd);
+assert.match(mutationResetReady,
+	/L850GL_RESET_FINISH_UNCLASSIFIED_FAILURE/,
+	'an unclassified reset completion must remain an observable outcome');
+assert.match(mutationResetReady,
+	/l850gl_reset_finish_should_reprobe\s*\(/,
+	'reset completion must use the bounded reprobe policy');
+assert.strictEqual((mutationResetReady.match(
+	/l850_mutation_start_reprobe\(operation\);/g) || []).length, 1,
+	'every admitted reset completion must enter one bounded reprobe path');
 assert.match(ubusSource, /"pre_reset_nvm"\s*:\s*"post_reset_nvm"/,
 	'failures must identify the bounded NVM verification stage');
 assert.match(ubusSource, /L850GL_L850_STATE_APPLIED_VERIFIED|applied_verified/);
@@ -622,7 +640,7 @@ assert.match(init, /command "\$PROG" --foreground/);
 
 const luciMakefile = read('luci-app-l850gl-mm/Makefile');
 assert.match(luciMakefile, /^PKG_VERSION:=1\.0\.0$/m);
-assert.match(luciMakefile, /^PKG_RELEASE:=2$/m);
+assert.match(luciMakefile, /^PKG_RELEASE:=3$/m);
 assert.match(luciMakefile, /^LUCI_URL:=https:\/\/github\.com\/As-tsaqib\/luci-app-L850GL-MM$/m);
 assert.match(luciMakefile, /^LUCI_MAINTAINER:=As Tsaqib <[^>]+>$/m);
 for (const dependency of [
@@ -748,8 +766,8 @@ assert.ok(sdkWorkflow.includes("grep -Fx 'AT+CBC'"),
 assert.ok(sdkWorkflow.includes('Expert_Object=absent'));
 assert.strictEqual((sdkWorkflow.match(/API_Schema=4/g) || []).length, 1,
 	'the base SDK artifact manifest must identify schema 4 exactly once');
-assert.strictEqual((sdkWorkflow.match(/Release=1\.0\.0-r2/g) || []).length, 1,
-	'the base SDK artifact manifest must identify release 1.0.0-r2 exactly once');
+assert.strictEqual((sdkWorkflow.match(/Release=1\.0\.0-r3/g) || []).length, 1,
+	'the base SDK artifact manifest must identify release 1.0.0-r3 exactly once');
 assert.ok(!sdkWorkflow.includes('Release=0.6.0-r6'),
 	'the final SDK workflow must not label new artifacts as the previous release');
 assert.ok(!sdkWorkflow.includes('API_Schema=2'));
