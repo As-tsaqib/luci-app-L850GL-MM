@@ -1,0 +1,5 @@
+frequency=65535
+rat=255
+psc_or_pci=65535
+band_info=255
+inter_freq_lock_support=0

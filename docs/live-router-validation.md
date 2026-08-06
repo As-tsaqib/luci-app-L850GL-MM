@@ -19,6 +19,42 @@ listed companion behavior on this hardware; it does not claim every L850
 firmware or OpenWrt release. The historical eSIM probe is retained only as
 provenance for a package retired in 0.3.
 
+## Firmware 18500.5001.00.05.27.16 read-only protocol probe, 2026-08-06
+
+The current Linksys EA6350v3 was inspected on OpenWrt 24.10.8
+`ipq40xx/generic` with ModemManager 1.22.0-r20, MBIM composition, Fibocom
+plugin, and USB identity `2cb7:0007`. The installed 1.0.0-r1 bridge still used
+the historical `.27.30` revision comparison, so PCI status and the optional
+vendor read paths were reported as unsupported even though normal
+ModemManager mode, band, registration, bearer, and netifd behavior remained
+healthy.
+
+Four fixed read-only commands were then sent exclusively through
+ModemManager's serialized command transport. `AT+CBC`, `AT+GTCAINFO?`, and
+`AT+XMCI=1` each returned a bounded response accepted by the existing typed
+voltage, carrier, and LTE-cell grammars. The fixed NVM query returned the clear
+state below:
+
+```text
+frequency=65535
+rat=255
+psc_or_pci=65535
+band_info=255
+inter_freq_lock_support=0
+```
+
+This differs from the `.27.30` clear observation only in inactive-field
+sentinels: `.27.16` uses `255` for `rat` and `band_info`. The updated NVM parser
+accepts either the previously observed inactive values (`rat=3`,
+`band_info=0`) or these inactive sentinels only when the remaining fields form
+an exact clear state. An active lock still requires LTE `rat=3`, a valid LTE
+EARFCN/PCI, and `band_info` equal to `0`, `255`, or the derived logical band.
+
+The capture was sanitized into bounded fixtures; no raw subscriber, location,
+cell identity, SMS, APN, or assigned-network data was retained. No PCI set,
+clear, reset, band/mode mutation, or SMS mutation was run. This establishes
+read-protocol compatibility for `.27.16`; it is not a live mutation claim.
+
 ## Stock ModemManager to expert alpha reinstall, 2026-07-30
 
 An OpenWrt 25.12.5 `arm_cortex-a7_neon-vfpv4` router was first returned to the
@@ -686,7 +722,7 @@ second physical-replug trace.
 
 ## Final state
 
-Allowlisted status fields showed:
+Sanitized status fields showed:
 
 ```text
 ModemManager state       connected
@@ -764,5 +800,6 @@ The following were deliberately excluded from stored evidence:
 - assigned IP, gateway, and DNS values;
 - eSIM activation or confirmation secrets.
 
-Future support bundles must use the same allowlist approach instead of dumping
-raw `mmcli -K`, `uci show network`, or unredacted logs.
+Future support bundles must use the same explicit field allowlist and redaction
+approach instead of dumping raw `mmcli -K`, `uci show network`, or unredacted
+logs.

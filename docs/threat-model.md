@@ -139,9 +139,10 @@ length, bad name termination, duplicate fields, and malformed session data.
   PCI/EARFCN/RSRP/RSRQ, permits only reviewed sentinels in discarded fields,
   and rejects truncation, extra fields, encoding errors, overflow, and
   oversized output.
-- The firmware allowlist contains exactly `18500.5001.00.05.27.30`, added only
-  after the dated live command/recovery matrix. Other revisions cannot use the
-  XMCI fallback or any mutation.
+- No firmware revision is trusted by string comparison. Read-only vendor
+  fallbacks are accepted only after their bounded typed parsers succeed. Every
+  mutation first performs a same-generation read-only NVM protocol probe and
+  fails before write dispatch when the command or grammar is unrecognized.
 - Commands are compiled-in fixed grammar built only from typed bounded
   integers; no browser command, path, wildcard, RAT, SIM ID, or band encoding
   is accepted.
@@ -156,15 +157,15 @@ length, bad name termination, duplicate fields, and malformed session data.
   postconditions pass; post-dispatch ambiguity is `outcome_unknown` with no
   automatic retry.
 - Carrier aggregation has a distinct fixed read-only `AT+GTCAINFO?` command.
-  It is available only in the expert build on the exact allowlisted tuple; no
+  It is available only in the expert build on exactly attested hardware; no
   command field crosses ubus. Its parser bounds the response to 4,096 bytes and
   eight slots, enforces the 14-field primary/10-field secondary grammar,
   validates live bands, primary paired DL/UL ranges, PCI, and bandwidth, and
   ignores only the exact inactive sentinel. Active secondaries additionally
   require own-band DL fields, UL bandwidth sentinel `255`, and an UL EARFCN
   equal to the primary UL; their exported UL bandwidth is null. Independent
-  secondary uplink and active B29/B32 fail closed until their exact
-  allowlisted-firmware shape has live evidence. No raw output or
+  secondary uplink and active B29/B32 fail closed unless their exact response
+  shape passes the reviewed parser. No raw output or
   MCC/MNC/TAC/cell ID/signal fields are exported. SINR code `127` is admitted
   only as an unavailable metric on an otherwise fully valid active secondary;
   it remains invalid on the primary.

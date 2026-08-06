@@ -111,6 +111,10 @@ main(int argc, char **argv)
 		scan.cells[0].rsrq_tenths_db == -120);
 	assert(!scan.cells[1].serving && scan.cells[1].earfcn == 325U &&
 		scan.cells[1].pci == 0U && scan.cells[1].band == 1U);
+	assert(parse_fixture(argv[1], "valid-runtime-probed-l850.txt", &scan) ==
+		L850GL_L850_CELL_PARSE_OK);
+	assert(scan.length == 5U && scan.cells[0].serving &&
+		scan.cells[0].band == 5U);
 	for (index = 0U; index < sizeof(invalid) / sizeof(invalid[0]); index++) {
 		assert(parse_fixture(argv[1], invalid[index].name, &scan) ==
 			invalid[index].expected);
@@ -132,17 +136,14 @@ main(int argc, char **argv)
 	assert(!l850gl_l850_earfcn_to_band(999999U, &band));
 	assert(l850gl_l850_band_is_supported(3U, supported, 3U));
 	assert(!l850gl_l850_band_is_supported(8U, supported, 3U));
-	assert(l850gl_l850_firmware_is_allowed("18500.5001.00.05.27.30"));
-	assert(!l850gl_l850_firmware_is_allowed("18500.5001.00.05.27.29"));
-	assert(!l850gl_l850_firmware_is_allowed(
-		"18500.5001.00.05.27.30 "));
-	assert(!l850gl_l850_firmware_is_allowed(NULL));
-
 	assert(parse_nvm_fixture(argv[1], "nvm-clear.txt", &lock_state) ==
 		L850GL_L850_CELL_PARSE_OK);
 	assert(!lock_state.enabled);
 	assert(l850gl_l850_lock_state_matches(&lock_state, true, 0U,
 		false, 0U));
+	assert(parse_nvm_fixture(argv[1], "nvm-clear-inactive-sentinels.txt",
+		&lock_state) == L850GL_L850_CELL_PARSE_OK);
+	assert(!lock_state.enabled);
 	assert(parse_nvm_fixture(argv[1], "nvm-locked-exact.txt",
 		&lock_state) == L850GL_L850_CELL_PARSE_OK);
 	assert(lock_state.enabled && lock_state.has_pci &&
@@ -150,6 +151,12 @@ main(int argc, char **argv)
 		lock_state.band == 3U);
 	assert(l850gl_l850_lock_state_matches(&lock_state, false, 1325U,
 		true, 381U));
+	assert(parse_nvm_fixture(argv[1], "nvm-locked-band-sentinel.txt",
+		&lock_state) == L850GL_L850_CELL_PARSE_OK);
+	assert(lock_state.enabled && lock_state.band == 3U);
+	assert(parse_nvm_fixture(argv[1], "nvm-locked-logical-band.txt",
+		&lock_state) == L850GL_L850_CELL_PARSE_OK);
+	assert(lock_state.enabled && lock_state.band == 3U);
 	assert(!l850gl_l850_lock_state_matches(&lock_state, false, 1325U,
 		true, 0U));
 	assert(parse_nvm_fixture(argv[1], "nvm-locked-earfcn.txt",
@@ -161,6 +168,8 @@ main(int argc, char **argv)
 		&lock_state) == L850GL_L850_CELL_PARSE_MALFORMED);
 	assert(parse_nvm_fixture(argv[1], "nvm-invalid-inconsistent-clear.txt",
 		&lock_state) == L850GL_L850_CELL_PARSE_MALFORMED);
+	assert(parse_nvm_fixture(argv[1], "nvm-invalid-active-rat-sentinel.txt",
+		&lock_state) == L850GL_L850_CELL_PARSE_RANGE);
 	assert(l850gl_l850_nvm_parse("", 0U, &lock_state) ==
 		L850GL_L850_CELL_PARSE_EMPTY);
 

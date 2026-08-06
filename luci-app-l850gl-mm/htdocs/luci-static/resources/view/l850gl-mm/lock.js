@@ -970,11 +970,11 @@ function renderPciLock(controller, entry, state, index) {
 		E('h4', { 'class': 'l850gl-mm-panel-title' }, [ _('PCI/EARFCN Lock') ])
 	];
 
-	if ([ 'unsupported_build', 'unsupported_firmware' ].indexOf(status.state) !== -1) {
+	if ([ 'unsupported_build', 'unsupported_protocol' ].indexOf(status.state) !== -1) {
 		children.push(E('div', { 'class': 'alert-message warning' }, [
 			status.state === 'unsupported_build' ?
 				_('PCI lock is absent from this base build. Install an explicitly reviewed expert build to expose the typed expert object.') :
-				_('This firmware is not in the live-validated mutation allowlist. Standard ModemManager cell scan may still be attempted when advertised, but no vendor fallback, lock tuple, or reset sequence will be guessed.')
+				_('This modem does not expose a recognized L850 lock protocol. Standard ModemManager scanning and validated read-only vendor fallbacks may still be available, but lock commands remain disabled.')
 		]));
 	}
 	children.push(E('div', {

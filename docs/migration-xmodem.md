@@ -45,7 +45,7 @@ identifiers, phone numbers, SMS, credentials, or activation codes.
 ## Remove the retired companion
 
 The renamed service and packages must never coexist with the retired pair.
-Before installing package version 1.0.0-r1, stop and disable the old service, then remove all
+Before installing package version 1.0.0-r2, stop and disable the old service, then remove all
 old companion packages with the router's package manager:
 
 ```text
@@ -66,7 +66,7 @@ before the renamed pair is unpacked, so files and ACLs cannot overlap.
 
 ## Install 1.0.0
 
-Install the matching checksum-verified 1.0.0-r1 expert bundle only after
+Install the matching checksum-verified 1.0.0-r2 expert bundle only after
 the retirement checks above pass:
 
 ```text
@@ -126,9 +126,9 @@ Writes are separate maintenance actions, not migration prerequisites.
   network. Verify the unique ModemManager interface binding and alternate
   management path before applying one reviewed change at a time.
 - Do not run live cell scan, PCI lock, clear, or reset without explicit user
-  permission. The expert path is mutable only on the exact live-validated
-  L850-GL hardware/firmware tuple; all other revisions remain
-  `unsupported_firmware`.
+  permission. The expert path requires exact L850-GL hardware attestation and
+  a successful runtime NVM protocol probe; unrecognized command grammars remain
+  `unsupported_protocol`.
 
 After a stale-generation or `outcome_unknown` response, refresh the live modem
 and do not retry until its state makes a new request safe.
@@ -172,7 +172,7 @@ together.
 
 If a separately approved band test disrupts WAN, use the prepared alternate
 management path and restore automatic `["any"]` only after the modem object and
-generation have been refreshed. For the allowlisted expert firmware, PCI
+generation have been refreshed. For a runtime-validated expert protocol, PCI
 rollback is the typed `clear_cell_lock` action followed by its reset/reprobe and
 exact NVM-clear verification. Never issue a copied raw clear tuple, and do not
 blindly retry an `outcome_unknown` result.

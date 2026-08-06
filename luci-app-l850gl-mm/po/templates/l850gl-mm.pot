@@ -935,7 +935,7 @@ msgid "There are no deletable SMS messages in this view."
 msgstr ""
 
 #: htdocs/luci-static/resources/view/l850gl-mm/lock.js:977
-msgid "This firmware is not in the live-validated mutation allowlist. Standard ModemManager cell scan may still be attempted when advertised, but no vendor fallback, lock tuple, or reset sequence will be guessed."
+msgid "This modem does not expose a recognized L850 lock protocol. Standard ModemManager scanning and validated read-only vendor fallbacks may still be available, but lock commands remain disabled."
 msgstr ""
 
 #: htdocs/luci-static/resources/view/l850gl-mm/overview.js:152

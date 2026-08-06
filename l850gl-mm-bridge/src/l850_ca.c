@@ -35,8 +35,9 @@ struct CaBandRange {
 /*
  * Paired and TDD bands advertised by the L850-GL. Downlink-only bands 29 and
  * 32 deliberately remain fail-closed until their active GTCAINFO uplink
- * sentinel shape is captured on the allowlisted firmware. Runtime integration
- * additionally confirms that every band occurs in live SupportedBands.
+ * sentinel shape is captured and added to the bounded grammar. Runtime
+ * integration additionally confirms that every band occurs in live
+ * SupportedBands.
  */
 static const struct CaBandRange ca_band_ranges[] = {
 	{ 1U, 0U, 599U, 18000U, 18599U },
@@ -339,9 +340,10 @@ parse_secondary_record(char **fields, uint8_t *slot_index, bool *active,
 	if (result != L850GL_L850_CA_PARSE_OK)
 		return result;
 	/*
-	 * On the allowlisted L850 firmware an active secondary is downlink-only:
-	 * its uplink EARFCN repeats the primary uplink and its uplink bandwidth is
-	 * the exact 255 sentinel.  Do not admit an unverified uplink-CA shape.
+	 * In every captured compatible L850 response, an active secondary is
+	 * downlink-only: its uplink EARFCN repeats the primary uplink and its uplink
+	 * bandwidth is the exact 255 sentinel. Do not admit an unverified uplink-CA
+	 * shape.
 	 */
 	if (carrier->uplink_active)
 		return L850GL_L850_CA_PARSE_RANGE;

@@ -25,7 +25,8 @@ or connection controls without a new product decision.
 
 The expert object remains behind `L850GL_MM_EXPERT` and a separate ACL.
 The base binary must not contain its object name. Enabling the build gate is
-not permission to populate a firmware allowlist.
+not permission to bypass exact hardware attestation or bounded runtime protocol
+validation.
 
 ## Identity and asynchronous safety
 
@@ -77,24 +78,27 @@ Band Lock must continue using asynchronous SetCurrentBands with automatic
 warning, hardware attestation, shared lock, timeout/cooldown, and stale outcome
 handling. Do not embed XACT commands.
 
-PCI work requires exact model/firmware/composition evidence, bounded parser
-fixtures, ModemManager arbitration, exact clear/reset/recovery behavior, and
-serving-cell postcondition. Never guess a band encoding, wildcard, NVM path,
-unlock tuple, or reset sequence. No live scan, lock, clear, reset, or SMS
-mutation may be run without explicit user permission.
+PCI work requires exact model/composition evidence, per-firmware sanitized
+protocol captures, bounded parser fixtures, ModemManager arbitration, exact
+clear/reset/recovery behavior, and a serving-cell postcondition. Every mutation
+must pass a same-generation read-only NVM protocol probe before dispatching its
+single fixed write. Never guess a band encoding, wildcard, NVM path, unlock
+tuple, or reset sequence. No live scan, lock, clear, reset, or SMS mutation may
+be run without explicit user permission.
 
-The expert read-only carrier query is similarly build- and firmware-gated. It
-must remain the fixed `AT+GTCAINFO?` command dispatched asynchronously through
-ModemManager, with a 20-second operation deadline, 15-second command deadline,
-per-modem single-flight exclusion against scans and mutations, and a five-second
-post-completion cooldown. Keep the parser limited to the documented 14-field
-primary and 10-field secondary records, eight declared slots, supported LTE
-bands, paired primary DL/UL EARFCN validation, exact inactive sentinels, and
-bounded typed output. An active secondary is admitted only when its own-band
-DL fields are valid, its UL bandwidth is exactly `255`, and its UL EARFCN
-equals the validated primary UL EARFCN; serialize that absent secondary uplink
-bandwidth as `null`. Do not re-admit independent secondary uplink or active
-B29/B32 shapes without a sanitized allowlisted-firmware capture and fixtures.
+The expert read-only carrier query is similarly build-, hardware-, and
+parser-gated. It must remain the fixed `AT+GTCAINFO?` command dispatched
+asynchronously through ModemManager, with a 20-second operation deadline,
+15-second command deadline, per-modem single-flight exclusion against scans and
+mutations, and a five-second post-completion cooldown. Keep the parser limited
+to the documented 14-field primary and 10-field secondary records, eight
+declared slots, supported LTE bands, paired primary DL/UL EARFCN validation,
+exact inactive sentinels, and bounded typed output. An active secondary is
+admitted only when its own-band DL fields are valid, its UL bandwidth is
+exactly `255`, and its UL EARFCN equals the validated primary UL EARFCN;
+serialize that absent secondary uplink bandwidth as `null`. Do not re-admit
+independent secondary uplink or active B29/B32 shapes without a sanitized live
+capture and fixtures that establish their exact response grammar.
 The inactive sentinel's retained UL EARFCN must match the primary as well.
 SINR code `127` may be treated as unavailable only on an otherwise valid active
 secondary; it remains invalid on the primary, and no signal metric is exported.

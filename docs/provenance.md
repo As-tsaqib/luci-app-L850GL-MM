@@ -107,11 +107,14 @@ Commit IDs are evidence anchors, not source-import points.
   `CFUN=15`, reprobe/registration, and serving-cell postconditions.
 - Stock OpenWrt keeps generic AT-over-D-Bus disabled. The base 1.0 verification build must
   keep it disabled and omit the expert object.
-- Firmware `18500.5001.00.05.27.30` is the sole PCI mutation allowlist entry,
-  based on the dated local matrix rather than a public post.
+- Firmware `18500.5001.00.05.27.30` was the sole PCI mutation allowlist entry
+  in the historical revision-gated implementation, based on the dated local
+  matrix rather than a public post. The current implementation does not compare
+  revision strings; it requires exact hardware attestation and a bounded
+  same-generation NVM protocol probe before any fixed write.
 
 A USB ID, manual, community trace, synthetic fixture, or successful parser test
-does not establish hardware mutation support. Every future allowlist claim must
+does not establish live mutation evidence. Every future live-support claim must
 name exact model, firmware, composition, fixture, date, command/clear/reset
 matrix, recovery result, and serving-cell postcondition.
 
@@ -136,7 +139,7 @@ paths and counts an inactive secondary sentinel as a carrier. Neither its
   independent RooterSource 14/10-field grammar and local sanitized modem response
   were separate checks. RooterSource's independent-secondary-uplink example is
   retained only as a negative fixture because that shape has not been observed
-  on the allowlisted firmware.
+  in a compatible live response.
 
 ## Implementation record
 

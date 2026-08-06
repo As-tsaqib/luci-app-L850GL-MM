@@ -17,7 +17,23 @@ interchangeable.
 
 Never store IMEI, IMSI, ICCID, EID, phone numbers, SMS body, APN credentials,
 PIN/PUK, activation codes, tokens, or assigned IP configuration. Evidence must
-use an allowlist and sanitized fixtures rather than raw diagnostic dumps.
+use an explicit field allowlist and sanitized fixtures rather than raw
+diagnostic dumps.
+
+## Firmware 18500.5001.00.05.27.16 read-only evidence
+
+On 2026-08-06, the L850-GL in the current OpenWrt 24.10.8 router was exactly
+attested as Fibocom, MBIM, and `2cb7:0007`. Firmware
+`18500.5001.00.05.27.16` returned parser-valid responses to the fixed read-only
+`AT+CBC`, `AT+GTCAINFO?`, and `AT+XMCI=1` queries through ModemManager. Its
+fixed NVM state query also returned a coherent clear lock, but used inactive
+`rat=255` and `band_info=255` sentinels instead of the `.27.30` clear values.
+
+The new sanitized PCI/CA fixtures cover those bounded response shapes. The NVM
+grammar accepts both observed clear encodings while continuing to require
+`rat=3` and LTE-range fields for every active lock. No set, clear, reset, mode,
+band, or SMS mutation was performed. This is read-only protocol evidence and
+does not extend the historical `.27.30` live mutation matrix by inference.
 
 ## Stock-to-expert alpha package evidence
 
@@ -191,10 +207,10 @@ Implemented in the current source/host/static contract:
   snapshot across the reviewed retryable `busy`, `rate_limited`, `not_ready`,
   `timeout`, and `dependency_unavailable` polls, while malformed, stale,
   incompatible, and non-retryable failures remain fail-closed;
-- a target-firmware active-secondary grammar that requires own-band DL fields,
+- a captured compatible-response active-secondary grammar that requires own-band DL fields,
   UL bandwidth sentinel `255`, and an UL EARFCN equal to the validated primary
   UL, with explicit nullable secondary UL bandwidth at the API boundary;
-- target-firmware handling for SINR code `127` only as an unavailable,
+- compatible-response handling for SINR code `127` only as an unavailable,
   unexported metric on an otherwise valid active secondary;
 - carrier-first LuCI polling so the optional voltage refresh cannot repeatedly
   win the same per-modem expert-command arbitration slot.
@@ -461,7 +477,8 @@ In a maintenance window with alternate management access:
 
 ## Remaining PCI evidence
 
-The allowlisted firmware has proven the positive set/clear/recovery matrix.
+Firmware `.27.30` has proven the positive set/clear/recovery matrix. Firmware
+`.27.16` currently has read-only protocol evidence only.
 The following fault and persistence cases remain explicit follow-up work:
 
 - unavailable-cell registration timeout;
@@ -470,9 +487,11 @@ The following fault and persistence cases remain explicit follow-up work:
 - full-router reboot persistence.
 
 Runtime handling for these cases remains bounded and fail-closed: exact
-identity/attestation checks, cancellation, deadlines, `outcome_unknown`, and no
-automatic retry. No additional firmware may be allowlisted without its own
-complete dated matrix.
+identity/attestation checks, a same-generation NVM protocol probe,
+cancellation, deadlines, `outcome_unknown`, and no automatic retry. A
+successful parser probe enables the fixed state machine without a revision
+list, but mutation support for a new response grammar must not be claimed as
+live-verified without its own complete dated matrix.
 
 ## NCM boundary
 

@@ -68,7 +68,7 @@ as `null`; it never fabricates a value. Independent secondary uplink and active
 secondary SINR code `127` is accepted only as an unavailable, non-exported
 metric after every carrier-defining field passes. Other unexpected signal
 sentinels, independent secondary uplink, and active B29/B32 shapes remain
-fail-closed until captured on the allowlisted firmware.
+fail-closed unless their response shape passes the bounded typed parser.
 The API never returns the raw response or cellular subscriber/location fields.
 A base build has no expert object and renders these details unavailable.
 
@@ -85,14 +85,15 @@ Lock contains:
 - A build-gated L850 PCI/EARFCN section. The base binary does not contain or
   publish `l850gl.mm.l850`. An explicit expert build first tries standard
   ModemManager `GetCellInfo`, normalizes at most 64 LTE cells, and validates
-  PCI and EARFCN against live supported bands. For the single allowlisted
-  firmware `18500.5001.00.05.27.30`, `Core.Unsupported` falls back to a fixed
-  XMCI query through ModemManager. Scans are single-flight per modem and have
+  PCI and EARFCN against live supported bands. When standard CellInfo returns
+  `Core.Unsupported`, the bridge tries its fixed XMCI query and accepts it only
+  when the bounded typed response validates. Scans are single-flight and have
   a five-second cooldown measured from completion. Set/clear use fixed typed
   tuples and require two matching NVM reads one second apart before the single
   fixed `CFUN=15`. The coordinator then performs exact hardware-slot reprobe
   correlation, registration wait, bounded post-reset NVM polling, and
-  serving-cell verification. Every other firmware fails closed.
+  serving-cell verification. Each mutation starts with a read-only NVM
+  protocol probe; unrecognized command grammars fail closed before any write.
 
 SMS uses ModemManager Messaging/Sms only. The cache consumes Added, Deleted,
 and property-change signals, reconciles every 30 seconds, keeps the newest
@@ -153,8 +154,8 @@ Version 1.0.0 packages the accepted r6 behavior with a distinguishable expert
 ModemManager identity:
 
 ```text
-l850gl-mm-bridge               1.0.0-r1 expert libmm-glib/GDBus to ubus bridge
-luci-app-l850gl-mm             1.0.0-r1 Overview, Lock, and SMS views
+l850gl-mm-bridge               1.0.0-r2 expert libmm-glib/GDBus to ubus bridge
+luci-app-l850gl-mm             1.0.0-r2 Overview, Lock, and SMS views
 modemmanager-l850gl-expert     matching upstream OpenWrt recipe with reviewed AT transport
 ```
 
@@ -257,7 +258,9 @@ an L850-GL MBIM `2cb7:0007` running firmware
 exact neighbor-cell lock, EARFCN-only lock, clear, `CFUN=15` removal/reprobe,
 registration, bearer recovery, NVM postconditions, and serving-cell changes.
 The router was returned to clear/automatic state with its bearer connected.
-The allowlist contains only that exact firmware. The installed 0.3.0-r1 expert
+That historical release allowed only that exact firmware. The current bridge
+instead identifies compatible firmware from validated command responses. The
+installed 0.3.0-r1 expert
 packages were validated through schema-2 local ubus and an authorized
 HTTP `/ubus` rpcd session: XMCI fallback, exact current-cell set, replacement identity,
 stale-identity rejection, clear, NVM/registration/serving-cell postconditions,
