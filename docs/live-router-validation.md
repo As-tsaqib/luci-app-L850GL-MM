@@ -90,6 +90,68 @@ restart, or router reboot was performed. The three `daemon.err`-facility lines
 at bridge start were ordinary GLib `Message` startup notices (base API,
 expert API, and version published), not runtime failures.
 
+## Installed 1.0.0-r3 `.27.16` mutation acceptance, 2026-08-07
+
+The user confirmed alternate hotspot connectivity and authorized disruptive
+PCI testing. An r2 HTTP `/ubus` exact-current-cell set completed as
+`applied_verified`, including replacement, registration, NVM, and serving-cell
+postconditions. A later independent set again verified, but its clear exposed a
+firmware completion variant: after configuration acknowledgement and the
+pre-reset NVM barrier, `CFUN=15` returned the sanitized terminal pair
+`lock_applied_reset_required` / `operation_failed`. No command was retried.
+Immediate read-only recovery inspection found a replacement generation, exact
+clear NVM, home registration, connected modem, and connected bearer. This
+established that an unclassified command failure did not reliably mean the
+reset had failed on `.27.16`.
+
+Release r3 therefore treats only an unclassified reset-command failure as an
+ambiguous completion and enters the existing bounded hardware-slot reprobe.
+It does not accept the error as success: replacement attestation,
+registration, post-reset NVM, and the set serving-cell check remain mandatory.
+Known permission, unsupported, busy, not-ready, and policy failures remain
+terminal. The write and reset are never resent. The pure reset-completion
+policy is covered by the pinned host/static suite.
+
+GitHub Actions static run `31129696815` passed for source `c08f8fc`. Exact
+target-only run `31129696709` built and verified OpenWrt 24.10.8
+`arm_cortex-a7_neon-vfpv4`. The downloaded bundle SHA-256 was
+`115ccef353eff20e34e0ee9abb5936924ef533bb70031c7d89850f23d11d0da6`;
+its bridge and LuCI package SHA-256 values were respectively
+`d7513aaaf8024a5d75a87b607ac61291124a031262d4842dfbac05cd9da69929`
+and
+`70c1ad6e03370cbfcc3536ce314cbaeb40150d6ce1993431ef75559f6d288a3b`.
+The outer archive and every inner `SHA256SUMS` entry passed locally, then the
+two staged package hashes passed again on the router. OPKG simulation and the
+real transaction upgraded exactly bridge/LuCI r2 to r3. Expert ModemManager
+1.22.0-r20 and its running process were preserved; checksum-verified r2
+packages plus a mode-0600 pre-r3 file archive remain in the router's temporary
+rollback directory.
+
+The installed r3 acceptance then proved through least-privilege temporary
+HTTP `/ubus` sessions:
+
+- schema 4, exact eight base/five expert methods, runtime `available/clear`,
+  typed voltage and carrier data, matching loopback-served assets, connected
+  bearer, and zero unexpected bridge warning/error entries before mutation;
+- a bounded `l850-xmci` scan with exactly one serving record; its EARFCN/PCI
+  were used only inside the test process and were neither printed nor stored;
+- exact-current-cell set returned `applied_verified` with replacement,
+  registration, NVM, and serving-cell verification all true;
+- a fresh pre-clear read observed persistent `configured_exact` NVM, then
+  clear returned `cleared_verified` with replacement, registration, and NVM
+  verification all true;
+- three final spaced polls were continuously `connected`, `available`,
+  mutable, exact NVM `clear`, home-registered, and bearer-connected;
+- final typed carrier data, a data-path probe bound to the modem interface,
+  installed/served LuCI hashes, unchanged ModemManager process, and zero
+  unexpected bridge warning/error entries all passed.
+
+Every temporary rpcd session was destroyed. No opaque modem ID, serving or
+neighbor EARFCN/PCI, subscriber/location identifier, raw modem response,
+assigned address, or credential was retained. No SMS, mode, Band Lock, router
+reboot, direct TTY/WDM access, or ModemManager restart was performed. The
+router was left in clear/automatic state with its modem data path connected.
+
 ## Stock ModemManager to expert alpha reinstall, 2026-07-30
 
 An OpenWrt 25.12.5 `arm_cortex-a7_neon-vfpv4` router was first returned to the

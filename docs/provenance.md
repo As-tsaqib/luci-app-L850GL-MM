@@ -286,6 +286,23 @@ paths and counts an inactive secondary sentinel as a carrier. Neither its
   verified on their first attempt. Final NVM clear, connected bearer, netifd,
   CA cooldown recovery, SMS cache, assets, ACL/menu, ownership, and logs passed.
 
+- 2026-08-06: fixed read-only queries on the exact L850-GL/MBIM hardware found
+  that firmware `.27.16` implements the reviewed voltage, carrier, XMCI, and
+  NVM protocols but uses `rat=255` and `band_info=255` in its exact clear NVM
+  state. Runtime protocol source removed the `.27.30` revision comparison;
+  static run `31128844576` and target-only ARMv7 run `31128839901` passed, and
+  the r2 bridge/LuCI pair was accepted read-only with ModemManager preserved.
+- 2026-08-07: hotspot-backed HTTP mutation testing on `.27.16` produced a
+  verified exact-current-cell set, then exposed an unclassified `CFUN=15`
+  completion on clear while replacement, exact clear NVM, registration, and
+  bearer recovery were independently present. No command was retried. Source
+  `c08f8fc` routes only that unclassified completion through the existing
+  bounded slot-reprobe policy; known failures remain terminal and all normal
+  postconditions remain mandatory. Static run `31129696815` and exact ARMv7
+  bundle run `31129696709` passed. The installed r3 pair then returned
+  `applied_verified` and first-attempt `cleared_verified`, ending clear with a
+  connected modem data path and the ModemManager process preserved.
+
 Historical v0.2 schema-1 results remain explicitly labeled and are not
 rewritten as schema-2 package evidence. Firmware command-level live evidence
 and installed schema-2 ubus/LuCI evidence are also reported separately.

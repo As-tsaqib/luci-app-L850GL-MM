@@ -372,6 +372,20 @@ Completed on `18500.5001.00.05.27.30` / L850-GL / upstream plugin / MBIM
    NVM matches and bounded post-reset reads, and passed 3/3 sets plus 3/3 first
    clears. The prior first-clear `verification_mismatch` did not recur.
 
+Completed on `18500.5001.00.05.27.16` with the same exact hardware gates:
+
+1. Runtime-probed `.27.16` clear NVM sentinels, voltage, carrier, and XMCI
+   grammars passed without a revision comparison.
+2. An HTTP exact-current-cell set passed replacement, registration, NVM, and
+   serving-cell postconditions as `applied_verified`.
+3. A pre-r3 clear exposed an unclassified reset-command failure while fresh
+   read-only state proved replacement and exact clear NVM; no command was
+   retried.
+4. The r3 bounded reset-completion policy passed the pinned static suite and an
+   installed HTTP set/clear cycle. Clear returned `cleared_verified`; final
+   NVM, registration, bearer, carrier, and modem-bound data path passed with
+   the ModemManager process preserved.
+
 Still not claimed by this matrix:
 
 - unavailable-cell registration timeout behavior;

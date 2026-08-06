@@ -44,6 +44,27 @@ and XMCI returned typed success; three repeated poll cycles remained available
 with modem and bearer connected and the ModemManager process preserved. No PCI
 or other mutation was used to obtain this acceptance.
 
+## Firmware 18500.5001.00.05.27.16 mutation evidence
+
+On 2026-08-07, authorized hotspot-backed testing extended the same exact
+hardware tuple to live mutation. An r2 HTTP exact-current-cell set passed every
+replacement/NVM/registration/serving postcondition. A later clear exposed an
+unclassified `CFUN=15` failure even though read-only inspection proved modem
+replacement, exact clear NVM, home registration, and a connected bearer. No
+write or reset was retried. This observation motivated r3's bounded
+reset-completion policy: only that unclassified completion enters slot reprobe,
+and success still requires every normal postcondition.
+
+Static run `31129696815` and exact OpenWrt 24.10.8 ARMv7 bundle run
+`31129696709` passed for source `c08f8fc`. The checksum-verified r3 bridge/LuCI
+pair upgraded in place while expert ModemManager 1.22.0-r20 and its process
+were preserved. A complete HTTP `/ubus` exact-current-cell set returned
+`applied_verified`; the first clear returned `cleared_verified`. Final NVM was
+clear, three spaced modem/lock/registration/bearer polls were stable, carrier
+and modem-bound data path passed, installed/served assets matched, and the
+bridge had zero unexpected warning/error entries. Values identifying the
+modem, subscriber, serving cell, or assigned network were not retained.
+
 ## Stock-to-expert alpha package evidence
 
 On 2026-07-30, OpenWrt 25.12.5

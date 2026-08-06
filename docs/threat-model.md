@@ -153,6 +153,11 @@ length, bad name termination, duplicate fields, and malformed session data.
   An in-flight read has its own five-second timeout but is rejected if its
   result arrives after the stage deadline. No post-reprobe write is issued,
   and set/clear/reset are never resent.
+- A reset-triggered `Core.Cancelled` or unclassified command failure is not a
+  success signal. The latter may enter the same bounded hardware-slot reprobe;
+  known permission, unsupported, busy, not-ready, and policy failures remain
+  terminal. Only the complete replacement and postcondition chain can verify
+  the mutation.
 - A mutation cannot report verified success until all applicable
   postconditions pass; post-dispatch ambiguity is `outcome_unknown` with no
   automatic retry.
@@ -224,8 +229,9 @@ dependencies. A browser poll can lag state by up to its interval. Cancellable
 D-Bus APIs cannot prove rollback after a write reached hardware. In-memory SMS
 dedupe cannot provide exactly-once delivery across eviction or restart.
 
-The PCI command/recovery matrix is live-validated only for one exact
-hardware/firmware tuple; it does not establish behavior for another firmware.
+The PCI command/recovery matrix is live-validated on the exact L850-GL/MBIM
+hardware tuple with firmware `.27.30` and `.27.16`; it does not establish
+behavior for every other firmware.
 Unavailable-cell timeout, unplug mid-operation, ModemManager restart
 mid-state-machine, and full-router reboot persistence remain unverified. The
 schema-1 v0.2 read/incoming-SMS evidence still does not establish current live

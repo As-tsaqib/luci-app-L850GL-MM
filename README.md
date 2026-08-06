@@ -200,6 +200,14 @@ three-package expert ZIP and checksum manifest to pass its target SDK build and
 package checks. Live hardware results remain scoped to the dated target and
 are not generalized to compile-only targets.
 
+For r3 source `c08f8fc`, static run `31129696815` and the exact OpenWrt
+24.10.8 ARMv7 bundle run `31129696709` passed. The checksum-verified bridge and
+LuCI pair was installed on `.27.16` with ModemManager preserved. A complete
+HTTP `/ubus` exact-current-cell set returned `applied_verified`, its first
+clear returned `cleared_verified`, and final NVM clear, registration, bearer,
+carrier, modem-bound data path, served assets, and bridge logs passed. See the
+dated live record for the sanitized boundary.
+
 Version 0.6.0 renames the active packages, service, ACLs, paths, and ubus
 objects; the retired names are migration/history identifiers only and must not
 coexist with the new pair. It also adds the strict expert-build `AT+CBC`
