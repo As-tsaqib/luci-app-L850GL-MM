@@ -795,6 +795,10 @@ for (const typo of [
 assert.ok(releaseWorkflow.includes('24.10.8'));
 assert.ok(releaseWorkflow.includes('25.12.5'));
 assert.ok(!releaseWorkflow.includes('24.10.7'));
+assert.match(releaseWorkflow, /APP_RELEASE:\s*'3'/,
+	'the release build environment must match package release r3');
+assert.doesNotMatch(releaseWorkflow, /APP_RELEASE:\s*'2'/,
+	'the release build must not retain the previous package release');
 assert.ok(releaseWorkflow.includes('package_architecture:'),
 	'release dispatch must support selecting one package architecture');
 assert.ok(releaseWorkflow.includes('openwrt_version:'),

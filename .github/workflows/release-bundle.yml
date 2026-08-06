@@ -169,7 +169,7 @@ jobs:
       matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
     env:
       APP_VERSION: '1.0.0'
-      APP_RELEASE: '2'
+      APP_RELEASE: '3'
       ARCH: ${{ matrix.arch }}
       TARGET: ${{ matrix.target }}
       SUBTARGET: ${{ matrix.subtarget }}
