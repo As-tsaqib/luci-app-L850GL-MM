@@ -302,6 +302,11 @@ paths and counts an inactive secondary sentinel as a carrier. Neither its
   bundle run `31129696709` passed. The installed r3 pair then returned
   `applied_verified` and first-attempt `cleared_verified`, ending clear with a
   connected modem data path and the ModemManager process preserved.
+- 2026-08-07: follow-up evidence source `7f42a55` passed static run
+  `31131317605`. Full release-bundle run `31131317610` built and verified all
+  ten configured OpenWrt 24.10.8/25.12.5 architecture combinations without a
+  target failure. This extends compile/package evidence only; it does not
+  generalize the exact-router hardware acceptance to those other targets.
 
 Historical v0.2 schema-1 results remain explicitly labeled and are not
 rewritten as schema-2 package evidence. Firmware command-level live evidence

@@ -65,6 +65,14 @@ and modem-bound data path passed, installed/served assets matched, and the
 bridge had zero unexpected warning/error entries. Values identifying the
 modem, subscriber, serving cell, or assigned network were not retained.
 
+Follow-up evidence source `7f42a55` passed static run `31131317605`. Full
+release-bundle run `31131317610` then built and verified all ten configured
+OpenWrt 24.10.8/25.12.5 target combinations across
+`arm_cortex-a7_neon-vfpv4`, `aarch64_cortex-a53`, `aarch64_generic`,
+`mipsel_24kc`, and `x86_64`, with no target failure. That matrix is package
+and compile evidence only; live hardware acceptance remains scoped to the
+exact OpenWrt 24.10.8 ARMv7 router tuple above.
+
 ## Stock-to-expert alpha package evidence
 
 On 2026-07-30, OpenWrt 25.12.5
@@ -507,8 +515,9 @@ In a maintenance window with alternate management access:
 
 ## Remaining PCI evidence
 
-Firmware `.27.30` has proven the positive set/clear/recovery matrix. Firmware
-`.27.16` currently has read-only protocol evidence only.
+Firmware `.27.30` has proven the broader positive set/clear/recovery matrix.
+Firmware `.27.16` has independently proven an exact-current-cell set, clear,
+reset/reprobe, registration, NVM, serving-cell, bearer, and data-path cycle.
 The following fault and persistence cases remain explicit follow-up work:
 
 - unavailable-cell registration timeout;

@@ -208,6 +208,12 @@ clear returned `cleared_verified`, and final NVM clear, registration, bearer,
 carrier, modem-bound data path, served assets, and bridge logs passed. See the
 dated live record for the sanitized boundary.
 
+Follow-up source `7f42a55` passed static run `31131317605`; full release-bundle
+run `31131317610` built and verified all ten configured OpenWrt 24.10.8/25.12.5
+architecture combinations without a target failure. Those additional targets
+are compile/package evidence, while the live r3 acceptance remains scoped to
+the exact OpenWrt 24.10.8 ARMv7 router above.
+
 Version 0.6.0 renames the active packages, service, ACLs, paths, and ubus
 objects; the retired names are migration/history identifiers only and must not
 coexist with the new pair. It also adds the strict expert-build `AT+CBC`
