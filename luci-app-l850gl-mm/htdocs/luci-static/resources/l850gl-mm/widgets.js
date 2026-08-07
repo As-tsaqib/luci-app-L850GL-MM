@@ -340,7 +340,7 @@ function stateClass(state) {
 		return 'label success';
 	case 'failed':
 	case 'unsupported_build':
-	case 'unsupported_firmware':
+	case 'unsupported_protocol':
 	case 'verification_mismatch':
 		return 'label danger';
 	case 'busy':

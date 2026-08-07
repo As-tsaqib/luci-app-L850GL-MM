@@ -454,15 +454,17 @@ l850gl_l850_nvm_parse(const char *response, size_t response_length,
 			L850GL_L850_CELL_PARSE_MALFORMED;
 		goto out;
 	}
-	if (values[NVM_RAT] != 3U || values[NVM_BAND_INFO] != 0U ||
-	    values[NVM_PCI] > L850GL_L850_PCI_WILDCARD ||
+	if (values[NVM_PCI] > L850GL_L850_PCI_WILDCARD ||
 	    values[NVM_INTER_FREQUENCY] > 1U) {
 		result = L850GL_L850_CELL_PARSE_RANGE;
 		goto out;
 	}
 	if (values[NVM_INTER_FREQUENCY] == 0U) {
 		if (values[NVM_FREQUENCY] != L850GL_L850_CLEAR_FREQUENCY ||
-		    values[NVM_PCI] != L850GL_L850_PCI_WILDCARD) {
+		    values[NVM_PCI] != L850GL_L850_PCI_WILDCARD ||
+		    (values[NVM_RAT] != 3U && values[NVM_RAT] != UINT8_MAX) ||
+		    (values[NVM_BAND_INFO] != 0U &&
+		     values[NVM_BAND_INFO] != UINT8_MAX)) {
 			result = L850GL_L850_CELL_PARSE_MALFORMED;
 			goto out;
 		}
@@ -471,13 +473,20 @@ l850gl_l850_nvm_parse(const char *response, size_t response_length,
 		state->pci = L850GL_L850_PCI_WILDCARD;
 		goto out;
 	}
-	if (!l850gl_l850_earfcn_to_band(values[NVM_FREQUENCY], &state->band) ||
+	if (values[NVM_RAT] != 3U ||
+	    !l850gl_l850_earfcn_to_band(values[NVM_FREQUENCY], &state->band) ||
 	    (values[NVM_PCI] > 503U &&
 	     values[NVM_PCI] != L850GL_L850_PCI_WILDCARD)) {
 		result = values[NVM_FREQUENCY] == L850GL_L850_CLEAR_FREQUENCY ||
 			values[NVM_PCI] == UINT32_MAX ?
 			L850GL_L850_CELL_PARSE_SENTINEL :
 			L850GL_L850_CELL_PARSE_RANGE;
+		goto out;
+	}
+	if (values[NVM_BAND_INFO] != 0U &&
+	    values[NVM_BAND_INFO] != UINT8_MAX &&
+	    values[NVM_BAND_INFO] != state->band) {
+		result = L850GL_L850_CELL_PARSE_RANGE;
 		goto out;
 	}
 	state->enabled = true;
@@ -514,7 +523,7 @@ l850gl_l850_state_name(enum L850GLL850State state)
 	switch (state) {
 	case L850GL_L850_STATE_AVAILABLE: return "available";
 	case L850GL_L850_STATE_UNSUPPORTED_BUILD: return "unsupported_build";
-	case L850GL_L850_STATE_UNSUPPORTED_FIRMWARE: return "unsupported_firmware";
+	case L850GL_L850_STATE_UNSUPPORTED_PROTOCOL: return "unsupported_protocol";
 	case L850GL_L850_STATE_SCAN_READY: return "scan_ready";
 	case L850GL_L850_STATE_LOCK_APPLIED_RESET_REQUIRED:
 		return "lock_applied_reset_required";
@@ -550,13 +559,6 @@ l850gl_l850_state_transition_is_valid(enum L850GLL850State from,
 			to == L850GL_L850_STATE_VERIFICATION_MISMATCH ||
 			to == L850GL_L850_STATE_OUTCOME_UNKNOWN;
 	return false;
-}
-
-bool
-l850gl_l850_firmware_is_allowed(const char *revision)
-{
-	return revision != NULL &&
-		strcmp(revision, L850GL_L850_ALLOWED_FIRMWARE) == 0;
 }
 
 bool

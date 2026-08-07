@@ -107,11 +107,14 @@ Commit IDs are evidence anchors, not source-import points.
   `CFUN=15`, reprobe/registration, and serving-cell postconditions.
 - Stock OpenWrt keeps generic AT-over-D-Bus disabled. The base 1.0 verification build must
   keep it disabled and omit the expert object.
-- Firmware `18500.5001.00.05.27.30` is the sole PCI mutation allowlist entry,
-  based on the dated local matrix rather than a public post.
+- Firmware `18500.5001.00.05.27.30` was the sole PCI mutation allowlist entry
+  in the historical revision-gated implementation, based on the dated local
+  matrix rather than a public post. The current implementation does not compare
+  revision strings; it requires exact hardware attestation and a bounded
+  same-generation NVM protocol probe before any fixed write.
 
 A USB ID, manual, community trace, synthetic fixture, or successful parser test
-does not establish hardware mutation support. Every future allowlist claim must
+does not establish live mutation evidence. Every future live-support claim must
 name exact model, firmware, composition, fixture, date, command/clear/reset
 matrix, recovery result, and serving-cell postcondition.
 
@@ -136,7 +139,7 @@ paths and counts an inactive secondary sentinel as a carrier. Neither its
   independent RooterSource 14/10-field grammar and local sanitized modem response
   were separate checks. RooterSource's independent-secondary-uplink example is
   retained only as a negative fixture because that shape has not been observed
-  on the allowlisted firmware.
+  in a compatible live response.
 
 ## Implementation record
 
@@ -282,6 +285,28 @@ paths and counts an inactive secondary sentinel as a carrier. Neither its
   was installed with ModemManager preserved; 3/3 sets and 3/3 first clears
   verified on their first attempt. Final NVM clear, connected bearer, netifd,
   CA cooldown recovery, SMS cache, assets, ACL/menu, ownership, and logs passed.
+
+- 2026-08-06: fixed read-only queries on the exact L850-GL/MBIM hardware found
+  that firmware `.27.16` implements the reviewed voltage, carrier, XMCI, and
+  NVM protocols but uses `rat=255` and `band_info=255` in its exact clear NVM
+  state. Runtime protocol source removed the `.27.30` revision comparison;
+  static run `31128844576` and target-only ARMv7 run `31128839901` passed, and
+  the r2 bridge/LuCI pair was accepted read-only with ModemManager preserved.
+- 2026-08-07: hotspot-backed HTTP mutation testing on `.27.16` produced a
+  verified exact-current-cell set, then exposed an unclassified `CFUN=15`
+  completion on clear while replacement, exact clear NVM, registration, and
+  bearer recovery were independently present. No command was retried. Source
+  `c08f8fc` routes only that unclassified completion through the existing
+  bounded slot-reprobe policy; known failures remain terminal and all normal
+  postconditions remain mandatory. Static run `31129696815` and exact ARMv7
+  bundle run `31129696709` passed. The installed r3 pair then returned
+  `applied_verified` and first-attempt `cleared_verified`, ending clear with a
+  connected modem data path and the ModemManager process preserved.
+- 2026-08-07: follow-up evidence source `7f42a55` passed static run
+  `31131317605`. Full release-bundle run `31131317610` built and verified all
+  ten configured OpenWrt 24.10.8/25.12.5 architecture combinations without a
+  target failure. This extends compile/package evidence only; it does not
+  generalize the exact-router hardware acceptance to those other targets.
 
 Historical v0.2 schema-1 results remain explicitly labeled and are not
 rewritten as schema-2 package evidence. Firmware command-level live evidence

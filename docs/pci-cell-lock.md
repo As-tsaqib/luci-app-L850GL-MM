@@ -12,18 +12,24 @@ GetCellInfo-first scan path, bounded XMCI and NVM parsers, typed command
 builders, rate limiting, cancellation, timeout, shared mutation locking, and
 the reset/reprobe/registration/postcondition state machine. It adds the
 read-only `get_carrier_info` sibling method described below. Version 0.6 also
-adds an expert-only fixed `AT+CBC` Overview voltage refresh, which does not
-change this object or the PCI mutation grammar, allowlist, recovery sequence,
-or postconditions.
+adds an expert-only fixed `AT+CBC` Overview voltage refresh. The current patch
+removes revision-string admission and instead validates each read protocol at
+runtime. Every mutation also performs a same-generation read-only NVM probe
+before its first write; the recovery sequence and postconditions are unchanged.
 
 Firmware `18500.5001.00.05.27.30` completed the approved live matrix on
-2026-07-27 and is the only allowlist entry. Exact and EARFCN-only set, clear,
+2026-07-27. Exact and EARFCN-only set, clear,
 `CFUN=15`, object replacement, registration and bearer recovery, NVM state,
 and serving-cell postconditions were observed through ModemManager's command
-queue. Every other firmware, non-L850 model, non-MBIM composition, plugin
-mismatch, or failed `2cb7:0007` attestation remains fail-closed.
+queue. On 2026-08-06, firmware `18500.5001.00.05.27.16` independently returned
+parser-valid `CBC`, `GTCAINFO`, and `XMCI` data plus a clear NVM state whose
+inactive `rat` and `band_info` fields use `255` sentinels. Sanitized fixtures
+cover that shape. No set, clear, or reset was run during this read-only probe.
+Non-L850 hardware, non-MBIM composition, plugin mismatch, failed `2cb7:0007`
+attestation, unsupported commands, and unrecognized response grammars remain
+fail-closed without relying on a firmware revision list.
 
-Status is therefore: implemented and live-verified for that one
+Status is therefore: mutation-live-verified for the `.27.30`
 hardware/firmware tuple at command level and through the prior installed
 schema-2 expert package. Installed schema-3 v0.4 additionally verified the
 expert capability, NVM status, and XMCI scan on the same tuple while leaving the
@@ -46,8 +52,8 @@ Release r2 also contains separately requested LuCI and SMS-view work. The live
 claim in the preceding paragraph applies specifically to the expert backend
 scan admission/cooldown delta; PCI mutation behavior was not changed or rerun.
 Schema-4 0.5.0-r1 SDK/package installation and read-only post-install
-validation passed on 2026-07-28. The CA addition does not extend the PCI
-mutation allowlist, and no PCI mutation or cell scan was repeated in that run.
+validation passed on 2026-07-28. The CA addition did not extend the historical
+PCI mutation evidence, and no PCI mutation or cell scan was repeated in that run.
 
 ## 4PDA community evidence
 
@@ -148,14 +154,15 @@ requires a new snapshot and confirmation.
   `busy`; because its completion cannot be predicted, that state has no
   `retry_after_ms`.
 
-Unsupported firmware makes mutation `unsupported_firmware` while standard scan
-may still be advertised. On the exact allowlisted firmware, `cell_lock_status`
-queries a fixed NVM path asynchronously and exports only `clear`,
+`cell_lock_status` queries a fixed NVM path asynchronously and exports only
+`clear`,
 `configured_earfcn`, or `configured_exact`; this status read is not itself a
-serving-cell postcondition.
+serving-cell postcondition. An unsupported command or unrecognized bounded
+response reports `unsupported_protocol` while the independent scan path may
+still be advertised.
 
 `get_carrier_info` is a read-only expert method used by Overview. It is exact
-hardware/firmware gated and dispatches only the fixed `AT+GTCAINFO?` command
+hardware gated and dispatches only the fixed `AT+GTCAINFO?` command
 through asynchronous ModemManager. It is single-flight and mutually excluded
 with cell scan and mutation, has a 20-second operation deadline around a
 15-second command timeout, and starts a five-second cooldown after every
@@ -167,8 +174,7 @@ carrier count. The primary requires own-band DL/UL EARFCNs and numeric
 bandwidths. A secondary requires own-band DL values plus the live-verified UL
 bandwidth sentinel `255` and an UL EARFCN equal to the primary UL; it exports
 `ul_bandwidth_mhz: null`. Any independent secondary uplink and active B29/B32
-remain fail-closed until their exact representation is captured live on the
-allowlisted firmware.
+remain fail-closed unless their exact representation passes the reviewed parser.
 An active secondary SINR code `127` is accepted only as an unavailable metric
 after all carrier-defining fields validate; it is not exported and remains
 invalid for the primary.
@@ -208,9 +214,10 @@ normalizes LTE objects only:
 - MCC/MNC, TAC, cell ID, and other raw identifiers are not exported.
 
 Success is `scan_ready`, `source: modemmanager`, and a bounded `cells` array.
-The target L850 returns `Core.Unsupported` for GetCellInfo. Only on the exact
-allowlisted firmware does that error dispatch fixed `AT+XMCI=1` through
-asynchronous `mm_modem_command()`; the browser cannot supply or alter it.
+When an exactly attested L850 returns `Core.Unsupported` for GetCellInfo, the
+bridge dispatches fixed `AT+XMCI=1` through asynchronous
+`mm_modem_command()`; the browser cannot supply or alter it, and only a
+parser-valid response becomes success.
 Success identifies `method` as `standard-cell-info` or `l850-xmci`.
 
 ## Vendor parser contract
@@ -279,6 +286,13 @@ but not-yet-converged state repeats only the read-only query. Set additionally
 runs XMCI and matches the serving EARFCN and, when requested, PCI. Clear
 succeeds only when the five-field NVM clear sentinel is exact.
 
+Observed compatible firmware may instead finish the dispatched `CFUN=15`
+with an unclassified command failure even though object replacement proceeds.
+That generic error does not establish either success or failure: the same
+bounded slot-reprobe and all postconditions remain mandatory. Known
+permission, unsupported, busy, not-ready, and policy failures are terminal.
+The reset is never resent.
+
 The observed target-firmware NVM invariants are:
 
 ```text
@@ -301,7 +315,7 @@ The modeled states are:
 ```text
 available
 unsupported_build
-unsupported_firmware
+unsupported_protocol
 scan_ready
 lock_applied_reset_required
 resetting
@@ -358,13 +372,27 @@ Completed on `18500.5001.00.05.27.30` / L850-GL / upstream plugin / MBIM
    NVM matches and bounded post-reset reads, and passed 3/3 sets plus 3/3 first
    clears. The prior first-clear `verification_mismatch` did not recur.
 
+Completed on `18500.5001.00.05.27.16` with the same exact hardware gates:
+
+1. Runtime-probed `.27.16` clear NVM sentinels, voltage, carrier, and XMCI
+   grammars passed without a revision comparison.
+2. An HTTP exact-current-cell set passed replacement, registration, NVM, and
+   serving-cell postconditions as `applied_verified`.
+3. A pre-r3 clear exposed an unclassified reset-command failure while fresh
+   read-only state proved replacement and exact clear NVM; no command was
+   retried.
+4. The r3 bounded reset-completion policy passed the pinned static suite and an
+   installed HTTP set/clear cycle. Clear returned `cleared_verified`; final
+   NVM, registration, bearer, carrier, and modem-bound data path passed with
+   the ModemManager process preserved.
+
 Still not claimed by this matrix:
 
 - unavailable-cell registration timeout behavior;
 - physical unplug or ModemManager restart during the state machine;
 - persistence across a full router reboot.
 
-Those remaining fault/persistence cases do not broaden the allowlist and do
-not weaken the runtime timeout, cancellation, identity, attestation, or
+Those remaining fault/persistence cases do not weaken the runtime timeout,
+cancellation, identity, attestation, protocol parsing, or
 fail-closed checks. They remain explicit follow-up evidence rather than an
 invitation to guess recovery commands.

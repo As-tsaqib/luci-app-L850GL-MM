@@ -17,7 +17,6 @@
 #define L850GL_L850_COMMAND_MAX 96U
 #define L850GL_L850_PCI_WILDCARD UINT16_MAX
 #define L850GL_L850_CLEAR_FREQUENCY 65535U
-#define L850GL_L850_ALLOWED_FIRMWARE "18500.5001.00.05.27.30"
 
 enum L850GLL850CellParseResult {
 	L850GL_L850_CELL_PARSE_OK = 0,
@@ -33,7 +32,7 @@ enum L850GLL850CellParseResult {
 enum L850GLL850State {
 	L850GL_L850_STATE_AVAILABLE = 0,
 	L850GL_L850_STATE_UNSUPPORTED_BUILD,
-	L850GL_L850_STATE_UNSUPPORTED_FIRMWARE,
+	L850GL_L850_STATE_UNSUPPORTED_PROTOCOL,
 	L850GL_L850_STATE_SCAN_READY,
 	L850GL_L850_STATE_LOCK_APPLIED_RESET_REQUIRED,
 	L850GL_L850_STATE_RESETTING,
@@ -83,7 +82,6 @@ bool l850gl_l850_earfcn_to_band(uint32_t earfcn, uint16_t *band);
 bool l850gl_l850_band_is_supported(uint16_t band,
 				    const char *const *supported_bands,
 				    size_t supported_band_count);
-bool l850gl_l850_firmware_is_allowed(const char *revision);
 bool l850gl_l850_build_set_command(uint32_t earfcn, bool has_pci,
 				    uint16_t pci, char *command,
 				    size_t command_size);

@@ -510,10 +510,10 @@ const expertResult = {
 	ok: false,
 	modem_id: 'l850gl-mm-test',
 	generation: 4,
-	state: 'unsupported_firmware',
+	state: 'unsupported_protocol',
 	error: {
-		code: 'unsupported_firmware',
-		message: 'Firmware is not in the live-validated allowlist',
+		code: 'unsupported_protocol',
+		message: 'The required L850 command protocol is not available',
 		retryable: false
 	}
 };
@@ -525,7 +525,7 @@ const availableExpertResult = {
 	generation: 4,
 	state: 'available',
 	mutable: true,
-	reason: 'live-validated-firmware-and-nvm-state',
+	reason: 'runtime-validated-command-and-nvm-state',
 	lock: {
 		state: 'configured_exact',
 		enabled: true,
@@ -538,7 +538,23 @@ const availableExpertResult = {
 	scan: {
 		state: 'available',
 		available: true,
-		reason: 'standard-with-live-validated-xmci-fallback',
+		reason: 'standard-with-validated-xmci-fallback',
+		source: 'modemmanager'
+	}
+};
+const unsupportedProtocolStatus = {
+	schema: 4,
+	generated_at: 1,
+	ok: true,
+	modem_id: 'l850gl-mm-test',
+	generation: 4,
+	state: 'unsupported_protocol',
+	mutable: false,
+	reason: 'unrecognized-nvm-response',
+	scan: {
+		state: 'available',
+		available: true,
+		reason: 'standard-with-validated-xmci-fallback',
 		source: 'modemmanager'
 	}
 };
@@ -1090,10 +1106,35 @@ const renderedAvailableLock = lockView.render({
 	list: listResult,
 	entries: [ { summary: summary, lock: Object.assign({}, lockResult, {
 		pci_lock: { state: 'available', mutable: true,
-			reason: 'live-validated-l850-command-state-machine' }
+			reason: 'runtime-probe-required-l850-command-state-machine' }
 	}), expert: availableExpertResult } ]
 });
 assert.strictEqual(renderedAvailableLock.tag, 'div');
+const renderedUnsupportedProtocolLock = lockView.render({
+	list: listResult,
+	entries: [ { summary: summary, lock: Object.assign({}, lockResult, {
+		pci_lock: { state: 'available', mutable: true,
+			reason: 'runtime-probe-required-l850-command-state-machine' }
+	}), expert: unsupportedProtocolStatus } ]
+});
+const unsupportedProtocolPanel = findNodes(renderedUnsupportedProtocolLock,
+	function(node) { return hasClass(node, 'l850gl-mm-pci-lock'); })[0];
+const unsupportedProtocolWarnings = findNodes(unsupportedProtocolPanel,
+	function(node) {
+		return hasClass(node, 'alert-message') && hasClass(node, 'warning');
+	});
+const unsupportedProtocolScanButton = findNodes(unsupportedProtocolPanel,
+	function(node) {
+		return node.tag === 'button' && renderedText(node).includes('Scan cells');
+	})[0];
+
+assert.strictEqual(unsupportedProtocolWarnings.length, 1,
+	'a successful unsupported_protocol status must render the protocol warning');
+assert.ok(renderedText(unsupportedProtocolWarnings[0]).some(function(value) {
+	return value.includes('does not expose a recognized L850 lock protocol');
+}), 'the protocol warning must explain why mutation remains disabled');
+assert.strictEqual(unsupportedProtocolScanButton.attributes.disabled, null,
+	'an unsupported lock protocol must not disable an independently available scan');
 const availablePciPanel = findNodes(renderedAvailableLock, function(node) {
 	return hasClass(node, 'l850gl-mm-pci-lock');
 })[0];
@@ -1178,7 +1219,7 @@ const renderedClearLock = lockView.render({
 	list: listResult,
 	entries: [ { summary: summary, lock: Object.assign({}, lockResult, {
 		pci_lock: { state: 'available', mutable: true,
-			reason: 'live-validated-l850-command-state-machine' }
+			reason: 'runtime-probe-required-l850-command-state-machine' }
 	}), expert: clearExpertResult } ]
 });
 const clearLockStatusBoxes = findNodes(renderedClearLock, function(node) {
@@ -1207,7 +1248,7 @@ const busyScanLock = lockView.render({
 	list: listResult,
 	entries: [ { summary: summary, lock: Object.assign({}, lockResult, {
 		pci_lock: { state: 'available', mutable: true,
-			reason: 'live-validated-l850-command-state-machine' }
+			reason: 'runtime-probe-required-l850-command-state-machine' }
 	}), expert: busyScanExpert } ]
 });
 const busyScanDot = findNodes(busyScanLock, function(node) {
@@ -1230,7 +1271,7 @@ const limitedScanLock = lockView.render({
 	list: listResult,
 	entries: [ { summary: summary, lock: Object.assign({}, lockResult, {
 		pci_lock: { state: 'available', mutable: true,
-			reason: 'live-validated-l850-command-state-machine' }
+			reason: 'runtime-probe-required-l850-command-state-machine' }
 	}), expert: limitedScanExpert } ]
 });
 const limitedScanDot = findNodes(limitedScanLock, function(node) {
@@ -1289,7 +1330,7 @@ const interactiveLock = interactiveLockView.render({
 	list: listResult,
 	entries: [ { summary: summary, lock: Object.assign({}, lockResult, {
 		pci_lock: { state: 'available', mutable: true,
-			reason: 'live-validated-l850-command-state-machine' }
+			reason: 'runtime-probe-required-l850-command-state-machine' }
 		}), expert: availableExpertResult } ]
 });
 const liveEarfcnInput = findNodes(interactiveLock, function(node) {
@@ -2977,7 +3018,7 @@ function renderFreshScannedLock(width) {
 			list: listResult,
 			entries: [ { summary: summary, lock: Object.assign({}, lockResult, {
 				pci_lock: { state: 'available', mutable: true,
-					reason: 'live-validated-l850-command-state-machine' }
+					reason: 'runtime-probe-required-l850-command-state-machine' }
 			}), expert: availableExpertResult } ]
 		});
 		const button = findNodes(node, function(candidate) {
@@ -3322,7 +3363,7 @@ assert.ok(lockSource.includes("scan.available !== true"));
 assert.ok(lockSource.includes("result.state !== 'scan_ready'"));
 assert.ok(lockSource.includes("result.source !== 'modemmanager'"));
 assert.ok(lockSource.includes("'unsupported_build'"));
-assert.ok(lockSource.includes("'unsupported_firmware'"));
+assert.ok(lockSource.includes("'unsupported_protocol'"));
 assert.ok(lockSource.includes("error.code === 'outcome_unknown'"));
 assert.ok(lockSource.includes('replacementIdentityIsValid'));
 assert.ok(lockSource.includes("'applied_verified'"));
@@ -3440,7 +3481,7 @@ assert.ok(read('htdocs/luci-static/resources/l850gl-mm/widgets.js').includes(
 
 const makefile = read('Makefile');
 assert.ok(makefile.includes('PKG_VERSION:=1.0.0'));
-assert.ok(makefile.includes('PKG_RELEASE:=1'));
+assert.ok(makefile.includes('PKG_RELEASE:=2'));
 assert.ok(makefile.includes(
 	'LUCI_TITLE:=LuCI companion for the L850-GL modem managed by ModemManager'));
 assert.ok(makefile.includes(

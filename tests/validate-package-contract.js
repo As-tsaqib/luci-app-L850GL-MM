@@ -41,7 +41,7 @@ for (const retired of [
 const bridgeMakefile = read('l850gl-mm-bridge/Makefile');
 assert.match(bridgeMakefile, /^PKG_NAME:=l850gl-mm-bridge$/m);
 assert.match(bridgeMakefile, /^PKG_VERSION:=1\.0\.0$/m);
-assert.match(bridgeMakefile, /^PKG_RELEASE:=1$/m);
+assert.match(bridgeMakefile, /^PKG_RELEASE:=2$/m);
 assert.match(bridgeMakefile,
 	/^\s*URL:=https:\/\/github\.com\/As-tsaqib\/luci-app-L850GL-MM$/m);
 assert.match(bridgeMakefile, /^\s*CONFLICTS:=fibocom-mm-bridge$/m,
@@ -395,8 +395,13 @@ assert.match(ubusSource,
 	'expert cell scan cooldown must start only from common completion');
 assert.match(ubusSource, /l850_modem_has_active_scan\s*\(/,
 	'expert cell scan must enforce one active scan per modem');
-assert.match(ubusSource, /standard-modemmanager-get-cell-info/);
+assert.match(ubusSource, /standard-with-validated-xmci-fallback/,
+	'XMCI fallback availability must be discovered from the command response');
 assert.match(ubusSource, /l850gl_l850_nvm_parse\s*\(/);
+assert.doesNotMatch(l850CellSource, /18500\.5001|firmware_is_allowed|ALLOWED_FIRMWARE/,
+	'the L850 grammar must not hard-code a firmware revision allowlist');
+assert.doesNotMatch(ubusSource, /l850_firmware_allowed|firmware-not-live-validated/,
+	'expert admission must use runtime protocol validation, not firmware revision');
 assert.match(ubusSource,
 	/#define L850_NVM_COMMAND_TIMEOUT_SECONDS 5U/,
 	'NVM verification reads must use a short bounded command timeout');
@@ -405,6 +410,20 @@ assert.match(ubusSource,
 	'each NVM verification stage must have a bounded ten-second window');
 assert.match(ubusSource, /#define L850_NVM_VERIFY_POLL_MS 1000U/,
 	'NVM verification retries must be spaced by one second');
+assert.match(ubusSource, /L850_MUTATION_PHASE_PROTOCOL_PROBE/,
+	'every PCI mutation must begin with a read-only protocol probe');
+const mutationProbeStart = ubusSource.indexOf(
+	'\nstatic void\nl850_mutation_probe_ready(');
+const mutationProbeEnd = ubusSource.indexOf(
+	'\nstatic int\nl850_mutation_start(', mutationProbeStart);
+assert.ok(mutationProbeStart > 0 && mutationProbeEnd > mutationProbeStart,
+	'the runtime mutation protocol probe must be discoverable');
+const mutationProbe = ubusSource.slice(mutationProbeStart, mutationProbeEnd);
+assert.match(mutationProbe, /l850gl_l850_nvm_parse\s*\(/,
+	'the preflight response must pass the bounded NVM parser');
+assert.match(mutationProbe,
+	/L850GL_L850_CELL_PARSE_OK[\s\S]*?l850_mutation_dispatch_set\s*\(/,
+	'a write may be dispatched only after the runtime protocol probe succeeds');
 assert.match(l850MutationPolicyHeader,
 	/#define L850GL_NVM_PRE_RESET_REQUIRED_MATCHES 2U/,
 	'pre-reset persistence requires two consecutive exact NVM reads');
@@ -447,6 +466,24 @@ assert.match(mutationNvmReady,
 assert.strictEqual((ubusSource.match(
 	/l850_mutation_start_reset\(operation\);/g) || []).length, 1,
 	'the coordinator must have exactly one reset transition and no fallback');
+const mutationResetReadyStart = ubusSource.indexOf(
+	'\nl850_mutation_reset_ready(');
+const mutationResetReadyEnd = ubusSource.indexOf(
+	'\nstatic void\nl850_mutation_start_reset(', mutationResetReadyStart);
+assert.ok(mutationResetReadyStart > 0 &&
+	mutationResetReadyEnd > mutationResetReadyStart,
+	'the concrete reset completion callback must be discoverable');
+const mutationResetReady = ubusSource.slice(mutationResetReadyStart,
+	mutationResetReadyEnd);
+assert.match(mutationResetReady,
+	/L850GL_RESET_FINISH_UNCLASSIFIED_FAILURE/,
+	'an unclassified reset completion must remain an observable outcome');
+assert.match(mutationResetReady,
+	/l850gl_reset_finish_should_reprobe\s*\(/,
+	'reset completion must use the bounded reprobe policy');
+assert.strictEqual((mutationResetReady.match(
+	/l850_mutation_start_reprobe\(operation\);/g) || []).length, 1,
+	'every admitted reset completion must enter one bounded reprobe path');
 assert.match(ubusSource, /"pre_reset_nvm"\s*:\s*"post_reset_nvm"/,
 	'failures must identify the bounded NVM verification stage');
 assert.match(ubusSource, /L850GL_L850_STATE_APPLIED_VERIFIED|applied_verified/);
@@ -580,7 +617,7 @@ for (const requiredTest of [
 
 const cellSource = read('l850gl-mm-bridge/src/l850_cell.c');
 for (const state of [
-	'available', 'unsupported_build', 'unsupported_firmware', 'scan_ready',
+	'available', 'unsupported_build', 'unsupported_protocol', 'scan_ready',
 	'lock_applied_reset_required', 'resetting', 'applied_verified',
 	'cleared_verified', 'reprobe_timeout', 'registration_timeout',
 	'verification_mismatch', 'outcome_unknown'
@@ -603,7 +640,7 @@ assert.match(init, /command "\$PROG" --foreground/);
 
 const luciMakefile = read('luci-app-l850gl-mm/Makefile');
 assert.match(luciMakefile, /^PKG_VERSION:=1\.0\.0$/m);
-assert.match(luciMakefile, /^PKG_RELEASE:=1$/m);
+assert.match(luciMakefile, /^PKG_RELEASE:=2$/m);
 assert.match(luciMakefile, /^LUCI_URL:=https:\/\/github\.com\/As-tsaqib\/luci-app-L850GL-MM$/m);
 assert.match(luciMakefile, /^LUCI_MAINTAINER:=As Tsaqib <[^>]+>$/m);
 for (const dependency of [
@@ -729,8 +766,8 @@ assert.ok(sdkWorkflow.includes("grep -Fx 'AT+CBC'"),
 assert.ok(sdkWorkflow.includes('Expert_Object=absent'));
 assert.strictEqual((sdkWorkflow.match(/API_Schema=4/g) || []).length, 1,
 	'the base SDK artifact manifest must identify schema 4 exactly once');
-assert.strictEqual((sdkWorkflow.match(/Release=1\.0\.0-r1/g) || []).length, 1,
-	'the base SDK artifact manifest must identify release 1.0.0-r1 exactly once');
+assert.strictEqual((sdkWorkflow.match(/Release=1\.0\.0-r2/g) || []).length, 1,
+	'the base SDK artifact manifest must identify release 1.0.0-r2 exactly once');
 assert.ok(!sdkWorkflow.includes('Release=0.6.0-r6'),
 	'the final SDK workflow must not label new artifacts as the previous release');
 assert.ok(!sdkWorkflow.includes('API_Schema=2'));
@@ -758,6 +795,22 @@ for (const typo of [
 assert.ok(releaseWorkflow.includes('24.10.8'));
 assert.ok(releaseWorkflow.includes('25.12.5'));
 assert.ok(!releaseWorkflow.includes('24.10.7'));
+assert.match(releaseWorkflow, /APP_RELEASE:\s*'2'/,
+	'the release build environment must match package release r2');
+assert.doesNotMatch(releaseWorkflow, /APP_RELEASE:\s*'3'/,
+	'the release build must not publish the internal qualification revision');
+assert.ok(releaseWorkflow.includes('package_architecture:'),
+	'release dispatch must support selecting one package architecture');
+assert.ok(releaseWorkflow.includes('openwrt_version:'),
+	'release dispatch must support selecting one OpenWrt release');
+assert.ok(releaseWorkflow.includes('arches=("${DISPATCH_ARCH}")'),
+	'the selected dispatch architecture must narrow the build matrix');
+assert.ok(releaseWorkflow.includes(
+	'openwrt_versions=("${DISPATCH_OPENWRT_VERSION}")'),
+	'the selected OpenWrt release must narrow the build matrix');
+assert.ok(releaseWorkflow.includes('arches=("${all_arches[@]}")') &&
+	releaseWorkflow.includes('openwrt_versions=(24.10.8 25.12.5)'),
+	'default dispatch and stable release behavior must retain the full matrix');
 assert.ok(releaseWorkflow.includes(
 	'while (field_index <= NF && $field_index ~ /^--[^[:space:]]+$/)'),
 	'release feed validation must accept pinned SDK feeds with options');
@@ -782,13 +835,14 @@ assert.ok(releaseWorkflow.includes(
 assert.ok(releaseWorkflow.includes(
 	'opkg remove --force-depends luci-app-l850gl-mm l850gl-mm-bridge modemmanager-l850gl-expert'));
 assert.ok(releaseWorkflow.includes('ModemManager_Recipe_Commit='));
-assert.ok(releaseWorkflow.includes('Expert_Firmware_Allowlist=18500.5001.00.05.27.30'));
+assert.ok(releaseWorkflow.includes('Expert_Compatibility=runtime-protocol-probing'));
+assert.ok(!releaseWorkflow.includes('Expert_Firmware_Allowlist='));
 assert.ok(releaseWorkflow.includes('[ "$(wc -l < actual-assets.txt)" -eq 10 ]'),
 	'release publication must require the exact ten-bundle Cartesian matrix');
 assert.ok(releaseWorkflow.includes('sha256sum -c SHA256SUMS'));
 assert.ok(releaseWorkflow.includes('contents: write'));
-assert.ok(releaseWorkflow.includes("github.ref == 'refs/tags/v1.0.0'"),
-	'only the exact final tag may publish hard-coded 1.0.0 assets');
+assert.ok(releaseWorkflow.includes("github.ref == 'refs/tags/v1.0.0-r2'"),
+	'only the exact r2 tag may publish hard-coded 1.0.0-r2 assets');
 assert.ok(releaseWorkflow.includes('prerelease: false'));
 assert.ok(!releaseWorkflow.includes('dist/base'),
 	'GitHub Release assets must never include the verification-only base build');

@@ -68,7 +68,7 @@ as `null`; it never fabricates a value. Independent secondary uplink and active
 secondary SINR code `127` is accepted only as an unavailable, non-exported
 metric after every carrier-defining field passes. Other unexpected signal
 sentinels, independent secondary uplink, and active B29/B32 shapes remain
-fail-closed until captured on the allowlisted firmware.
+fail-closed unless their response shape passes the bounded typed parser.
 The API never returns the raw response or cellular subscriber/location fields.
 A base build has no expert object and renders these details unavailable.
 
@@ -85,14 +85,15 @@ Lock contains:
 - A build-gated L850 PCI/EARFCN section. The base binary does not contain or
   publish `l850gl.mm.l850`. An explicit expert build first tries standard
   ModemManager `GetCellInfo`, normalizes at most 64 LTE cells, and validates
-  PCI and EARFCN against live supported bands. For the single allowlisted
-  firmware `18500.5001.00.05.27.30`, `Core.Unsupported` falls back to a fixed
-  XMCI query through ModemManager. Scans are single-flight per modem and have
+  PCI and EARFCN against live supported bands. When standard CellInfo returns
+  `Core.Unsupported`, the bridge tries its fixed XMCI query and accepts it only
+  when the bounded typed response validates. Scans are single-flight and have
   a five-second cooldown measured from completion. Set/clear use fixed typed
   tuples and require two matching NVM reads one second apart before the single
   fixed `CFUN=15`. The coordinator then performs exact hardware-slot reprobe
   correlation, registration wait, bounded post-reset NVM polling, and
-  serving-cell verification. Every other firmware fails closed.
+  serving-cell verification. Each mutation starts with a read-only NVM
+  protocol probe; unrecognized command grammars fail closed before any write.
 
 SMS uses ModemManager Messaging/Sms only. The cache consumes Added, Deleted,
 and property-change signals, reconciles every 30 seconds, keeps the newest
@@ -153,8 +154,8 @@ Version 1.0.0 packages the accepted r6 behavior with a distinguishable expert
 ModemManager identity:
 
 ```text
-l850gl-mm-bridge               1.0.0-r1 expert libmm-glib/GDBus to ubus bridge
-luci-app-l850gl-mm             1.0.0-r1 Overview, Lock, and SMS views
+l850gl-mm-bridge               1.0.0-r2 expert libmm-glib/GDBus to ubus bridge
+luci-app-l850gl-mm             1.0.0-r2 Overview, Lock, and SMS views
 modemmanager-l850gl-expert     matching upstream OpenWrt recipe with reviewed AT transport
 ```
 
@@ -163,7 +164,7 @@ primary SIM-slot switch, and old eSIM addon are not part of 1.0.0. APN,
 route, DNS, credentials, and all connection settings remain in OpenWrt's
 existing Network / Interfaces UI.
 
-The v1.0.0 release publishes ten target-specific expert bundles and no base
+The v1.0.0-r2 release publishes ten target-specific expert bundles and no base
 release asset:
 
 | OpenWrt | ModemManager expert | Format | Architectures |
@@ -186,12 +187,33 @@ hardware-, ACL-, and build-gated.
 
 ## Evidence status
 
-Version 1.0.0 changes release packaging and version identity, not API schema 4
-or the accepted r6 modem state machines. Its release gate requires each
+Version 1.0.0-r2 keeps API schema 4 and packages the accepted modem state
+machines under the final identities. It replaces the firmware revision
+comparison with exact hardware attestation plus bounded runtime protocol
+probing and handles an observed reset-completion variant:
+an unclassified `CFUN=15` command failure is not accepted as success or treated
+as a terminal result. It enters the same bounded hardware-slot reprobe and must
+still prove replacement, registration, NVM, and (for set) serving-cell
+postconditions. Known permission, policy, busy, and unsupported failures remain
+terminal, and no write or reset is resent. The release gate requires each
 three-package expert ZIP and checksum manifest to pass its target SDK build and
-package checks. The stock-to-expert transaction and installed runtime were
-also exercised on the one live target identified in the dated record; that
-hardware result is not generalized to the other nine compile-only targets.
+package checks. Live hardware results remain scoped to the dated target and
+are not generalized to compile-only targets.
+
+The reset-policy candidate was packaged as r3 during live qualification. For
+source `c08f8fc`, static run `31129696815` and the exact OpenWrt
+24.10.8 ARMv7 bundle run `31129696709` passed. The checksum-verified bridge and
+LuCI pair was installed on `.27.16` with ModemManager preserved. A complete
+HTTP `/ubus` exact-current-cell set returned `applied_verified`, its first
+clear returned `cleared_verified`, and final NVM clear, registration, bearer,
+carrier, modem-bound data path, served assets, and bridge logs passed. See the
+dated live record for the sanitized boundary.
+
+Follow-up source `7f42a55` passed static run `31131317605`; full release-bundle
+run `31131317610` built and verified all ten configured OpenWrt 24.10.8/25.12.5
+architecture combinations without a target failure. Those additional targets
+are compile/package evidence, while the live r3 acceptance remains scoped to
+the exact OpenWrt 24.10.8 ARMv7 router above.
 
 Version 0.6.0 renames the active packages, service, ACLs, paths, and ubus
 objects; the retired names are migration/history identifiers only and must not
@@ -257,7 +279,9 @@ an L850-GL MBIM `2cb7:0007` running firmware
 exact neighbor-cell lock, EARFCN-only lock, clear, `CFUN=15` removal/reprobe,
 registration, bearer recovery, NVM postconditions, and serving-cell changes.
 The router was returned to clear/automatic state with its bearer connected.
-The allowlist contains only that exact firmware. The installed 0.3.0-r1 expert
+That historical release allowed only that exact firmware. The current bridge
+instead identifies compatible firmware from validated command responses. The
+installed 0.3.0-r1 expert
 packages were validated through schema-2 local ubus and an authorized
 HTTP `/ubus` rpcd session: XMCI fallback, exact current-cell set, replacement identity,
 stale-identity rejection, clear, NVM/registration/serving-cell postconditions,

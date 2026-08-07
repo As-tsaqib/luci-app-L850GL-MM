@@ -19,6 +19,139 @@ listed companion behavior on this hardware; it does not claim every L850
 firmware or OpenWrt release. The historical eSIM probe is retained only as
 provenance for a package retired in 0.3.
 
+## Firmware 18500.5001.00.05.27.16 read-only protocol probe, 2026-08-06
+
+The current Linksys EA6350v3 was inspected on OpenWrt 24.10.8
+`ipq40xx/generic` with ModemManager 1.22.0-r20, MBIM composition, Fibocom
+plugin, and USB identity `2cb7:0007`. The installed 1.0.0-r1 bridge still used
+the historical `.27.30` revision comparison, so PCI status and the optional
+vendor read paths were reported as unsupported even though normal
+ModemManager mode, band, registration, bearer, and netifd behavior remained
+healthy.
+
+Four fixed read-only commands were then sent exclusively through
+ModemManager's serialized command transport. `AT+CBC`, `AT+GTCAINFO?`, and
+`AT+XMCI=1` each returned a bounded response accepted by the existing typed
+voltage, carrier, and LTE-cell grammars. The fixed NVM query returned the clear
+state below:
+
+```text
+frequency=65535
+rat=255
+psc_or_pci=65535
+band_info=255
+inter_freq_lock_support=0
+```
+
+This differs from the `.27.30` clear observation only in inactive-field
+sentinels: `.27.16` uses `255` for `rat` and `band_info`. The updated NVM parser
+accepts either the previously observed inactive values (`rat=3`,
+`band_info=0`) or these inactive sentinels only when the remaining fields form
+an exact clear state. An active lock still requires LTE `rat=3`, a valid LTE
+EARFCN/PCI, and `band_info` equal to `0`, `255`, or the derived logical band.
+
+The capture was sanitized into bounded fixtures; no raw subscriber, location,
+cell identity, SMS, APN, or assigned-network data was retained. No PCI set,
+clear, reset, band/mode mutation, or SMS mutation was run. This establishes
+read-protocol compatibility for `.27.16`; it is not a live mutation claim.
+
+## Installed 1.0.0-r2 runtime-protocol acceptance, 2026-08-07
+
+GitHub Actions static run `31128844576` passed the complete pinned host/static
+suite for source `1fba4bd`. Target-only release-bundle run `31128839901` then
+built and verified exactly OpenWrt 24.10.8
+`arm_cortex-a7_neon-vfpv4`, including the pinned expert ModemManager
+1.22.0-r20 recipe, expert binary string contract, package metadata, and bundle
+checksums. The downloaded bundle and all five entries in its inner
+`SHA256SUMS` were verified again before staging.
+
+Only `l850gl-mm-bridge` and `luci-app-l850gl-mm` were upgraded from
+1.0.0-r1 to 1.0.0-r2. The installed expert ModemManager package and running
+daemon were preserved. The two-package OPKG simulation named exactly those two
+upgrades; their on-router hashes matched the Actions bundle before the real
+transaction.
+
+Post-install validation on firmware `18500.5001.00.05.27.16` proved:
+
+- schema 4 and the exact eight base/five expert method tables;
+- a parser-valid clear NVM observation with `cell_lock_status = available` and
+  mutation advertised only after the runtime protocol query succeeded;
+- typed carrier data through fixed `GTCAINFO`, typed voltage `3550 mV`, and a
+  successful fixed-XMCI scan with exactly one serving record;
+- three subsequent six-second polling cycles with base PCI capability, NVM
+  status, and carrier state all continuously `available`;
+- modem state `connected`, bearer connected, and the same ModemManager process
+  before and after package installation and every read-only probe;
+- matching installed and loopback-served LuCI Lock asset hashes, with no
+  bridge warning or unexpected error entry.
+
+No PCI set, clear, reset, mode/band mutation, SMS mutation, ModemManager
+restart, or router reboot was performed. The three `daemon.err`-facility lines
+at bridge start were ordinary GLib `Message` startup notices (base API,
+expert API, and version published), not runtime failures.
+
+## Installed 1.0.0-r3 `.27.16` mutation acceptance, 2026-08-07
+
+The user confirmed alternate hotspot connectivity and authorized disruptive
+PCI testing. An r2 HTTP `/ubus` exact-current-cell set completed as
+`applied_verified`, including replacement, registration, NVM, and serving-cell
+postconditions. A later independent set again verified, but its clear exposed a
+firmware completion variant: after configuration acknowledgement and the
+pre-reset NVM barrier, `CFUN=15` returned the sanitized terminal pair
+`lock_applied_reset_required` / `operation_failed`. No command was retried.
+Immediate read-only recovery inspection found a replacement generation, exact
+clear NVM, home registration, connected modem, and connected bearer. This
+established that an unclassified command failure did not reliably mean the
+reset had failed on `.27.16`.
+
+Release r3 therefore treats only an unclassified reset-command failure as an
+ambiguous completion and enters the existing bounded hardware-slot reprobe.
+It does not accept the error as success: replacement attestation,
+registration, post-reset NVM, and the set serving-cell check remain mandatory.
+Known permission, unsupported, busy, not-ready, and policy failures remain
+terminal. The write and reset are never resent. The pure reset-completion
+policy is covered by the pinned host/static suite.
+
+GitHub Actions static run `31129696815` passed for source `c08f8fc`. Exact
+target-only run `31129696709` built and verified OpenWrt 24.10.8
+`arm_cortex-a7_neon-vfpv4`. The downloaded bundle SHA-256 was
+`115ccef353eff20e34e0ee9abb5936924ef533bb70031c7d89850f23d11d0da6`;
+its bridge and LuCI package SHA-256 values were respectively
+`d7513aaaf8024a5d75a87b607ac61291124a031262d4842dfbac05cd9da69929`
+and
+`70c1ad6e03370cbfcc3536ce314cbaeb40150d6ce1993431ef75559f6d288a3b`.
+The outer archive and every inner `SHA256SUMS` entry passed locally, then the
+two staged package hashes passed again on the router. OPKG simulation and the
+real transaction upgraded exactly bridge/LuCI r2 to r3. Expert ModemManager
+1.22.0-r20 and its running process were preserved; checksum-verified r2
+packages plus a mode-0600 pre-r3 file archive remain in the router's temporary
+rollback directory.
+
+The installed r3 acceptance then proved through least-privilege temporary
+HTTP `/ubus` sessions:
+
+- schema 4, exact eight base/five expert methods, runtime `available/clear`,
+  typed voltage and carrier data, matching loopback-served assets, connected
+  bearer, and zero unexpected bridge warning/error entries before mutation;
+- a bounded `l850-xmci` scan with exactly one serving record; its EARFCN/PCI
+  were used only inside the test process and were neither printed nor stored;
+- exact-current-cell set returned `applied_verified` with replacement,
+  registration, NVM, and serving-cell verification all true;
+- a fresh pre-clear read observed persistent `configured_exact` NVM, then
+  clear returned `cleared_verified` with replacement, registration, and NVM
+  verification all true;
+- three final spaced polls were continuously `connected`, `available`,
+  mutable, exact NVM `clear`, home-registered, and bearer-connected;
+- final typed carrier data, a data-path probe bound to the modem interface,
+  installed/served LuCI hashes, unchanged ModemManager process, and zero
+  unexpected bridge warning/error entries all passed.
+
+Every temporary rpcd session was destroyed. No opaque modem ID, serving or
+neighbor EARFCN/PCI, subscriber/location identifier, raw modem response,
+assigned address, or credential was retained. No SMS, mode, Band Lock, router
+reboot, direct TTY/WDM access, or ModemManager restart was performed. The
+router was left in clear/automatic state with its modem data path connected.
+
 ## Stock ModemManager to expert alpha reinstall, 2026-07-30
 
 An OpenWrt 25.12.5 `arm_cortex-a7_neon-vfpv4` router was first returned to the
@@ -686,7 +819,7 @@ second physical-replug trace.
 
 ## Final state
 
-Allowlisted status fields showed:
+Sanitized status fields showed:
 
 ```text
 ModemManager state       connected
@@ -764,5 +897,6 @@ The following were deliberately excluded from stored evidence:
 - assigned IP, gateway, and DNS values;
 - eSIM activation or confirmation secrets.
 
-Future support bundles must use the same allowlist approach instead of dumping
-raw `mmcli -K`, `uci show network`, or unredacted logs.
+Future support bundles must use the same explicit field allowlist and redaction
+approach instead of dumping raw `mmcli -K`, `uci show network`, or unredacted
+logs.

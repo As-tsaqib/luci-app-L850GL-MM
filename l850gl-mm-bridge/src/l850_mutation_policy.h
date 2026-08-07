@@ -6,6 +6,7 @@
 #ifndef L850GL_L850_MUTATION_POLICY_H
 #define L850GL_L850_MUTATION_POLICY_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #define L850GL_NVM_PRE_RESET_REQUIRED_MATCHES 2U
@@ -33,9 +34,17 @@ typedef struct {
 	uint8_t consecutive_matches;
 } L850GLNvmVerifier;
 
+typedef enum {
+	L850GL_RESET_FINISH_CLEAN = 0,
+	L850GL_RESET_FINISH_UNCERTAIN,
+	L850GL_RESET_FINISH_UNCLASSIFIED_FAILURE,
+	L850GL_RESET_FINISH_DEFINITE_FAILURE,
+} L850GLResetFinish;
+
 void l850gl_nvm_verifier_init(L850GLNvmVerifier *verifier,
 			      L850GLNvmVerifyStage stage);
 L850GLNvmDecision l850gl_nvm_verifier_observe(
 	L850GLNvmVerifier *verifier, L850GLNvmObservation observation);
+bool l850gl_reset_finish_should_reprobe(L850GLResetFinish finish);
 
 #endif /* L850GL_L850_MUTATION_POLICY_H */

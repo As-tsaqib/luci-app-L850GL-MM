@@ -5,11 +5,33 @@ name: Release bundles
 
 on:
   workflow_dispatch:
+    inputs:
+      package_architecture:
+        description: 'Package architecture to build (all keeps the release matrix)'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - aarch64_generic
+          - aarch64_cortex-a53
+          - arm_cortex-a7_neon-vfpv4
+          - mipsel_24kc
+          - x86_64
+      openwrt_version:
+        description: 'OpenWrt release to build (all keeps both release formats)'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - '24.10.8'
+          - '25.12.5'
   push:
     branches:
       - release/1.0.0
     tags:
-      - 'v1.0.0'
+      - 'v1.0.0-r2'
     paths:
       - '.github/workflows/release-bundle.yml'
       - 'packaging/**'
@@ -36,6 +58,8 @@ jobs:
         shell: bash
         env:
           RELEASE_REF: ${{ github.ref }}
+          DISPATCH_ARCH: ${{ inputs.package_architecture || 'all' }}
+          DISPATCH_OPENWRT_VERSION: ${{ inputs.openwrt_version || 'all' }}
         run: |
           set -euo pipefail
 
@@ -48,8 +72,26 @@ jobs:
           )
           if [[ "${RELEASE_REF}" == refs/heads/release/1.0.0 ]]; then
             arches=(x86_64)
-          else
+          elif [[ "${DISPATCH_ARCH}" == all ]]; then
             arches=("${all_arches[@]}")
+          else
+            case "${DISPATCH_ARCH}" in
+              aarch64_generic|aarch64_cortex-a53|arm_cortex-a7_neon-vfpv4|mipsel_24kc|x86_64)
+                arches=("${DISPATCH_ARCH}")
+                ;;
+              *) exit 1 ;;
+            esac
+          fi
+
+          if [[ "${DISPATCH_OPENWRT_VERSION}" == all ]]; then
+            openwrt_versions=(24.10.8 25.12.5)
+          else
+            case "${DISPATCH_OPENWRT_VERSION}" in
+              24.10.8|25.12.5)
+                openwrt_versions=("${DISPATCH_OPENWRT_VERSION}")
+                ;;
+              *) exit 1 ;;
+            esac
           fi
 
           json='{"include":['
@@ -89,7 +131,7 @@ jobs:
               *) exit 1 ;;
             esac
 
-            for openwrt_version in 24.10.8 25.12.5; do
+            for openwrt_version in "${openwrt_versions[@]}"; do
               case "${openwrt_version}" in
                 24.10.8)
                   openwrt_major='openwrt24'
@@ -127,7 +169,7 @@ jobs:
       matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
     env:
       APP_VERSION: '1.0.0'
-      APP_RELEASE: '1'
+      APP_RELEASE: '2'
       ARCH: ${{ matrix.arch }}
       TARGET: ${{ matrix.target }}
       SUBTARGET: ${{ matrix.subtarget }}
@@ -545,7 +587,7 @@ jobs:
 
           {
             echo 'Application=luci-app-L850GL-MM'
-            echo 'Release=1.0.0-r1'
+            echo 'Release=1.0.0-r2'
             echo 'API_Schema=4'
             echo "OpenWrt=${OPENWRT_VERSION}"
             echo "Target=${TARGET}/${SUBTARGET}"
@@ -561,7 +603,7 @@ jobs:
               echo 'ModemManager_Netifd=unconditional-in-recipe'
             fi
             echo 'Expert_Object=l850gl.mm.l850'
-            echo 'Expert_Firmware_Allowlist=18500.5001.00.05.27.30'
+            echo 'Expert_Compatibility=runtime-protocol-probing'
             echo "Source_Commit=${GITHUB_SHA}"
           } > "${GITHUB_WORKSPACE}/dist/BUILD_INFO.txt"
 
@@ -672,7 +714,7 @@ jobs:
   release:
     name: Publish stable GitHub Release
     needs: build
-    if: github.ref == 'refs/tags/v1.0.0'
+    if: github.ref == 'refs/tags/v1.0.0-r2'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -719,16 +761,16 @@ jobs:
                 arch="${bundle#luci-app-l850gl-mm-1.0.0-}"
                 arch="${arch%-openwrt24.ipk.zip}"
                 mm_name="modemmanager-l850gl-expert_${mm_version}-r${mm_release}_${arch}.ipk"
-                bridge_name="l850gl-mm-bridge_1.0.0-r1_${arch}.ipk"
-                luci_name='luci-app-l850gl-mm_1.0.0-r1_all.ipk'
+                bridge_name="l850gl-mm-bridge_1.0.0-r2_${arch}.ipk"
+                luci_name='luci-app-l850gl-mm_1.0.0-r2_all.ipk'
                 ;;
               *-openwrt25.apk.zip)
                 format='apk'
                 arch="${bundle#luci-app-l850gl-mm-1.0.0-}"
                 arch="${arch%-openwrt25.apk.zip}"
                 mm_name='modemmanager-l850gl-expert-1.24.0-r10.apk'
-                bridge_name='l850gl-mm-bridge-1.0.0-r1.apk'
-                luci_name='luci-app-l850gl-mm-1.0.0-r1.apk'
+                bridge_name='l850gl-mm-bridge-1.0.0-r2.apk'
+                luci_name='luci-app-l850gl-mm-1.0.0-r2.apk'
                 ;;
               *) exit 1 ;;
             esac

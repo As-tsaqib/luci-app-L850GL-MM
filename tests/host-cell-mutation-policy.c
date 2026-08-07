@@ -124,6 +124,20 @@ test_reinitialization_and_invalid_inputs(void)
 	l850gl_nvm_verifier_init(NULL, L850GL_NVM_VERIFY_PRE_RESET);
 }
 
+static void
+test_reset_finish_reprobe_policy(void)
+{
+	assert(l850gl_reset_finish_should_reprobe(
+		L850GL_RESET_FINISH_CLEAN));
+	assert(l850gl_reset_finish_should_reprobe(
+		L850GL_RESET_FINISH_UNCERTAIN));
+	assert(l850gl_reset_finish_should_reprobe(
+		L850GL_RESET_FINISH_UNCLASSIFIED_FAILURE));
+	assert(!l850gl_reset_finish_should_reprobe(
+		L850GL_RESET_FINISH_DEFINITE_FAILURE));
+	assert(!l850gl_reset_finish_should_reprobe((L850GLResetFinish)99));
+}
+
 int
 main(void)
 {
@@ -135,6 +149,7 @@ main(void)
 	test_invalid_observation_fails_closed();
 	test_post_reset_accepts_one_match();
 	test_reinitialization_and_invalid_inputs();
+	test_reset_finish_reprobe_policy();
 	puts("L850 cell mutation policy tests passed");
 	return 0;
 }

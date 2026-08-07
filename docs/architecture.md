@@ -118,7 +118,8 @@ backend still enforces the same single-flight mutex, timeouts, and cooldowns.
 On an expert build, Overview separately invokes `get_carrier_info` to obtain
 current LTE carrier aggregation state. The method dispatches only the fixed
 `AT+GTCAINFO?` query through asynchronous ModemManager arbitration and is
-admitted only for the exact allowlisted L850 hardware/firmware/composition. A
+admitted only for the exactly attested L850 hardware/composition. Compatibility
+is decided by the bounded response parser rather than a revision string. A
 20-second operation deadline wraps a 15-second ModemManager command timeout.
 Only one carrier query may run per modem, and it is mutually excluded with an
 expert cell scan or any modem mutation; every terminal completion starts a
@@ -153,9 +154,9 @@ signals update the cache, and a 30-second asynchronous reconciliation repairs
 event loss. The cache is sorted newest-first and bounded to 1,024 entries.
 `list_sms` returns at most 100 entries per opaque-cursor page.
 
-The expert scan uses asynchronous `GetCellInfo` first. On the one allowlisted
-L850 firmware, `Core.Unsupported` may fall back to the compiled-in XMCI query
-through ModemManager's queue. Only LTE cells are normalized; serving cells map
+The expert scan uses asynchronous `GetCellInfo` first. On an exactly attested
+L850, `Core.Unsupported` falls back to the compiled-in XMCI query through
+ModemManager's queue. Only a valid typed LTE response is accepted; serving cells map
 to type 4 and neighbors to type 5. PCI resolves to 0..503, including zero.
 EARFCN must map to a band in the same modem's live SupportedBands. Non-finite
 metrics, required sentinels, malformed objects, duplicate serving records, and
@@ -188,8 +189,10 @@ seconds after their most recent stored state; capacity eviction may shorten
 that window. An uncertain send is cached as `outcome_unknown` to prevent an
 immediate blind resend.
 
-PCI mutation exists only for exact firmware `18500.5001.00.05.27.30`. Typed
-integers build one reviewed set tuple or the fixed clear tuple; exact command
+PCI mutation is capability-gated without comparing the firmware revision.
+Every request first reads and validates the bounded NVM lock-state grammar on
+the same live modem generation. Typed integers then build one reviewed set
+tuple or the fixed clear tuple; exact command
 acknowledgement starts a ten-second read-only persistence barrier. Reset is
 dispatched only after two matching NVM reads one second apart, then exactly one
 fixed `CFUN=15` is sent. The coordinator keeps the hardware-slot mutation
@@ -202,6 +205,15 @@ clear requires the exact NVM clear sentinel. Only NVM reads are repeated;
 set, clear, and reset are never resent automatically. Unexpected state and
 post-dispatch transport uncertainty fail closed.
 
+`CFUN=15` normally completes as `Core.Cancelled` when the modem disappears.
+One protocol-compatible firmware was also observed returning an unclassified
+command failure while replacement still occurred. That generic completion is
+therefore treated only as ambiguous: the coordinator enters the same bounded
+hardware-slot reprobe and can succeed only from the full replacement,
+registration, NVM, and serving-cell postconditions. Known permission,
+unsupported, busy, not-ready, and policy failures remain terminal before
+reprobe.
+
 ## Asynchronous lifetime
 
 All D-Bus calls are asynchronous and carry a `GCancellable`. The bridge keeps
@@ -209,9 +221,9 @@ the ubus request deferred until callback completion, timeout, object removal,
 or transport loss. The operation owns references to the original modem and
 interface proxy. Cancellation does not by itself prove that a dispatched write
 did not execute, which is why post-dispatch uncertainty is distinct from an
-ordinary retryable failure. A reset-triggered `Core.Cancelled` is treated as
-post-dispatch uncertainty and resolved only by replacement, registration, NVM,
-and (for set) serving-cell postconditions.
+ordinary retryable failure. A reset-triggered `Core.Cancelled` or unclassified
+command failure is treated as post-dispatch uncertainty and resolved only by
+replacement, registration, NVM, and (for set) serving-cell postconditions.
 
 Loss of the ubus socket cancels deferred operations and starts bounded reconnect
 backoff. Loss of the ModemManager name clears live inventory and reconnects
@@ -236,8 +248,8 @@ exact ACL grants and packages the matching rebuild as
 `modemmanager`, while retaining the upstream service, binary, and D-Bus names.
 Enabling the
 build gate alone does not enable mutation: exact model/plugin/composition,
-`2cb7:0007` attestation, live bands, generation, and the one-entry firmware
-allowlist must all match. The base artifact retains the stock disabled
+`2cb7:0007` attestation, live bands, generation, and a successful runtime NVM
+protocol probe must all match. The base artifact retains the stock disabled
 transport and has no expert object.
 
 ## Retired architecture

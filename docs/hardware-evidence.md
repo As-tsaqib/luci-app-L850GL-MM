@@ -17,7 +17,61 @@ interchangeable.
 
 Never store IMEI, IMSI, ICCID, EID, phone numbers, SMS body, APN credentials,
 PIN/PUK, activation codes, tokens, or assigned IP configuration. Evidence must
-use an allowlist and sanitized fixtures rather than raw diagnostic dumps.
+use an explicit field allowlist and sanitized fixtures rather than raw
+diagnostic dumps.
+
+## Firmware 18500.5001.00.05.27.16 read-only evidence
+
+On 2026-08-06, the L850-GL in the current OpenWrt 24.10.8 router was exactly
+attested as Fibocom, MBIM, and `2cb7:0007`. Firmware
+`18500.5001.00.05.27.16` returned parser-valid responses to the fixed read-only
+`AT+CBC`, `AT+GTCAINFO?`, and `AT+XMCI=1` queries through ModemManager. Its
+fixed NVM state query also returned a coherent clear lock, but used inactive
+`rat=255` and `band_info=255` sentinels instead of the `.27.30` clear values.
+
+The new sanitized PCI/CA fixtures cover those bounded response shapes. The NVM
+grammar accepts both observed clear encodings while continuing to require
+`rat=3` and LTE-range fields for every active lock. No set, clear, reset, mode,
+band, or SMS mutation was performed. This is read-only protocol evidence and
+does not extend the historical `.27.30` live mutation matrix by inference.
+
+The matching 1.0.0-r2 package was subsequently accepted read-only on this
+router. GitHub Actions runs `31128844576` (static) and `31128839901` (exact
+OpenWrt 24.10.8 ARMv7 expert bundle) passed for source `1fba4bd`; local and
+on-router package checksums matched. The bridge/LuCI pair was upgraded without
+reinstalling or restarting expert ModemManager. NVM status, carrier, voltage,
+and XMCI returned typed success; three repeated poll cycles remained available
+with modem and bearer connected and the ModemManager process preserved. No PCI
+or other mutation was used to obtain this acceptance.
+
+## Firmware 18500.5001.00.05.27.16 mutation evidence
+
+On 2026-08-07, authorized hotspot-backed testing extended the same exact
+hardware tuple to live mutation. An r2 HTTP exact-current-cell set passed every
+replacement/NVM/registration/serving postcondition. A later clear exposed an
+unclassified `CFUN=15` failure even though read-only inspection proved modem
+replacement, exact clear NVM, home registration, and a connected bearer. No
+write or reset was retried. This observation motivated r3's bounded
+reset-completion policy: only that unclassified completion enters slot reprobe,
+and success still requires every normal postcondition.
+
+Static run `31129696815` and exact OpenWrt 24.10.8 ARMv7 bundle run
+`31129696709` passed for source `c08f8fc`. The checksum-verified r3 bridge/LuCI
+pair upgraded in place while expert ModemManager 1.22.0-r20 and its process
+were preserved. A complete HTTP `/ubus` exact-current-cell set returned
+`applied_verified`; the first clear returned `cleared_verified`. Final NVM was
+clear, three spaced modem/lock/registration/bearer polls were stable, carrier
+and modem-bound data path passed, installed/served assets matched, and the
+bridge had zero unexpected warning/error entries. Values identifying the
+modem, subscriber, serving cell, or assigned network were not retained.
+
+Follow-up evidence source `7f42a55` passed static run `31131317605`. Full
+release-bundle run `31131317610` then built and verified all ten configured
+OpenWrt 24.10.8/25.12.5 target combinations across
+`arm_cortex-a7_neon-vfpv4`, `aarch64_cortex-a53`, `aarch64_generic`,
+`mipsel_24kc`, and `x86_64`, with no target failure. That matrix is package
+and compile evidence only; live hardware acceptance remains scoped to the
+exact OpenWrt 24.10.8 ARMv7 router tuple above.
 
 ## Stock-to-expert alpha package evidence
 
@@ -191,10 +245,10 @@ Implemented in the current source/host/static contract:
   snapshot across the reviewed retryable `busy`, `rate_limited`, `not_ready`,
   `timeout`, and `dependency_unavailable` polls, while malformed, stale,
   incompatible, and non-retryable failures remain fail-closed;
-- a target-firmware active-secondary grammar that requires own-band DL fields,
+- a captured compatible-response active-secondary grammar that requires own-band DL fields,
   UL bandwidth sentinel `255`, and an UL EARFCN equal to the validated primary
   UL, with explicit nullable secondary UL bandwidth at the API boundary;
-- target-firmware handling for SINR code `127` only as an unavailable,
+- compatible-response handling for SINR code `127` only as an unavailable,
   unexported metric on an otherwise valid active secondary;
 - carrier-first LuCI polling so the optional voltage refresh cannot repeatedly
   win the same per-modem expert-command arbitration slot.
@@ -461,7 +515,9 @@ In a maintenance window with alternate management access:
 
 ## Remaining PCI evidence
 
-The allowlisted firmware has proven the positive set/clear/recovery matrix.
+Firmware `.27.30` has proven the broader positive set/clear/recovery matrix.
+Firmware `.27.16` has independently proven an exact-current-cell set, clear,
+reset/reprobe, registration, NVM, serving-cell, bearer, and data-path cycle.
 The following fault and persistence cases remain explicit follow-up work:
 
 - unavailable-cell registration timeout;
@@ -470,9 +526,11 @@ The following fault and persistence cases remain explicit follow-up work:
 - full-router reboot persistence.
 
 Runtime handling for these cases remains bounded and fail-closed: exact
-identity/attestation checks, cancellation, deadlines, `outcome_unknown`, and no
-automatic retry. No additional firmware may be allowlisted without its own
-complete dated matrix.
+identity/attestation checks, a same-generation NVM protocol probe,
+cancellation, deadlines, `outcome_unknown`, and no automatic retry. A
+successful parser probe enables the fixed state machine without a revision
+list, but mutation support for a new response grammar must not be claimed as
+live-verified without its own complete dated matrix.
 
 ## NCM boundary
 

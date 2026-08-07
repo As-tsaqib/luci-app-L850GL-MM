@@ -120,9 +120,9 @@ pci_lock = { state, mutable, reason }
 ```
 
 The base build always reports `pci_lock.state = unsupported_build` and does
-not publish the expert object. An expert binary reports `available` only for
-the exact live-validated hardware/firmware tuple, `busy` during mutation or
-cooldown, and `unsupported_firmware` for every other revision.
+not publish the expert object. An expert binary reports `available` for exactly
+attested hardware, `busy` during mutation or cooldown, and the detailed status
+reports `unsupported_protocol` when its runtime NVM response is not recognized.
 
 ### `set_bands(modem_id, generation, bands, confirm)`
 
@@ -235,7 +235,7 @@ Returns the mutation state independently from scan capability:
 {
   "state": "available",
   "mutable": true,
-  "reason": "live-validated-firmware-and-nvm-state",
+  "reason": "runtime-validated-command-and-nvm-state",
   "lock": {
     "state": "configured_exact",
     "enabled": true,
@@ -248,7 +248,7 @@ Returns the mutation state independently from scan capability:
   "scan": {
     "state": "available",
     "available": true,
-    "reason": "standard-with-live-validated-xmci-fallback",
+    "reason": "standard-with-validated-xmci-fallback",
     "source": "modemmanager"
   }
 }
@@ -260,8 +260,8 @@ that a scan or a per-modem mutation is still active and does not include
 `rate_limited` status includes the ceil-rounded remaining cooldown in
 `retry_after_ms`. The nested lock is a bounded NVM configuration observation
 (`clear`, `configured_earfcn`, or `configured_exact`), not a serving-cell
-postcondition. Unsupported firmware still advertises a standard-only scan when
-ready.
+postcondition. An unrecognized lock protocol does not disable the independently
+validated scan path.
 
 ### `cell_scan(modem_id, generation)`
 
@@ -297,16 +297,16 @@ per-modem cooldown. A request during that cooldown returns retryable
 `rate_limited` with an accurate, ceil-rounded `retry_after_ms`; rejected `busy`
 and `rate_limited` requests do not restart the cooldown.
 
-On the allowlisted firmware, standard GetCellInfo is unsupported and the
+When standard GetCellInfo is unsupported on an exactly attested L850, the
 bridge falls back to its fixed XMCI query through ModemManager. `method` is
-`standard-cell-info` or `l850-xmci`. Other firmware receives no vendor
-fallback.
+`standard-cell-info` or `l850-xmci`; malformed or unsupported command results
+fail closed without any revision-specific decision.
 
 ### `get_carrier_info(modem_id, generation)`
 
 This read-only expert method is absent from a base build. It requires exact
-L850-GL/upstream-plugin/MBIM/`2cb7:0007` attestation, the sole allowlisted firmware,
-live supported LTE bands, and the current generation. It dispatches only the
+L850-GL/upstream-plugin/MBIM/`2cb7:0007` attestation, live supported LTE bands,
+and the current generation. It dispatches only the
 compiled-in `AT+GTCAINFO?` query through asynchronous ModemManager; no request
 field can select or alter a command.
 
@@ -360,7 +360,7 @@ number of returned secondaries. Every carrier requires band 1..85, PCI 0..503,
 a live SupportedBands match, and a reviewed own-band DL EARFCN plus numeric DL
 bandwidth of 1.4, 3, 5, 10, 15, or 20 MHz. The primary additionally requires
 an own-band UL EARFCN and numeric UL bandwidth from the same set. On the sole
-allowlisted firmware, an active secondary is downlink-only: its raw UL
+captured compatible response grammar, an active secondary is downlink-only: its raw UL
 bandwidth must be the exact `255` sentinel and its raw UL EARFCN must equal the
 validated primary UL EARFCN. Only then is its public `ul_bandwidth_mhz`
 serialized as explicit `null`; no bandwidth is inferred. A numeric or missing
@@ -384,7 +384,7 @@ the backend serving-cell cache and is never attempted from a rejected or
 malformed carrier response.
 
 B29 and B32 are downlink-only LTE bands whose active `GTCAINFO` uplink/sentinel
-representation has not been captured on the allowlisted firmware. An active
+representation has not passed the bounded protocol parser. An active
 B29/B32 record therefore fails closed even if ModemManager lists that band in
 SupportedBands. Admission requires a future sanitized live capture plus parser
 fixtures; no value is guessed from 3GPP tables or reference-project code.
@@ -395,8 +395,9 @@ fixtures; no value is guessed from 3GPP tables or reference-project code.
 
 Confirmation is mandatory. EARFCN must map to a live supported band; optional
 PCI is 0..503. The implementation validates typed input, exact hardware,
-firmware, cooldown, and the shared mutation lock, then dispatches only the
-compiled-in set or clear tuple. Exact command acknowledgement starts a
+generation, cooldown, and the shared mutation lock. It then performs a bounded
+read-only NVM protocol probe on that same modem generation. Only a recognized
+response permits dispatch of the compiled-in set or clear tuple. Exact command acknowledgement starts a
 ten-second pre-reset verification deadline: two consecutive matching NVM reads
 one second apart are required before one fixed reset. Hardware-slot
 replacement correlation and registration follow. Post-reset NVM observations
@@ -405,6 +406,14 @@ five-second command timeout, but a result after the stage deadline is rejected.
 Set additionally verifies the serving EARFCN and optional PCI. Only the
 read-only NVM query may repeat. The set/clear tuple and reset are never resent
 automatically.
+
+`CFUN=15` normally completes as `Core.Cancelled` when the old modem object
+disappears. An unclassified command failure after reset dispatch is also
+ambiguous on observed compatible firmware: it enters the same bounded
+hardware-slot reprobe and is never itself accepted as success. Known
+permission, unsupported, busy, not-ready, and policy failures remain terminal.
+Only a replacement that passes registration, post-reset NVM, and the set
+serving-cell checks can produce a verified result.
 
 The ubus request remains deferred through verification. Success therefore
 contains the replacement's new opaque identity, not the stale input identity:

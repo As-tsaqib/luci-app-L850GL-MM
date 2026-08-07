@@ -139,9 +139,10 @@ length, bad name termination, duplicate fields, and malformed session data.
   PCI/EARFCN/RSRP/RSRQ, permits only reviewed sentinels in discarded fields,
   and rejects truncation, extra fields, encoding errors, overflow, and
   oversized output.
-- The firmware allowlist contains exactly `18500.5001.00.05.27.30`, added only
-  after the dated live command/recovery matrix. Other revisions cannot use the
-  XMCI fallback or any mutation.
+- No firmware revision is trusted by string comparison. Read-only vendor
+  fallbacks are accepted only after their bounded typed parsers succeed. Every
+  mutation first performs a same-generation read-only NVM protocol probe and
+  fails before write dispatch when the command or grammar is unrecognized.
 - Commands are compiled-in fixed grammar built only from typed bounded
   integers; no browser command, path, wildcard, RAT, SIM ID, or band encoding
   is accepted.
@@ -152,19 +153,24 @@ length, bad name termination, duplicate fields, and malformed session data.
   An in-flight read has its own five-second timeout but is rejected if its
   result arrives after the stage deadline. No post-reprobe write is issued,
   and set/clear/reset are never resent.
+- A reset-triggered `Core.Cancelled` or unclassified command failure is not a
+  success signal. The latter may enter the same bounded hardware-slot reprobe;
+  known permission, unsupported, busy, not-ready, and policy failures remain
+  terminal. Only the complete replacement and postcondition chain can verify
+  the mutation.
 - A mutation cannot report verified success until all applicable
   postconditions pass; post-dispatch ambiguity is `outcome_unknown` with no
   automatic retry.
 - Carrier aggregation has a distinct fixed read-only `AT+GTCAINFO?` command.
-  It is available only in the expert build on the exact allowlisted tuple; no
+  It is available only in the expert build on exactly attested hardware; no
   command field crosses ubus. Its parser bounds the response to 4,096 bytes and
   eight slots, enforces the 14-field primary/10-field secondary grammar,
   validates live bands, primary paired DL/UL ranges, PCI, and bandwidth, and
   ignores only the exact inactive sentinel. Active secondaries additionally
   require own-band DL fields, UL bandwidth sentinel `255`, and an UL EARFCN
   equal to the primary UL; their exported UL bandwidth is null. Independent
-  secondary uplink and active B29/B32 fail closed until their exact
-  allowlisted-firmware shape has live evidence. No raw output or
+  secondary uplink and active B29/B32 fail closed unless their exact response
+  shape passes the reviewed parser. No raw output or
   MCC/MNC/TAC/cell ID/signal fields are exported. SINR code `127` is admitted
   only as an unavailable metric on an otherwise fully valid active secondary;
   it remains invalid on the primary.
@@ -223,8 +229,9 @@ dependencies. A browser poll can lag state by up to its interval. Cancellable
 D-Bus APIs cannot prove rollback after a write reached hardware. In-memory SMS
 dedupe cannot provide exactly-once delivery across eviction or restart.
 
-The PCI command/recovery matrix is live-validated only for one exact
-hardware/firmware tuple; it does not establish behavior for another firmware.
+The PCI command/recovery matrix is live-validated on the exact L850-GL/MBIM
+hardware tuple with firmware `.27.30` and `.27.16`; it does not establish
+behavior for every other firmware.
 Unavailable-cell timeout, unplug mid-operation, ModemManager restart
 mid-state-machine, and full-router reboot persistence remain unverified. The
 schema-1 v0.2 read/incoming-SMS evidence still does not establish current live
